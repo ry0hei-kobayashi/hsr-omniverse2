@@ -1,0 +1,5 @@
+# Source scan data (not needed at runtime; model.usd is used instead)
+*.usdz
+
+# Python cache
+__pycache__/
