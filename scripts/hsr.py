@@ -547,9 +547,22 @@ class hsr:
         self.stage_path = stage_path
         self.simulation_context = None
         self.art = None
+        # HSR モデル(usd)の場所を、配置に依らず見つける。
+        #   - 焼き込みフラット配置: /app/hsr.py    → /app/usd/hsrb/hsrb4s.usd
+        #   - リポジトリ配置:       /app/scripts/hsr.py → /app/usd/hsrb/hsrb4s.usd
+        #     (usd は scripts の隣ではなくリポジトリ直下にあるため '..' を見る)
+        _here = os.path.dirname(os.path.abspath(__file__))
+        _hsr_usd_candidates = [
+            os.path.join(_here, 'usd', 'hsrb', 'hsrb4s.usd'),
+            os.path.join(_here, '..', 'usd', 'hsrb', 'hsrb4s.usd'),
+            '/app/usd/hsrb/hsrb4s.usd',
+        ]
+        _hsr_usd = next(
+            (p for p in _hsr_usd_candidates if os.path.exists(p)),
+            _hsr_usd_candidates[0],
+        )
         self.hsr = stage.add_reference_to_stage(
-            os.path.dirname(os.path.abspath(__file__)) +
-            '/usd/hsrb/hsrb4s.usd',
+            _hsr_usd,
             self.stage_path + self.prefix,
         )
         self.set_base_joint_and_material()

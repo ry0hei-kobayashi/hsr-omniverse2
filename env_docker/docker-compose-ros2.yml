@@ -55,6 +55,7 @@ services:
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
+      - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../worlds:/app/worlds:ro
 
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先

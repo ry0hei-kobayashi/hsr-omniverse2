@@ -1,0 +1,30 @@
+services:
+  isaacsim:
+    # 起動と同時に Python を実行せず、コンテナを生かしたまま待機させる。
+    # 中身は手動 (make ros2 dev run) で実行する → ログがその端末だけに出る。
+    command: ["sleep", "infinity"]
+    environment:
+      # /app/scripts から起動するので、リポジトリ直下の scene_dressing 等を
+      # import できるように /app も検索パスに加える。
+      - PYTHONPATH=/app
+    volumes:
+      # --- ソースコードは「ディレクトリごと」live マウントする -----------------
+      # base (docker-compose-ros2.yml) は launch_isaacsim.py 等を「単一ファイル」で
+      # bind mount しているが、単一ファイル mount はコンテナ起動時の inode に固定され、
+      # 起動後にエディタで保存 (inode が変わる) しても反映されない。
+      # ディレクトリ mount なら毎回最新のファイルが見えるので、編集 → make ros2 dev run
+      # だけで反映される (コンテナ再起動不要)。
+      # dev では /app/scripts/launch_isaacsim.py を実行する (Makefile の LAUNCH_PY)。
+      - ../scripts:/app/scripts:ro
+      - ../scene_dressing:/app/scene_dressing:ro
+
+      # 追加で必要なデータセット (テクスチャ / HDRI / 家具シーン)。
+      - ${INTERIOR_AGENT_PATH}:/data/InteriorAgent:ro
+      - ${HOME}/datasets/HDRIs:/data/HDRIs:ro
+      - ${HOME}/datasets/LabTextures:/data/LabTextures:ro
+      - /usr/share/nvidia/nvoptix.bin:/usr/share/nvidia/nvoptix.bin:ro
+
+      # 自作モデル (my_models) も live マウント (再ビルド無しで反映)。
+      # (相対パスは env_docker/ 基準なので ../usd = リポジトリ直下の usd)
+      # wrs_models はイメージに焼き込み済みなのでマウント不要。
+      - ../usd/my_models:/app/usd/my_models:ro

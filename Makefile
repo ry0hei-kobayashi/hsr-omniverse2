@@ -44,6 +44,23 @@ endif
 
 COMPOSE := docker compose -f $(COMPOSE_FILE)
 
+# --- dev modifier -----------------------------------------------------------
+# 'dev' を付けると docker-compose.dev.yml を重ねて適用する。
+# isaacsim は 'sleep infinity' で待機起動し、Python は自動実行されない。
+# その後 'make ... dev run' で手動実行する (ログがその端末だけに出る)。
+DEV := $(if $(filter dev,$(MAKECMDGOALS)),1,)
+ifeq ($(DEV),1)
+  # --env-file を明示しないと .env を env_docker/ 配下で探してしまい、
+  # リポジトリ直下の .env (INTERIOR_AGENT_PATH 等) が読まれない。
+  COMPOSE := $(COMPOSE) -f docker-compose.dev.yml --env-file .env
+  # dev では scripts/ をディレクトリごと live マウントするので、そちらを実行する
+  # (単一ファイル mount の inode 固定問題を回避し、編集が即反映される)。
+  LAUNCH_PY := /app/scripts/launch_isaacsim.py
+else
+  # 通常起動はイメージ内のフラット配置。
+  LAUNCH_PY := /app/launch_isaacsim.py
+endif
+
 # --- pc modifier ------------------------------------------------------------
 PC := $(if $(filter pc,$(MAKECMDGOALS)),1,)
 ifeq ($(PC),1)
@@ -56,7 +73,7 @@ else
 endif
 
 # --- Targets ----------------------------------------------------------------
-.PHONY: help ros1 ros2 pc build up down logs ps ros isaacsim
+.PHONY: help ros1 ros2 pc dev build up down logs ps ros isaacsim run
 .DEFAULT_GOAL := help
 
 help:
@@ -66,6 +83,7 @@ help:
 	@echo "  ros1            ROS1 Noetic (compose: env_docker/docker-compose.yml)"
 	@echo "  ros2            ROS2 Humble (compose: env_docker/docker-compose-ros2.yml) [default]"
 	@echo "  pc              CycloneDDS cross-PC mode, ROS_DOMAIN_ID=$(ROS_DOMAIN_ID_PC) (override via env)"
+	@echo "  dev             Dev mode: isaacsim stays idle (no auto Python); run it manually"
 	@echo ""
 	@echo "Actions:"
 	@echo "  build           Build images"
@@ -75,6 +93,7 @@ help:
 	@echo "  ps              Container status"
 	@echo "  ros             Open bash in ros container ($(ROS_SERVICE))"
 	@echo "  isaacsim        Open bash in isaacsim container"
+	@echo "  run             (dev) Run launch_isaacsim.py manually in isaacsim"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make ros2 build"
@@ -84,11 +103,18 @@ help:
 	@echo "  make ros1 build"
 	@echo "  make ros1 up"
 	@echo ""
+	@echo "  # Dev mode (run the Python separately, clean logs):"
+	@echo "  make ros2 dev up      # terminal 1: containers start, isaacsim idle"
+	@echo "  make ros2 dev run     # terminal 2: run the sim, logs only here"
+	@echo ""
 	@echo "Resolved: ROS=$(ROS), PC=$(if $(PC),on,off), compose=$(COMPOSE_FILE)"
 
 # Modifier "targets" — accept as no-ops so they can sit on the command line
-ros1 ros2 pc:
+ros1 ros2 pc dev:
 	@:
+
+run:
+	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
 
 build:
 	$(ENV_PC) $(COMPOSE) build
