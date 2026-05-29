@@ -35,12 +35,14 @@ from omni.isaac.core.utils import nucleus, stage, viewports
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 from omni.physx import get_physx_simulation_interface
+from omni.physx.scripts import utils as physx_utils
 from pxr import (Gf, PhysicsSchemaTools, PhysxSchema, Sdf, Usd, UsdGeom,
                  UsdPhysics)
 from tmc_wrs_gazebo_worlds import randomizer
 
 import hsr
 import construct_environment
+import object_placement
 
 
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
@@ -195,6 +197,11 @@ for i in root.findall('world/include'):
             orientation=orientation,
             scale=size * 0.5,
         )
+        # 家具・壁の Cube に当たり判定 (collider) を付ける。
+        # RigidBodyAPI は付けないので「動かない固い箱」になり、この上に置いた
+        # 物体 (YCB 等) が天板に乗って止まる (collider が無いとすり抜けて落ちる)。
+        _cube_prim = omni.usd.get_context().get_stage().GetPrimAtPath(stage_path)
+        physx_utils.setCollider(_cube_prim, approximationShape='none')
         model_names.append(model_name)
     if not os.path.exists(model_path):
         continue
@@ -220,7 +227,6 @@ for i in root.findall('world/include'):
 
 def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
-    print(f'Drop {name} ({x}, {y}, {z}, {yaw}, {roll}, {pitch})')
     stage_path = f'/{gazebo_name.replace("-", "_")}'
     model_candidates = [
         os.path.join(repo_root, 'usd', 'my_models', name, 'model.usd'),
@@ -231,7 +237,7 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     model_path = next((p for p in model_candidates if os.path.exists(p)), None)
     if model_path is None:
         print(f'Model not found for {name}: tried {model_candidates}')
-        return
+        return None
     create_prim(
         prim_path=stage_path,
         prim_type='Xform',
@@ -240,9 +246,13 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     )
     stage.add_reference_to_stage(model_path, Sdf.Path(stage_path))
     model_names.append(gazebo_name)
+    return model_path
 
 
-randomizer.generate_wrs_task(drop_func=drop_object)
+# ランダム配置 (WRS 競技の出題) は使わず、configs/placement.yaml の指定に
+# 従って家具の上に物体を配置する。ランダムに戻したいときは下を有効化:
+#   randomizer.generate_wrs_task(drop_func=drop_object)
+object_placement.apply_placements(world_file, drop_object)
 
 # 独自オブジェクトの配置
 # アルボナース
