@@ -144,14 +144,32 @@ ground_prim.apply_physics_material(
     floor_material, weaker_than_descendants=True)
 
 model_names = []
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+model_root = os.path.join(repo_root, 'usd', 'wrs_models')
+if not os.path.exists(model_root):
+    model_root = '/app/usd/wrs_models'
 
 # Extract poses of objects from the world file
-if is_ros2:
-    world_file = (
-        '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
-    )
-else:
-    world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+world_candidates = [
+    '/app/worlds/rc26_3330.world',
+    os.path.join(repo_root, 'worlds', 'rc26_3330.world'),
+    '/app/worlds/env_furniture_rcj26_pre2.world',
+    os.path.join(repo_root, 'worlds', 'env_furniture_rcj26_pre2.world'),
+    '/app/worlds/rcj26_pre2.world',
+    os.path.join(repo_root, 'worlds', 'rcj26_pre2.world'),
+    os.path.join(repo_root, 'rcj26_pre2.world'),
+]
+world_file = next((p for p in world_candidates if os.path.exists(p)), None)
+if world_file is None:
+    if is_ros2:
+        world_file = (
+            '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+        )
+    else:
+        world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+print(f'Loading world file: {world_file}')
+if not os.path.exists(world_file):
+    raise FileNotFoundError(f'World file not found: {world_file}')
 tree = ET.parse(world_file)
 root = tree.getroot()
 for i in root.findall('world/include'):
@@ -159,13 +177,25 @@ for i in root.findall('world/include'):
     model_uri = i.find('uri').text
     (x, y, z, er, ep, ey) = [float(n) for n in i.find('pose').text.split(' ')]
     stage_path = f'/{model_name}'
-    model_path = (
-        model_uri.replace(
-            'model://', os.path.dirname(os.path.abspath(__file__)
-                                        ) + '/usd/wrs_models/'
-        )
-        + '/model.usd'
+    model_path = os.path.join(
+        model_root, model_uri.replace('model://', ''), 'model.usd'
     )
+    if model_uri == 'model://unit_box' and not os.path.exists(model_path):
+        scale_tag = i.find('scale')
+        if scale_tag is None:
+            size = np.array([1.0, 1.0, 1.0])
+        else:
+            size = np.array([float(n) for n in scale_tag.text.split(' ')])
+        size = np.maximum(size, 1e-4)
+        orientation = euler_angles_to_quat([er, ep, ey])
+        create_prim(
+            prim_path=stage_path,
+            prim_type='Cube',
+            translation=[x, y, z],
+            orientation=orientation,
+            scale=size * 0.5,
+        )
+        model_names.append(model_name)
     if not os.path.exists(model_path):
         continue
     create_prim(
@@ -188,27 +218,51 @@ for i in root.findall('world/include'):
     model_names.append(model_name)
 
 
-def drop_object(gazebo_name, name, x, y, z, yaw):
+def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
-    print(f'Drop {name} ({x}, {y}, {z}, {yaw})')
+    print(f'Drop {name} ({x}, {y}, {z}, {yaw}, {roll}, {pitch})')
     stage_path = f'/{gazebo_name.replace("-", "_")}'
-    model_path = (
-        os.path.dirname(os.path.abspath(__file__)) +
-        '/usd/wrs_models/' + name + '/model.usd'
-    )
-    if not os.path.exists(model_path):
+    model_candidates = [
+        os.path.join(repo_root, 'usd', 'my_models', name, 'model.usd'),
+        os.path.join(model_root, name, 'model.usd'),
+        '/app/usd/my_models/' + name + '/model.usd',
+        '/app/usd/wrs_models/' + name + '/model.usd',
+    ]
+    model_path = next((p for p in model_candidates if os.path.exists(p)), None)
+    if model_path is None:
+        print(f'Model not found for {name}: tried {model_candidates}')
         return
     create_prim(
         prim_path=stage_path,
         prim_type='Xform',
         translation=[x, y, z],
-        orientation=euler_angles_to_quat([0, 0, yaw]),
+        orientation=euler_angles_to_quat([roll, pitch, yaw]),
     )
     stage.add_reference_to_stage(model_path, Sdf.Path(stage_path))
     model_names.append(gazebo_name)
 
 
 randomizer.generate_wrs_task(drop_func=drop_object)
+
+# 独自オブジェクトの配置
+# アルボナース
+drop_object(
+    gazebo_name='my_object',
+    name='my_object',
+    x=-0.26,
+    y=-0.79097,
+    z=-1.66326,
+    roll=math.pi / 2,
+)
+# hma宣伝ボード
+drop_object(
+    gazebo_name='hma_display_board',
+    name='hma_display_board',
+    x=0.8,
+    y=0.5,
+    z=0.5,
+    roll=math.pi / 2,
+)
 
 hsr_stage_path = '/hsrb'
 create_prim(
