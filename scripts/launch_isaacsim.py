@@ -12,6 +12,7 @@ import os
 import xml.etree.ElementTree as ET
 
 import numpy as np
+import yaml
 from isaacsim.simulation_app import SimulationApp
 
 kit = SimulationApp({
@@ -275,12 +276,37 @@ object_placement.apply_placements(world_file, drop_object)
 #     roll=math.pi / 2,
 # )
 
+# HSR の初期スポーン位置 (map 座標 = world 座標) は configs/robot_spawn.yaml で定義する。
+# 注意: env_furniture の operator_position は「人」の位置であって、ロボットの位置ではない。
+#       ロボットの初期位置はまだ未定義なので、robot_spawn.yaml で定義する。
+_robot_spawn = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}  # 設定ファイルが無いときのフォールバック
+_spawn_candidates = [
+    '/app/configs/robot_spawn.yaml',
+    os.path.join(repo_root, 'configs', 'robot_spawn.yaml'),
+]
+_spawn_path = next((p for p in _spawn_candidates if os.path.exists(p)), None)
+if _spawn_path is not None:
+    with open(_spawn_path) as _f:
+        _cfg = yaml.safe_load(_f) or {}
+    for _k in ('x', 'y', 'yaw'):
+        if _cfg.get(_k) is not None:
+            try:
+                _robot_spawn[_k] = float(_cfg[_k])
+            except (TypeError, ValueError):
+                # 数値でない (例: 小数点を ',' で書いた) 場合でも sim を落とさず継続。
+                print(f"[hsr] WARNING: robot_spawn.yaml の {_k}={_cfg[_k]!r} は数値として"
+                      f"読めません。フォールバック {_robot_spawn[_k]} を使用 "
+                      f"(小数点は '.' で書いてください)。")
+    print(f'[hsr] spawn from {_spawn_path}: {_robot_spawn}')
+else:
+    print(f'[hsr] robot_spawn.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
+
 hsr_stage_path = '/hsrb'
 create_prim(
     prim_path=hsr_stage_path,
     prim_type='Xform',
-    translation=[-2.1, 1.2, 0],
-    orientation=euler_angles_to_quat([0, 0, -math.pi / 2]),
+    translation=[_robot_spawn['x'], _robot_spawn['y'], 0],
+    orientation=euler_angles_to_quat([0, 0, _robot_spawn['yaw']]),
 )
 
 _hsr = hsr.hsr(stage_path=hsr_stage_path)
