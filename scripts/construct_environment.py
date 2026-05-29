@@ -3,14 +3,23 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import omni.kit.commands
 import omni.usd
 from omni.isaac.core.utils import stage, viewports
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
-from pxr import Sdf
+from pxr import Sdf, Usd
+
+import scene_dressing
+from dressing_presets import (
+    DEFAULT_LIGHTING,
+    DEFAULT_PRESET,
+    DRESSING_PRESETS,
+    LIGHTING_PRESETS,
+    list_presets,
+)
 
 
 OBJECT_COLLECTION_PATH = "/World/YcbObjects"
@@ -266,3 +275,154 @@ def clear_spawned_objects(
     child_paths = [str(child.GetPath()) for child in parent_prim.GetChildren()]
     if child_paths:
         omni.kit.commands.execute("DeletePrims", paths=child_paths)
+
+
+def apply_lab_dressing(
+    preset: str = DEFAULT_PRESET,
+    lighting: str = DEFAULT_LIGHTING,
+    **overrides: Any,
+) -> None:
+    """scene_dressing で床テクスチャ + 周囲背景画像 + 照明を適用する。
+
+    Args:
+        preset:    テクスチャプリセット名 (dressing_presets.DRESSING_PRESETS のキー)。
+                   例: "lab", "floor_only", "backdrop_only" など。
+        lighting:  照明プリセット名 (dressing_presets.LIGHTING_PRESETS のキー)。
+                   例: "default", "bright", "dim", "warm", "off" など。
+        **overrides: EnvBoxConfig の個別フィールドを直接上書き。
+                     プリセットより優先される (= 一時的な微調整に便利)。
+
+    使い方:
+        apply_lab_dressing()                              # 全部デフォルト
+        apply_lab_dressing(lighting="bright")             # ラボを明るく
+        apply_lab_dressing(preset="office")               # 別テーマ
+        apply_lab_dressing(ceiling_intensity=2.5e5)       # 微調整
+        apply_lab_dressing(preset="lab",
+                           floor_texture="/data/other.jpg")  # 床だけ差し替え
+
+    重要: omni.timeline.get_timeline_interface().play() の "後" に呼ぶこと。
+          PhysX セットアップ前に呼ぶとシーン状態が壊れることがある。
+    """
+    if preset not in DRESSING_PRESETS:
+        raise KeyError(
+            f"Unknown dressing preset '{preset}'. "
+            f"Available: {list(DRESSING_PRESETS.keys())}"
+        )
+    if lighting not in LIGHTING_PRESETS:
+        raise KeyError(
+            f"Unknown lighting preset '{lighting}'. "
+            f"Available: {list(LIGHTING_PRESETS.keys())}"
+        )
+
+    # auto-exposure 無効化 + 背景 USD の隠れたライト消灯
+    # (これらがないとプリセット差が見えにくい / 全く見えない)
+    _ensure_renderer_settings_for_lighting()
+    _disable_background_lights()
+
+    # プリセットを合成して上書きをかける (右側が強い)
+    params: Dict[str, Any] = {}
+    params.update(DRESSING_PRESETS[preset])
+    params.update(LIGHTING_PRESETS[lighting])
+    params.update(overrides)
+
+    # 拡張キー (EnvBoxConfig 対象外) を取り出す
+    default_lights_intensity = params.pop("default_lights_intensity", None)
+
+    log(f"apply_lab_dressing: preset='{preset}' lighting='{lighting}' "
+        f"overrides={list(overrides.keys())}")
+    config = scene_dressing.EnvBoxConfig(**params)
+    scene_dressing.apply_env_box(config)
+
+    # 既存ライト (/World/Light_1, /World/Light_2) の強度をプリセットに連動させる
+    if default_lights_intensity is not None:
+        _set_default_lights_intensity(float(default_lights_intensity))
+
+
+def _set_default_lights_intensity(intensity: float) -> None:
+    """launch_isaacsim.py が作る /World/Light_1, /World/Light_2 の強度を設定。
+
+    scene_dressing のライティングプリセットが効いて見えるためには、既存ライトを
+    プリセットに合わせて連動させる必要がある (固定 5e4 だとドミネートする)。
+    """
+    _stage = omni.usd.get_context().get_stage()
+    for path in ("/World/Light_1", "/World/Light_2"):
+        prim = _stage.GetPrimAtPath(path)
+        if not prim.IsValid():
+            continue
+        attr = prim.GetAttribute("inputs:intensity")
+        if not attr:
+            continue
+        attr.Set(intensity)
+        log(f"既存ライト強度設定: {path} = {intensity}")
+
+
+_BG_LIGHT_TYPES = {
+    "DomeLight", "DistantLight", "RectLight", "DiskLight",
+    "SphereLight", "CylinderLight", "GeometryLight",
+}
+
+
+def _disable_background_lights() -> None:
+    """背景 USD (Grid env など) に焼き込まれた隠れたライトを消灯する。
+
+    Isaac Sim の default_environment.usd は DomeLight (sky HDRI) や DistantLight
+    を内蔵していて、これが scene_dressing 側のライティングプリセットを覆い隠して
+    ドミネートする (intensity を変えても見た目が変わらない原因)。
+    /background 配下のライト型プリムを全部 0 にしてプリセットを効かせる。
+    """
+    _stage = omni.usd.get_context().get_stage()
+    bg_root = _stage.GetPrimAtPath("/background")
+    if not bg_root.IsValid():
+        return
+
+    disabled = 0
+    for prim in Usd.PrimRange(bg_root):
+        if prim.GetTypeName() not in _BG_LIGHT_TYPES:
+            continue
+        attr = prim.GetAttribute("inputs:intensity")
+        if not attr:
+            continue
+        attr.Set(0.0)
+        log(f"背景ライト消灯: {prim.GetPath()} ({prim.GetTypeName()})")
+        disabled += 1
+    if disabled == 0:
+        log("背景に消すべきライトは見つかりませんでした")
+
+
+_renderer_settings_applied = False
+
+
+def _ensure_renderer_settings_for_lighting() -> None:
+    """ライティングプリセットの差を視覚的に出すためのレンダラー設定 (初回 1 回だけ実行)。
+
+    Isaac Sim の RTX レンダラーには 2 系統の自動露出補正がある:
+      1. histogram-based auto-exposure (/rtx/post/histogram/enabled)
+      2. camera-based eye adaptation (カメラの ISO/shutter/f-stop に基づく動的補正)
+
+    両方とも無効化 + カメラ露出を固定値にして、ライティング強度変化が
+    そのままピクセル値に反映されるようにする。
+    """
+    global _renderer_settings_applied
+    if _renderer_settings_applied:
+        return
+    try:
+        import carb.settings
+        s = carb.settings.get_settings()
+
+        # (1) histogram-based auto-exposure 無効
+        s.set("/rtx/post/histogram/enabled", False)
+
+        # (2) tonemap は Reinhard (1) に固定
+        s.set("/rtx/post/tonemap/op", 1)
+
+        # (3) カメラ露出を固定 (ISO 100, シャッター 1/60, F4)
+        # これで eye adaptation 系の自動補正もキャンセル
+        s.set("/rtx/post/tonemap/cameraIsoSensitivity", 100.0)
+        s.set("/rtx/post/tonemap/cameraShutterSpeed", 60.0)
+        s.set("/rtx/post/tonemap/cameraFStop", 4.0)
+
+        log("renderer: auto-exposure OFF, tonemap=Reinhard, "
+            "camera fixed (ISO 100, 1/60 sec, F4)")
+        _renderer_settings_applied = True
+    except Exception as e:
+        log(f"renderer settings setup failed: {e}")

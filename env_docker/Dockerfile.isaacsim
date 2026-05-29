@@ -61,11 +61,17 @@ RUN /isaac-sim/python.sh -m pip install rospkg
 WORKDIR /app
 COPY scripts/hsr.py /app/hsr.py
 COPY scripts/launch_isaacsim.py /app/launch_isaacsim.py
+COPY scripts/construct_environment.py /app/construct_environment.py
+COPY scripts/dressing_presets.py /app/dressing_presets.py
+COPY scene_dressing /app/scene_dressing
+COPY configs /app/configs
 
 COPY 3rdparty/OgnROS1ActionFollowJointTrajectory.py /app/OgnROS1ActionFollowJointTrajectory.py
 COPY 3rdparty/OgnROS1ActionGripperCommand.py /app/OgnROS1ActionGripperCommand.py
 
 COPY usd /app/usd
+# プレースホルダテクスチャを焼き込んで、マウントなしでも動くようにする
+COPY configs/textures /data/textures
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["/isaac-sim/python.sh", "/app/launch_isaacsim.py"]

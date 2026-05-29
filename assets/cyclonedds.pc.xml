@@ -11,6 +11,7 @@
             <AllowMulticast>false</AllowMulticast>
             <EnableMulticastLoopback>false</EnableMulticastLoopback>
             <MaxMessageSize>65500B</MaxMessageSize>
+            <FragmentSize>4000B</FragmentSize>
         </General>
         <Discovery>
             <Peers>

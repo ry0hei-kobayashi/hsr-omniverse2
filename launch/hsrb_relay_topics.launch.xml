@@ -40,6 +40,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
   <node_container namespace="$(var depth_topic_prefix)" pkg="rclcpp_components" exec="component_container" name="nodelet_manager">
     <composable_node namespace="$(var depth_topic_prefix)" pkg="depth_image_proc" plugin="depth_image_proc::PointCloudXyzrgbNode" name="pointcloud_xyzrgb">
+      <!-- Isaac Sim publishes depth image_rect_raw as BEST_EFFORT (sensor
+           data QoS, needed for cross-PC fragmentation). camera_info stays
+           RELIABLE because depth_image_proc subscribes to it via
+           message_filters which does NOT honor qos_overrides params. -->
+      <param name="qos_overrides./head_rgbd_sensor/depth_registered/image_rect_raw.subscription.reliability" value="best_effort"/>
       <remap from="rgb/camera_info" to="/head_rgbd_sensor/depth_registered/camera_info"/>
       <remap from="rgb/image_rect_color" to="/head_rgbd_sensor/rgb/image_rect_color"/>
       <remap from="depth_registered/image_rect" to="/head_rgbd_sensor/depth_registered/image_rect_raw"/>

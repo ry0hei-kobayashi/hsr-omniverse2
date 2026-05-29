@@ -56,6 +56,14 @@ services:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
       - ../worlds:/app/worlds:ro
+
+      # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
+      # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
+      - ../configs:/app/configs:ro
+      # テクスチャはデフォルトで repo 内の configs/textures/ を使う。
+      # 本番テクスチャを使うときは ${HOME}/datasets/SceneTextures などに置き換える。
+      - ../configs/textures:/data/textures:ro
+
       #- /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro
       #- /usr/share/vulkan/implicit_layer.d:/usr/share/vulkan/implicit_layer.d:ro
       - ${HOME}/.hsr-omniverse/cache/kit:/isaac-sim/kit/cache:rw

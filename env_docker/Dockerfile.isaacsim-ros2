@@ -97,8 +97,14 @@ WORKDIR /app
 ADD scripts/hsr.py /app/hsr.py
 ADD scripts/ros2_bridge.py /app/ros2_bridge.py
 ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
+ADD scripts/construct_environment.py /app/construct_environment.py
+ADD scripts/dressing_presets.py /app/dressing_presets.py
+ADD scene_dressing /app/scene_dressing
+ADD configs /app/configs
 ADD usd /app/usd
 ADD worlds /app/worlds
+# プレースホルダテクスチャを焼き込んで、マウントなしでも動くようにする
+ADD configs/textures /data/textures
 
 ENV NVIDIA_VISIBLE_DEVICES \
         ${NVIDIA_VISIBLE_DEVICES:-all}

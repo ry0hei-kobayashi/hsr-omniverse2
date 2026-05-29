@@ -203,6 +203,14 @@ class odom_trajectory_action_server(semuInternalState):
 
 
 class arm_trajectory_action_server(semuInternalState):
+    controlled_joints = [
+        'arm_lift_joint',
+        'arm_flex_joint',
+        'arm_roll_joint',
+        'wrist_flex_joint',
+        'wrist_roll_joint',
+    ]
+
     def _set_joint_position(self, name: str, target_position: float) -> None:
         if name == 'arm_lift_joint':
             super()._set_joint_position('torso_lift_joint', target_position / 2.0)
@@ -218,10 +226,12 @@ class arm_trajectory_action_server(semuInternalState):
 
 
 class head_trajectory_action_server(semuInternalState):
-    pass
+    controlled_joints = ['head_pan_joint', 'head_tilt_joint']
 
 
 class gripper_trajectory_action_server(semuInternalState):
+    controlled_joints = ['hand_motor_joint']
+
     def _set_joint_position(self, name: str, target_position: float) -> None:
         if name == 'hand_motor_joint':
             super()._set_joint_position('hand_l_proximal_joint', target_position)
@@ -1012,6 +1022,15 @@ class hsr:
                             topic_prefix + '/head_rgbd_sensor/depth_registered/image_rect_raw',
                         ),
                         ('cameraHelperDepth.inputs:type', 'depth'),
+                        # Sensor Data QoS (BEST_EFFORT) so the depth image
+                        # propagates over CycloneDDS PC unicast to remote
+                        # subscribers (e.g. pumas_navigation on a separate PC).
+                        # Keys must use camelCase (keepLast/bestEffort) per
+                        # Isaac Sim 4.5 OgnROS2QoSProfile schema.
+                        (
+                            'cameraHelperDepth.inputs:qosProfile',
+                            '{"history":"keepLast","depth":5,"reliability":"bestEffort","durability":"volatile","deadline":0.0,"lifespan":0.0,"liveliness":"systemDefault","leaseDuration":0.0}',
+                        ),
                         ('cameraHelperDepthInfo.inputs:frameId',
                          'head_rgbd_sensor_rgb_frame'),
                         (
@@ -1019,6 +1038,11 @@ class hsr:
                             topic_prefix + '/head_rgbd_sensor/depth_registered/camera_info',
                         ),
                         ('cameraHelperDepthInfo.inputs:type', 'camera_info'),
+                        # camera_info stays RELIABLE (default) — small payload,
+                        # and depth_image_proc::PointCloudXyzrgbNode subscribes
+                        # via image_transport/message_filters which does NOT
+                        # honor qos_overrides parameters. Keeping RELIABLE
+                        # avoids the QoS mismatch that blocks pointcloud output.
                     ],
                 },
             )

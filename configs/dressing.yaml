@@ -1,0 +1,141 @@
+# ============================================================
+# Scene Dressing 設定ファイル
+# ============================================================
+#
+# テクスチャ・照明のプリセットとデフォルト値をここで管理する。
+# リリース後はこのファイルだけ編集すれば設定変更が反映される
+# (コードを触る必要はない)。
+#
+# 編集後の反映: `make ros2 down && make ros2 up`
+#
+# 数値の書式について:
+#   PyYAML (YAML 1.1) では "6e5" のような指数表記が文字列扱いされる
+#   ことがあるため、float は明示的に小数点付きで書く (600000.0 など)。
+
+# ============================================================
+# デフォルト
+# ============================================================
+# construct_environment.apply_lab_dressing() で preset/lighting を省略した
+# ときに使われる名前。下の presets / lighting のキーを指す。
+
+defaults:
+  preset: lab        # dressing_presets のどれを使うか
+  lighting: default  # lighting_presets のどれを使うか
+
+
+# ============================================================
+# テクスチャプリセット
+# ============================================================
+# キー: EnvBoxConfig (scene_dressing/__init__.py) のフィールド名
+#   - floor_texture:     床画像のパス (null で床なし)
+#   - backdrop_textures: 周囲 4 画像 [北, 南, 東, 西] (null で背景なし)
+#   - floor_tile:        床テクスチャのタイル繰り返し数 (省略時 4.0)
+#   - room_size:         部屋の一辺 (m, 省略時 15.0)
+#   - room_height:       壁の高さ (m, 省略時 4.0)
+#   - floor_z:           床の z 座標 (m, 省略時 0.002)
+#
+# 新しいテーマを追加: ここに辞書エントリを足すだけ。
+
+dressing_presets:
+
+  lab:
+    floor_texture: /data/textures/floor.jpg
+    backdrop_textures:
+      - /data/textures/wall_1.jpg   # 北 (+Y)
+      - /data/textures/wall_2.jpg   # 南 (-Y)
+      - /data/textures/wall_3.jpg   # 東 (+X)
+      - /data/textures/wall_4.jpg   # 西 (-X)
+    # floor_tile: 4.0
+    # room_size: 15.0
+    # room_height: 4.0
+
+  # 床のみ (背景なし)
+  floor_only:
+    floor_texture: /data/textures/floor.jpg
+    backdrop_textures: null
+
+  # 背景のみ (床なし)
+  backdrop_only:
+    floor_texture: null
+    backdrop_textures:
+      - /data/textures/wall_1.jpg
+      - /data/textures/wall_2.jpg
+      - /data/textures/wall_3.jpg
+      - /data/textures/wall_4.jpg
+
+  # ---- 新しいテーマを足すときの例 (コメントアウト) ----
+  # office:
+  #   floor_texture: /data/OfficeTextures/carpet.jpg
+  #   backdrop_textures:
+  #     - /data/OfficeTextures/office_n.jpg
+  #     - /data/OfficeTextures/office_s.jpg
+  #     - /data/OfficeTextures/office_e.jpg
+  #     - /data/OfficeTextures/office_w.jpg
+  #   floor_tile: 6.0
+
+
+# ============================================================
+# 照明プリセット
+# ============================================================
+# キー: EnvBoxConfig の照明関連フィールド + 拡張:
+#   - dome_intensity:           DomeLight 強度
+#   - ceiling_intensity:        天井 SphereLight 1 灯あたりの強度
+#   - ceiling_count:            天井灯の数 (4 で四隅、5 で +中央)
+#   - ceiling_height:           天井灯の Z 高さ (m)
+#   - ceiling_color_temp:       色温度 (K, 6500=昼白色, 3000=電球色)
+#   - enable_lighting:          false にすると照明追加なし
+#   - default_lights_intensity: 拡張キー。/World/Light_1, /World/Light_2
+#       (launch_isaacsim.py が作る既存ライト) の強度を連動制御する。
+#       これがないと既存ライト 5e4 がドミネートしてプリセット切替が
+#       見た目に出にくい。
+#
+# プリセット間の強度差は桁レベルで広く取っている (トーンマッピングで
+# 圧縮されても違いが見えるよう)。
+
+lighting_presets:
+
+  # 標準: 壁で囲まれた部屋がしっかり明るく見える
+  default:
+    dome_intensity: 3000.0
+    ceiling_intensity: 150000.0       # 1.5e5
+    ceiling_count: 4
+    ceiling_height: 3.7
+    ceiling_color_temp: 6500.0        # 昼白色
+    default_lights_intensity: 50000.0 # 5e4 (launch_isaacsim.py の既存値)
+
+  # より明るい (撮影用など): 桁を 1 つ上げる
+  bright:
+    dome_intensity: 10000.0
+    ceiling_intensity: 600000.0       # 6e5 (default の 4 倍)
+    ceiling_count: 5                  # 四隅 + 中央
+    ceiling_color_temp: 6500.0
+    default_lights_intensity: 200000.0
+
+  # スタジオ級 (オーバーキル気味)
+  studio:
+    dome_intensity: 20000.0
+    ceiling_intensity: 1500000.0      # 1.5e6 (default の 10 倍)
+    ceiling_count: 5
+    ceiling_color_temp: 5600.0        # デイライト
+    default_lights_intensity: 500000.0
+
+  # 薄暗い (夜の部屋イメージ)
+  dim:
+    dome_intensity: 300.0
+    ceiling_intensity: 15000.0        # 1.5e4 (default の 1/10)
+    ceiling_count: 4
+    ceiling_color_temp: 6500.0
+    default_lights_intensity: 5000.0
+
+  # 電球色 (温かみのある雰囲気、明るさは default 同等)
+  warm:
+    dome_intensity: 3000.0
+    ceiling_intensity: 150000.0
+    ceiling_count: 4
+    ceiling_color_temp: 3000.0        # 電球色
+    default_lights_intensity: 50000.0
+
+  # 照明追加なし + 既存ライトも消灯 (ほぼ真っ暗、デバッグ用)
+  off:
+    enable_lighting: false
+    default_lights_intensity: 0.0
