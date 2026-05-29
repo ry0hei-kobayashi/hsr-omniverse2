@@ -254,25 +254,26 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
 #   randomizer.generate_wrs_task(drop_func=drop_object)
 object_placement.apply_placements(world_file, drop_object)
 
-# 独自オブジェクトの配置
-# アルボナース
-drop_object(
-    gazebo_name='my_object',
-    name='my_object',
-    x=-0.26,
-    y=-0.79097,
-    z=-1.66326,
-    roll=math.pi / 2,
-)
-# hma宣伝ボード
-drop_object(
-    gazebo_name='hma_display_board',
-    name='hma_display_board',
-    x=0.8,
-    y=0.5,
-    z=0.5,
-    roll=math.pi / 2,
-)
+# 独自オブジェクト (usd/my_models) の配置は使わない。
+# 配置は configs/placement.yaml の ycb のみ。戻したいときは下を有効化:
+# # アルボナース
+# drop_object(
+#     gazebo_name='my_object',
+#     name='my_object',
+#     x=-0.26,
+#     y=-0.79097,
+#     z=-1.66326,
+#     roll=math.pi / 2,
+# )
+# # hma宣伝ボード
+# drop_object(
+#     gazebo_name='hma_display_board',
+#     name='hma_display_board',
+#     x=0.8,
+#     y=0.5,
+#     z=0.5,
+#     roll=math.pi / 2,
+# )
 
 hsr_stage_path = '/hsrb'
 create_prim(
@@ -360,7 +361,24 @@ omni.timeline.get_timeline_interface().play()
 
 # ラボ環境テクスチャ (床 + 周囲背景 + 照明) を適用。
 # timeline.play() の "後" でないと PhysX セットアップを壊すので注意。
-construct_environment.apply_lab_dressing()
+# 床・背景幕 (周囲4枚の壁) を world の家具・壁の広がりに合わせて
+# 自動でサイズ・中心を決める。world が原点からずれていても正しく囲める。
+_bounds = object_placement.world_xy_bounds(world_file)
+if _bounds is not None:
+    _min_x, _max_x, _min_y, _max_y = _bounds
+    _margin = 0.5  # 外周から壁を少し外に出す余白 (m)
+    _room_size = max(_max_x - _min_x, _max_y - _min_y) + 2.0 * _margin
+    _center_x = (_min_x + _max_x) / 2.0
+    _center_y = (_min_y + _max_y) / 2.0
+    print(f'[dressing] world bounds -> room_size={_room_size:.2f} '
+          f'center=({_center_x:.2f}, {_center_y:.2f})')
+    construct_environment.apply_lab_dressing(
+        room_size=_room_size,
+        center_x=_center_x,
+        center_y=_center_y,
+    )
+else:
+    construct_environment.apply_lab_dressing()
 for _ in range(3):
     kit.update()
 

@@ -37,7 +37,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from ._common import BackdropTextureSet, ensure_xform, log
+from ._common import BackdropTextureSet, ensure_xform, log, set_translate
 from .floor import create_env_floor
 from .backdrops import create_env_backdrop, setup_env_backdrops
 from .lighting import setup_env_lighting
@@ -71,6 +71,8 @@ class EnvBoxConfig:
     env_root: str = "/World/EnvBox"
     room_size: float = 15.0       # X-Y 平面の一辺 (m)
     room_height: float = 4.0      # 背景幕の高さ (m)
+    center_x: float = 0.0         # 環境ボックスの中心 X (m)。world に合わせて寄せる用。
+    center_y: float = 0.0         # 環境ボックスの中心 Y (m)。
 
     # 床
     floor_texture: Optional[str] = None
@@ -100,6 +102,8 @@ def apply_env_box(config: EnvBoxConfig) -> None:
     部分的にも作れる。
     """
     ensure_xform(config.env_root)
+    # env_root を world の中心に寄せると、配下の床・背景幕・照明がまとめて移動する。
+    set_translate(config.env_root, config.center_x, config.center_y, 0.0)
 
     if config.floor_texture:
         create_env_floor(

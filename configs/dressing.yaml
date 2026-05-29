@@ -33,6 +33,12 @@ defaults:
 #   - room_size:         部屋の一辺 (m, 省略時 15.0)
 #   - room_height:       壁の高さ (m, 省略時 4.0)
 #   - floor_z:           床の z 座標 (m, 省略時 0.002)
+#   - center_x/center_y: 環境ボックスの中心 (m, 省略時 0,0)
+#
+# 注意: room_size と center_x/center_y は launch_isaacsim.py が読み込んだ
+#   world (家具・壁の外周) から自動計算して上書きする。ここで値を書いても
+#   通常はその自動値が優先される。固定したいときは launch_isaacsim.py 側の
+#   自動計算を外すこと。
 #
 # 新しいテーマを追加: ここに辞書エントリを足すだけ。
 

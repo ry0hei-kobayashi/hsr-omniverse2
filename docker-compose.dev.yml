@@ -18,10 +18,10 @@ services:
       - ../scripts:/app/scripts:ro
       - ../scene_dressing:/app/scene_dressing:ro
 
-      # 追加で必要なデータセット (テクスチャ / HDRI / 家具シーン)。
+      # 追加で必要なデータセット (家具シーン / HDRI)。
+      # テクスチャは repo の configs/textures/ に同梱したので dev でも追加マウント不要。
       - ${INTERIOR_AGENT_PATH}:/data/InteriorAgent:ro
       - ${HOME}/datasets/HDRIs:/data/HDRIs:ro
-      - ${HOME}/datasets/LabTextures:/data/LabTextures:ro
       - /usr/share/nvidia/nvoptix.bin:/usr/share/nvidia/nvoptix.bin:ro
 
       # 自作モデル (my_models) も live マウント (再ビルド無しで反映)。

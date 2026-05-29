@@ -61,8 +61,8 @@ services:
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
       # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
       - ../configs:/app/configs:ro
-      # テクスチャはデフォルトで repo 内の configs/textures/ を使う。
-      # 本番テクスチャを使うときは ${HOME}/datasets/SceneTextures などに置き換える。
+      # テクスチャはデフォルトで repo 内の configs/textures/ を使う
+      # (本物の lab テクスチャを焼き込み済み)。
       - ../configs/textures:/data/textures:ro
 
       #- /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro

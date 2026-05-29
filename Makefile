@@ -56,9 +56,14 @@ ifeq ($(DEV),1)
   # dev では scripts/ をディレクトリごと live マウントするので、そちらを実行する
   # (単一ファイル mount の inode 固定問題を回避し、編集が即反映される)。
   LAUNCH_PY := /app/scripts/launch_isaacsim.py
+  # dev では up をバックグラウンド(-d)にし、端末をすぐ返す。
+  # 同じ端末で 'make ... dev run' を実行し、ログをそこに表示するため。
+  UP_FLAGS := -d
 else
   # 通常起動はイメージ内のフラット配置。
   LAUNCH_PY := /app/launch_isaacsim.py
+  # 通常起動はフォアグラウンド (全コンテナのログを表示)。
+  UP_FLAGS :=
 endif
 
 # --- pc modifier ------------------------------------------------------------
@@ -104,8 +109,9 @@ help:
 	@echo "  make ros1 up"
 	@echo ""
 	@echo "  # Dev mode (run the Python separately, clean logs):"
-	@echo "  make ros2 dev up      # terminal 1: containers start, isaacsim idle"
-	@echo "  make ros2 dev run     # terminal 2: run the sim, logs only here"
+	@echo "  make ros2 dev up      # start containers in background (-d), isaacsim idle, prompt returns"
+	@echo "  make ros2 dev run     # same terminal: run the sim, traceback/logs shown here"
+	@echo "  make ros2 dev down    # stop when finished"
 	@echo ""
 	@echo "Resolved: ROS=$(ROS), PC=$(if $(PC),on,off), compose=$(COMPOSE_FILE)"
 
@@ -120,7 +126,7 @@ build:
 	$(ENV_PC) $(COMPOSE) build
 
 up:
-	$(ENV_PC) $(COMPOSE) up
+	$(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
 
 down:
 	$(COMPOSE) down

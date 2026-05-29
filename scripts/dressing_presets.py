@@ -53,6 +53,7 @@ def _normalize_preset(preset: Dict[str, Any]) -> Dict[str, Any]:
     # 数値フィールドが文字列で来ていたら float 化
     float_fields = (
         "floor_tile", "floor_z", "room_size", "room_height",
+        "center_x", "center_y",
         "dome_intensity", "ceiling_intensity", "ceiling_height",
         "ceiling_color_temp", "default_lights_intensity",
     )

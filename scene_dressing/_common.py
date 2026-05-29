@@ -12,7 +12,7 @@ from typing import Tuple
 
 import omni.usd
 from omni.isaac.core.utils.prims import create_prim
-from pxr import Sdf, UsdShade
+from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 
 # 周囲背景画像 4 枚の組: (北 +Y, 南 -Y, 東 +X, 西 -X)
@@ -28,6 +28,25 @@ def ensure_xform(prim_path: str) -> None:
     _stage = omni.usd.get_context().get_stage()
     if not _stage.GetPrimAtPath(prim_path).IsValid():
         create_prim(prim_path=prim_path, prim_type="Xform")
+
+
+def set_translate(prim_path: str, x: float, y: float, z: float = 0.0) -> None:
+    """prim の平行移動 (translate) を設定する (冪等)。
+
+    既に translate op があれば値を上書きし、無ければ追加する。
+    再実行で xformOp が重複しないようにするためのヘルパー。
+    env_root をここで動かすと、その配下の床・背景幕・照明がまとめて移動する。
+    """
+    _stage = omni.usd.get_context().get_stage()
+    xf = UsdGeom.Xformable(_stage.GetPrimAtPath(prim_path))
+    op = next(
+        (o for o in xf.GetOrderedXformOps()
+         if o.GetOpType() == UsdGeom.XformOp.TypeTranslate),
+        None,
+    )
+    if op is None:
+        op = xf.AddTranslateOp()
+    op.Set(Gf.Vec3d(x, y, z))
 
 
 def bind_uv_texture_material(

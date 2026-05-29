@@ -39,6 +39,20 @@ drop_clearance: 0.1
 #       yaw: 0.3                      # 物体の向き (rad, 家具の向きに足される)
 #       roll: 0.0                     # 物体を倒すとき等 (rad, 省略可)
 #       pitch: 0.0                    # 同上 (rad, 省略可)
+#       tier: 1                       # 段番号 (0 = 一番下の段)。省略時は 0。
+#
+# 段 (tier) について:
+#   同じ位置に高さ違いの箱が積み重なっている家具 (cabinet, shelf など) は
+#   複数の段を持つ。tier で何段目に置くかを選べる。0 が一番下、上に行くほど数字が大きい。
+#     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
+#   1 段だけの家具 (dining_table など) は tier を省略 (=0) すればよい。
+#
+#   # cabinet の 1 段目と 3 段目に置く例:
+#   # cabinet:
+#   #   - object: ycb_011_banana
+#   #     tier: 0
+#   #   - object: ycb_017_orange
+#   #     tier: 2
 
 placements:
   dining_table:
@@ -53,5 +67,20 @@ placements:
     - object: ycb_017_orange
       dx: 0.2
 
+  # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
+  cabinet:
+    - object: ycb_005_tomato_soup_can
+      tier: 0
+    - object: ycb_013_apple
+      tier: 1
+    - object: ycb_017_orange
+      tier: 2
+    - object: ycb_009_gelatin_box
+      tier: 3
+
+  # shelf は 2 段 (tier 0=下の段, 1=上の板)
   shelf:
-    - my_object
+    - object: ycb_002_master_chef_can
+      tier: 0
+    - object: ycb_011_banana
+      tier: 1

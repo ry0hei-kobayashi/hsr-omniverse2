@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import xml.etree.ElementTree as ET
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, List
 
 import yaml
 
@@ -69,31 +70,102 @@ def load_config(path: str) -> Dict[str, Any]:
 # world ファイルから家具の形状を読む
 # ============================================================
 
-def read_furniture(world_file: str) -> Dict[str, Tuple[float, float, float, float, float]]:
+# 名前を「頭の部分」と「末尾の段番号」に分ける正規表現。
+#   "cabinet_3"  -> base="cabinet", idx="3"
+#   "shelf_0"    -> base="shelf",   idx="0"
+#   "dining_table" や "dining_wall_0_" (末尾が数字でない) -> マッチしない
+_TIER_RE = re.compile(r"^(.+)_(\d+)$")
+
+
+def read_furniture(world_file: str) -> Dict[str, Dict[str, Any]]:
     """world ファイルの <include> から家具を読み、
 
-        家具名 -> (x, y, z, yaw, height)
+        家具名 -> {"x", "y", "yaw", "tops": [低い段の天面, ..., 高い段の天面]}
 
-    の辞書を返す。height は unit_box の scale の z 成分 (= 家具の高さ)。
+    の辞書を返す。"tops" は各段の天板の高さ (z + scale_z/2) を低い順に並べたもので、
+    その並び順がそのまま tier 番号 (0 = 一番下の段) になる。
+
+    同じ頭の名前 (例: cabinet_0..3) で、かつ同じ位置 (x, y) に積み重なっている箱は
+    1 つの多段家具 "cabinet" としてまとめる。位置がバラバラなもの (壁など) は
+    段とはみなさず、それぞれフルネームで 1 段だけの家具として登録する。
     scale を持たない include (= 通常の model.usd 家具) はスキップする。
     """
     tree = ET.parse(world_file)
     root = tree.getroot()
-    furniture: Dict[str, Tuple[float, float, float, float, float]] = {}
+
+    # --- まず world 内の箱を全部読む ---
+    boxes: List[Dict[str, Any]] = []
     for inc in root.findall("world/include"):
         name_tag = inc.find("name")
         pose_tag = inc.find("pose")
         scale_tag = inc.find("scale")
         if name_tag is None or pose_tag is None or scale_tag is None:
             continue
-        name = name_tag.text
         pose = [float(n) for n in pose_tag.text.split()]
-        x, y, z = pose[0], pose[1], pose[2]
-        yaw = pose[5]  # pose は x y z roll pitch yaw
         scale = [float(n) for n in scale_tag.text.split()]
-        height = scale[2]
-        furniture[name] = (x, y, z, yaw, height)
+        x, y, z = pose[0], pose[1], pose[2]
+        yaw = pose[5]              # pose は x y z roll pitch yaw
+        top = z + scale[2] / 2.0  # この箱の天面 (= 段の置ける面)
+        boxes.append({"name": name_tag.text, "x": x, "y": y, "yaw": yaw, "top": top})
+
+    # --- 名前の「頭の部分」でグループ分け ---
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    for b in boxes:
+        m = _TIER_RE.match(b["name"])
+        base = m.group(1) if m else b["name"]
+        groups.setdefault(base, []).append(b)
+
+    # --- グループごとに、多段家具か単段家具かを判定して登録 ---
+    furniture: Dict[str, Dict[str, Any]] = {}
+    for base, members in groups.items():
+        # 同じ位置 (x, y) に積み重なっているか? (小数 3 桁で比較)
+        footprints = {(round(b["x"], 3), round(b["y"], 3)) for b in members}
+        if len(members) > 1 and len(footprints) == 1:
+            # 多段家具: 天面を低い順に並べて tops にする
+            members.sort(key=lambda b: b["top"])
+            ref = members[0]
+            furniture[base] = {
+                "x": ref["x"], "y": ref["y"], "yaw": ref["yaw"],
+                "tops": [b["top"] for b in members],
+            }
+        else:
+            # 段ではない: それぞれフルネームで 1 段だけの家具として登録
+            for b in members:
+                furniture[b["name"]] = {
+                    "x": b["x"], "y": b["y"], "yaw": b["yaw"],
+                    "tops": [b["top"]],
+                }
     return furniture
+
+
+def world_xy_bounds(world_file: str):
+    """world 内の全 unit_box の XY 外周を返す。
+
+        (min_x, max_x, min_y, max_y)
+
+    各箱の回転 (yaw) を考慮して四隅から算出する。箱が 1 つも無ければ None。
+    床・背景幕を world (家具・壁の広がり) に合わせるためのサイズ/中心の算出に使う。
+    """
+    tree = ET.parse(world_file)
+    root = tree.getroot()
+    xs: List[float] = []
+    ys: List[float] = []
+    for inc in root.findall("world/include"):
+        pose_tag = inc.find("pose")
+        scale_tag = inc.find("scale")
+        if pose_tag is None or scale_tag is None:
+            continue
+        pose = [float(n) for n in pose_tag.text.split()]
+        scale = [float(n) for n in scale_tag.text.split()]
+        x, y, yaw = pose[0], pose[1], pose[5]
+        sx, sy = scale[0], scale[1]
+        for dx in (-sx / 2.0, sx / 2.0):
+            for dy in (-sy / 2.0, sy / 2.0):
+                xs.append(x + dx * math.cos(yaw) - dy * math.sin(yaw))
+                ys.append(y + dx * math.sin(yaw) + dy * math.cos(yaw))
+    if not xs:
+        return None
+    return (min(xs), max(xs), min(ys), max(ys))
 
 
 # ============================================================
@@ -107,7 +179,7 @@ def _parse_item(item: Any) -> Dict[str, Any]:
     """
     if isinstance(item, str):
         return {"object": item, "dx": 0.0, "dy": 0.0,
-                "yaw": 0.0, "roll": 0.0, "pitch": 0.0}
+                "yaw": 0.0, "roll": 0.0, "pitch": 0.0, "tier": 0}
     return {
         "object": item["object"],
         "dx": float(item.get("dx", 0.0)),
@@ -115,6 +187,7 @@ def _parse_item(item: Any) -> Dict[str, Any]:
         "yaw": float(item.get("yaw", 0.0)),
         "roll": float(item.get("roll", 0.0)),
         "pitch": float(item.get("pitch", 0.0)),
+        "tier": int(item.get("tier", 0)),  # 段番号 (0 = 一番下)。省略時は一番下。
     }
 
 
@@ -150,13 +223,24 @@ def apply_placements(
             continue
         if not items:
             continue
-        fx, fy, fz, fyaw, fheight = furniture[furn_name]
-        top_z = fz + fheight / 2.0  # 天板の高さ
+        info = furniture[furn_name]
+        fx, fy, fyaw = info["x"], info["y"], info["yaw"]
+        tops = info["tops"]  # 低い段から順の天面リスト
 
         for idx, raw in enumerate(items):
             it = _parse_item(raw)
             obj_name = it["object"]
             dx, dy = it["dx"], it["dy"]
+            tier = it["tier"]
+
+            # tier 番号が段数の範囲外なら配置せず警告
+            if tier < 0 or tier >= len(tops):
+                log(f'WARNING: 家具 "{furn_name}" に tier={tier} は無効 '
+                    f"(段数は 0〜{len(tops) - 1})。{obj_name} をスキップ。")
+                requested += 1
+                failed.append(f"{furn_name}[tier={tier}]/{obj_name}")
+                continue
+            top_z = tops[tier]  # 指定した段の天面の高さ
 
             # 天板中央からのオフセットを家具の向き (fyaw) で回して world 座標へ
             wx = fx + dx * math.cos(fyaw) - dy * math.sin(fyaw)
