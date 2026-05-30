@@ -109,7 +109,11 @@ def generate_launch_description():
                 ]),
                 launch_arguments={
                     'use_sim_time': 'true',
-                    'use_navigation': 'true',
+                    # false: HSR 純正 localizer/nav (laser_2d_localizer, pose_integrator)
+                    # を起動しない。自己位置推定は Singularity 側の emcl2/pumas に任せる
+                    # (本番同等)。robot_state_publisher / odom / 知覚は下で別途上げるので残る。
+                    # HSR 純正ナビを使いたいときだけ 'true' に戻す。
+                    'use_navigation': 'false',
                     'map': os.path.join(
                         get_package_share_directory('tmc_wrs_gazebo_worlds'),
                         'maps',
