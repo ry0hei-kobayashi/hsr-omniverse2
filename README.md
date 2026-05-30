@@ -158,6 +158,13 @@ make ros2 up TASK=restaurant  # 別のタスクに切り替え
 make ros2 down                # 終了 (コンテナ停止)
 ```
 
+### タスクごとの設定を変えたいとき
+
+各タスクの **world / 物体・ロボット・人の配置 / 見た目** は `configs/tasks/<名前>/` で定義します。
+編集方法・フォルダの中身は **➡ [configs/tasks/README.md](./configs/tasks/README.md)** を参照してください。
+
+- 設定ファイル全体の構成（共通の既定など）: [configs/README.md](./configs/README.md)
+
 ---
 
 ## ディレクトリ構成
@@ -166,10 +173,14 @@ make ros2 down                # 終了 (コンテナ停止)
 .
 ├── 3rdparty/      # 外部由来モジュール (OgnROS1Action*.py)
 ├── assets/        # 設定/リソース (cyclonedds.xml, cyclonedds.pc.xml, ros_entrypoint.sh.ros2, hsr-omniverse.rviz)
+├── configs/       # 実行時設定 (placement.yaml, dressing.yaml, tasks/ …) ※下のリンク参照
 ├── env_docker/    # Dockerfile.* と docker-compose*.yml
 ├── launch/        # ROS1/ROS2 launch ファイル
 ├── scripts/       # 実行スクリプト (hsr.py, ros2_bridge.py, launch_isaacsim.py, sample-*.py 他)
-└── usd/           # USD アセット
+├── usd/           # USD アセット
+└── worlds/        # .world ファイル (家具・壁の配置)
 ```
 
 エントリポイント: `scripts/launch_isaacsim.py` (旧 `sample-ros.py`)。Isaac Sim から HSR を起動するメインスクリプト。
+
+設定まわり (タスク別の world/配置/見た目): [configs/README.md](./configs/README.md) → タスク個別は [configs/tasks/README.md](./configs/tasks/README.md)。
