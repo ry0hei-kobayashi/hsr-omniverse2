@@ -78,7 +78,7 @@ else
 endif
 
 # --- Targets ----------------------------------------------------------------
-.PHONY: help ros1 ros2 pc dev build up down logs ps ros isaacsim run
+.PHONY: help ros1 ros2 pc dev build up down logs ps ros isaacsim run list-anims
 .DEFAULT_GOAL := help
 
 help:
@@ -103,12 +103,13 @@ help:
 	@echo "Examples:"
 	@echo "  make ros2 build"
 	@echo "  make ros2 up"
+	@echo "  make ros2 up TASK=hri   # configs/tasks/hri/ の設定で起動"
 	@echo "  make ros2 up pc"
 	@echo "  ROS_DOMAIN_ID=49 make ros2 up pc"
 	@echo "  make ros1 build"
 	@echo "  make ros1 up"
 	@echo ""
-	@echo "  # Dev mode (run the Python separately, clean logs):"
+	@echo "  # Dev mode (開発用。リリース後は up を使う):"
 	@echo "  make ros2 dev up      # start containers in background (-d), isaacsim idle, prompt returns"
 	@echo "  make ros2 dev run     # same terminal: run the sim, traceback/logs shown here"
 	@echo "  make ros2 dev down    # stop when finished"
@@ -119,14 +120,23 @@ help:
 ros1 ros2 pc dev:
 	@:
 
+# TASK=<名前> を付けると configs/tasks/<名前>/ の world/placement/dressing を使う。
+#   例: make ros2 dev run TASK=hri   (未指定なら configs 直下の既定)
 run:
-	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
+	$(COMPOSE) exec -e TASK=$(TASK) isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
+
+# アセットサーバにある「人のアニメ」ファイル一覧を表示する確認用 (画面なし)。
+#   make ros2 dev list-anims   (先に 'make ros2 dev up' でコンテナ起動が必要)
+list-anims:
+	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh /app/scripts/list_people_anims.py
 
 build:
 	$(ENV_PC) $(COMPOSE) build
 
+# TASK=<名前> を付けると configs/tasks/<名前>/ の設定で起動する。
+#   例: make ros2 up TASK=hri   (未指定なら configs 直下の既定)
 up:
-	$(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
+	TASK=$(TASK) $(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
 
 down:
 	$(COMPOSE) down
