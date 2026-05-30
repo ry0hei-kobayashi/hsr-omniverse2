@@ -130,6 +130,36 @@ ROS_DOMAIN_ID=49 make ros2 up pc      # Domain ID を上書き
 
 ---
 
+## タスクを選んで起動する（タスク開発者向け）
+
+
+> world・物体配置・見た目などの設定変更は`configs/` 側で行います。
+
+初回のみ、上の「クイックスタート」の手順で `make ros2 build` までを済ませておきます。
+あとは毎回これ 1 行です。
+
+```bash
+make ros2 up TASK=hri
+```
+
+`TASK=<名前>` で起動するタスクを選びます。使える名前:
+
+| TASK の名前 | タスク |
+|---|---|
+| `hri` | Human Robot Interaction |
+| `pick_and_place` | Pick and Place |
+| `gpsr` | General Purpose Service Robot |
+| `laundry` | Doing Laundry |
+| `restaurant` | Restaurant |
+
+```bash
+make ros2 up                  # TASK を付けないと既定設定で起動
+make ros2 up TASK=restaurant  # 別のタスクに切り替え
+make ros2 down                # 終了 (コンテナ停止)
+```
+
+---
+
 ## ディレクトリ構成
 
 ```
