@@ -44,6 +44,7 @@ from tmc_wrs_gazebo_worlds import randomizer
 import hsr
 import construct_environment
 import object_placement
+import people_spawn
 
 
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
@@ -152,24 +153,87 @@ model_root = os.path.join(repo_root, 'usd', 'wrs_models')
 if not os.path.exists(model_root):
     model_root = '/app/usd/wrs_models'
 
-# Extract poses of objects from the world file
-world_candidates = [
-    '/app/worlds/rc26_3330.world',
-    os.path.join(repo_root, 'worlds', 'rc26_3330.world'),
-    '/app/worlds/env_furniture_rcj26_pre2.world',
-    os.path.join(repo_root, 'worlds', 'env_furniture_rcj26_pre2.world'),
-    '/app/worlds/rcj26_pre2.world',
-    os.path.join(repo_root, 'worlds', 'rcj26_pre2.world'),
-    os.path.join(repo_root, 'rcj26_pre2.world'),
-]
-world_file = next((p for p in world_candidates if os.path.exists(p)), None)
-if world_file is None:
-    if is_ros2:
-        world_file = (
-            '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
-        )
+# ============================================================
+# タスク選択 (TASK 環境変数)
+# ============================================================
+# `make ros2 dev run TASK=hri` のように指定すると、configs/tasks/<TASK>/ の
+# 設定 (world / placement / dressing) を使う。TASK 未指定なら従来どおり
+# configs 直下の既定を使う (後方互換)。
+#   - task.yaml ... world のファイル名 と dressing の選択 (preset/lighting)
+#   - placement.yaml (任意) ... robot/objects/people。無ければ共通の既定。
+_task = os.environ.get('TASK', '').strip()
+_task_world_name = None        # task.yaml の world: (worlds/ 内のファイル名)
+_task_placement_path = None    # None なら configs/placement.yaml (各ローダーの既定)
+_task_dressing_preset = None   # None なら dressing.yaml の defaults
+_task_dressing_lighting = None
+if _task:
+    _task_dir = next(
+        (d for d in (os.path.join('/app/configs/tasks', _task),
+                     os.path.join(repo_root, 'configs', 'tasks', _task))
+         if os.path.isdir(d)),
+        None)
+    if _task_dir is None:
+        raise FileNotFoundError(
+            f"TASK='{_task}' のフォルダが見つかりません。"
+            f"configs/tasks/{_task}/ を作ってください。")
+    print(f"[task] selected TASK='{_task}' dir={_task_dir}")
+
+    # task.yaml (world と dressing の選択) を読む。
+    _task_yaml = os.path.join(_task_dir, 'task.yaml')
+    if os.path.isfile(_task_yaml):
+        with open(_task_yaml) as _f:
+            _tcfg = yaml.safe_load(_f) or {}
+        _task_world_name = _tcfg.get('world')
+        _dsel = _tcfg.get('dressing') or {}
+        _task_dressing_preset = _dsel.get('preset')
+        _task_dressing_lighting = _dsel.get('lighting')
     else:
-        world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+        print(f"[task] WARNING: {_task_yaml} が無いので world/dressing は既定を使います。")
+
+    # placement.yaml はタスクフォルダにあればそれを優先 (無ければ共通の既定)。
+    _p = os.path.join(_task_dir, 'placement.yaml')
+    if os.path.isfile(_p):
+        _task_placement_path = _p
+        print(f"[task] placement: {_p}")
+    else:
+        print("[task] placement: タスク個別が無いので共通の configs/placement.yaml を使用")
+
+# Extract poses of objects from the world file
+# タスクで world が指定されていれば、それを候補の先頭に置く。
+if _task_world_name:
+    # タスクが world を明示している場合は、それが見つからなければ
+    # 既定 world に黙って落ちず、エラーで止める (typo を見逃さないため)。
+    _task_world_candidates = [
+        os.path.join('/app/worlds', _task_world_name),
+        os.path.join(repo_root, 'worlds', _task_world_name),
+    ]
+    world_file = next(
+        (p for p in _task_world_candidates if os.path.exists(p)), None)
+    if world_file is None:
+        raise FileNotFoundError(
+            f"TASK='{_task}' の world '{_task_world_name}' が worlds/ に見つかりません。"
+            f"task.yaml の world: を worlds/ 内の正しいファイル名にしてください "
+            f"(探した場所: {_task_world_candidates})。")
+else:
+    # タスク未指定 (または task.yaml に world: なし) のときは従来の候補から探す。
+    world_candidates = [
+        '/app/worlds/rc26_3330.world',
+        os.path.join(repo_root, 'worlds', 'rc26_3330.world'),
+        '/app/worlds/env_furniture_rcj26_pre2.world',
+        os.path.join(repo_root, 'worlds', 'env_furniture_rcj26_pre2.world'),
+        '/app/worlds/rcj26_pre2.world',
+        os.path.join(repo_root, 'worlds', 'rcj26_pre2.world'),
+        os.path.join(repo_root, 'rcj26_pre2.world'),
+    ]
+    world_file = next(
+        (p for p in world_candidates if os.path.exists(p)), None)
+    if world_file is None:
+        if is_ros2:
+            world_file = (
+                '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+            )
+        else:
+            world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
 print(f'Loading world file: {world_file}')
 if not os.path.exists(world_file):
     raise FileNotFoundError(f'World file not found: {world_file}')
@@ -253,7 +317,17 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
 # ランダム配置 (WRS 競技の出題) は使わず、configs/placement.yaml の指定に
 # 従って家具の上に物体を配置する。ランダムに戻したいときは下を有効化:
 #   randomizer.generate_wrs_task(drop_func=drop_object)
-object_placement.apply_placements(world_file, drop_object)
+object_placement.apply_placements(world_file, drop_object,
+                                  config_path=_task_placement_path)
+
+# placement.yaml の people: セクションに従って「人」を配置する。
+# people が空 (デフォルト) のときは何も置かず、既存の動作は変わらない。
+# 戻り値: (配置人数, ループ開始秒, ループ終了秒)。人数はメインループで
+# kit.update() を回すか判断するのに、開始/終了秒はアニメをループ再生させる
+# タイムラインの再生区間 (start_time / end_time) に使う。
+# config_path=None のときは各ローダーが共通の configs/placement.yaml を読む。
+_num_people, _people_loop_start, _people_loop_end = people_spawn.spawn_people(
+    assets_root_path, kit, config_path=_task_placement_path)
 
 # 独自オブジェクト (usd/my_models) の配置は使わない。
 # 配置は configs/placement.yaml の ycb のみ。戻したいときは下を有効化:
@@ -276,30 +350,32 @@ object_placement.apply_placements(world_file, drop_object)
 #     roll=math.pi / 2,
 # )
 
-# HSR の初期スポーン位置 (map 座標 = world 座標) は configs/robot_spawn.yaml で定義する。
+# HSR の初期スポーン位置 (map 座標 = world 座標) は configs/placement.yaml の
+# robot: セクションで定義する (robot/objects/people をまとめた設定ファイル)。
 # 注意: env_furniture の operator_position は「人」の位置であって、ロボットの位置ではない。
-#       ロボットの初期位置はまだ未定義なので、robot_spawn.yaml で定義する。
 _robot_spawn = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}  # 設定ファイルが無いときのフォールバック
-_spawn_candidates = [
-    '/app/configs/robot_spawn.yaml',
-    os.path.join(repo_root, 'configs', 'robot_spawn.yaml'),
+# タスク個別の placement.yaml があればそれを優先 (無ければ共通の既定)。
+_spawn_candidates = ([_task_placement_path] if _task_placement_path else []) + [
+    '/app/configs/placement.yaml',
+    os.path.join(repo_root, 'configs', 'placement.yaml'),
 ]
 _spawn_path = next((p for p in _spawn_candidates if os.path.exists(p)), None)
 if _spawn_path is not None:
     with open(_spawn_path) as _f:
         _cfg = yaml.safe_load(_f) or {}
+    _robot_cfg = _cfg.get('robot') or {}   # robot: セクションを取り出す
     for _k in ('x', 'y', 'yaw'):
-        if _cfg.get(_k) is not None:
+        if _robot_cfg.get(_k) is not None:
             try:
-                _robot_spawn[_k] = float(_cfg[_k])
+                _robot_spawn[_k] = float(_robot_cfg[_k])
             except (TypeError, ValueError):
                 # 数値でない (例: 小数点を ',' で書いた) 場合でも sim を落とさず継続。
-                print(f"[hsr] WARNING: robot_spawn.yaml の {_k}={_cfg[_k]!r} は数値として"
-                      f"読めません。フォールバック {_robot_spawn[_k]} を使用 "
+                print(f"[hsr] WARNING: placement.yaml の robot.{_k}={_robot_cfg[_k]!r} は"
+                      f"数値として読めません。フォールバック {_robot_spawn[_k]} を使用 "
                       f"(小数点は '.' で書いてください)。")
-    print(f'[hsr] spawn from {_spawn_path}: {_robot_spawn}')
+    print(f'[hsr] spawn from {_spawn_path} (robot:): {_robot_spawn}')
 else:
-    print(f'[hsr] robot_spawn.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
+    print(f'[hsr] placement.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
 
 hsr_stage_path = '/hsrb'
 create_prim(
@@ -385,10 +461,39 @@ _hsr.onsimulationstart(simulation_context)
 simulation_context.initialize_physics()
 omni.timeline.get_timeline_interface().play()
 
+# 人を配置したときだけアニメーションをループ再生する設定にする。
+# (人が居ないときはタイムラインに触れず、従来どおりの挙動を保つ。)
+# set_looping だけだと「どこで折り返すか」が分からずアニメが最後のポーズで
+# 止まってしまう。ループ周期 (_people_loop_duration) を end_time に設定して
+# はじめてループする (復元ガイドの知見)。
+# この周期は people_spawn 側で「一番短いクリップ」に決めている。タイムラインは
+# シーンに 1 本だけで全員が共有するため、こうしないと短いクリップの人が
+# 長いクリップの人を待つ間フリーズしてしまうため (詳細は people_spawn.py)。
+if _num_people > 0:
+    _timeline = omni.timeline.get_timeline_interface()
+    # 再生区間を [開始秒, 終了秒] に絞ってループさせる。
+    # loop_window で「手を上げて振っている区間」だけを指定すると、手を下ろす
+    # 部分が再生範囲から外れ、上げっぱなしで振り続けているように見える。
+    if _people_loop_end > 0.0:
+        _timeline.set_start_time(_people_loop_start)
+        _timeline.set_end_time(_people_loop_end)
+        # 再生ヘッドを区間の先頭に置いてから始める (区間外から始まらないように)。
+        _timeline.set_current_time(_people_loop_start)
+    _timeline.set_looping(True)
+    print(f'[people] timeline looping on for {_num_people} character(s), '
+          f'window={_people_loop_start:.2f}s..{_people_loop_end:.2f}s')
+
 # ラボ環境テクスチャ (床 + 周囲背景 + 照明) を適用。
 # timeline.play() の "後" でないと PhysX セットアップを壊すので注意。
 # 床・背景幕 (周囲4枚の壁) を world の家具・壁の広がりに合わせて
 # 自動でサイズ・中心を決める。world が原点からずれていても正しく囲める。
+# タスクで dressing の preset/lighting を選んでいれば、それを渡す
+# (未指定なら apply_lab_dressing 側が dressing.yaml の defaults を使う)。
+_dress_kwargs = {}
+if _task_dressing_preset:
+    _dress_kwargs['preset'] = _task_dressing_preset
+if _task_dressing_lighting:
+    _dress_kwargs['lighting'] = _task_dressing_lighting
 _bounds = object_placement.world_xy_bounds(world_file)
 if _bounds is not None:
     _min_x, _max_x, _min_y, _max_y = _bounds
@@ -402,9 +507,10 @@ if _bounds is not None:
         room_size=_room_size,
         center_x=_center_x,
         center_y=_center_y,
+        **_dress_kwargs,
     )
 else:
-    construct_environment.apply_lab_dressing()
+    construct_environment.apply_lab_dressing(**_dress_kwargs)
 for _ in range(3):
     kit.update()
 
@@ -508,7 +614,17 @@ if _lidar_prim.IsValid():
 
 while kit.is_running():
     # Run with a fixed step size
-    simulation_context.step(render=True)
+    if _num_people > 0:
+        # 人 (UsdSkel) のアニメーションは kit.update() を回さないと評価されない。
+        # ただし step(render=True) は内部で描画するので、その後に kit.update()
+        # を足すと「1 コマで 2 回描画」になりレンダラが不安定になる
+        # (X 接続断・セグフォルトの原因)。そこで物理ステップは描画なし
+        # (render=False) にし、描画とアニメ評価は kit.update() の 1 回に任せる。
+        simulation_context.step(render=False)
+        kit.update()
+    else:
+        # 人が居ないときは従来どおり (描画つき物理ステップのみ)。
+        simulation_context.step(render=True)
     _hsr.step()
 
 simulation_context.stop()

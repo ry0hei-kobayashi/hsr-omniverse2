@@ -205,8 +205,11 @@ def apply_placements(
     """
     path = config_path or CONFIG_PATH
     cfg = load_config(path)
-    placements = cfg.get("placements") or {}
-    clearance = float(cfg.get("drop_clearance", 0.05))
+    # placement.yaml は robot / objects / people の 3 セクション構成。
+    # 物体配置はそのうち objects: セクションを見る。
+    objects_cfg = cfg.get("objects") or {}
+    placements = objects_cfg.get("placements") or {}
+    clearance = float(objects_cfg.get("drop_clearance", 0.05))
 
     if not placements:
         log("WARNING: 'placements' が空です。配置する物体がありません。")
