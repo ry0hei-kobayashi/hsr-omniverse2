@@ -7,7 +7,9 @@
 
 | ファイル | 用途 |
 |---|---|
-| [`dressing.yaml`](./dressing.yaml) | シーン演出 (床テクスチャ + 周囲背景画像 + 照明) のプリセット定義 |
+| [`placement.yaml`](./placement.yaml) | シーン初期配置 (`robot` ロボット位置 / `objects` 物体配置 / `people` 人の配置) を 1 つにまとめた設定 (共通の既定) |
+| [`dressing.yaml`](./dressing.yaml) | シーン演出 (床テクスチャ + 周囲背景画像 + 照明) のプリセット定義 (共通ライブラリ) |
+| [`tasks/`](./tasks/) | RoboCup の**タスク別**設定 (world / placement / dressing を切り替え)。`make ros2 up TASK=<名前>` で選ぶ。詳細は [`tasks/README.md`](./tasks/README.md) |
 
 ## クイックスタート
 
@@ -15,6 +17,10 @@
 
 | やりたいこと | 編集場所 |
 |---|---|
+| タスクごとに world/配置/見た目を切り替える | [`tasks/<名前>/`](./tasks/) を用意し、`make ros2 up TASK=<名前>` で実行 |
+| ロボットの初期位置を変える | [`placement.yaml`](./placement.yaml) の **`robot:`** (x, y, yaw[rad]) |
+| 家具の上に物体を置く | `placement.yaml` の **`objects.placements:`** |
+| 人 (アニメ付き) を置く | `placement.yaml` の **`people.list:`** |
 | 部屋の見た目をプリセットごと切り替える (例: lab → office) | [`dressing.yaml`](./dressing.yaml) の **`defaults.preset:`** |
 | 照明モードを切り替える (例: default → bright) | `dressing.yaml` の **`defaults.lighting:`** |
 | 既存プリセットの値を微調整 (例: 天井灯を強くする) | `dressing.yaml` の **`lighting_presets.<name>:`** や **`dressing_presets.<name>:`** の中の数値 |
@@ -261,6 +267,12 @@ make ros2 up
 
 ## 関連ファイル
 
+`placement.yaml` を読み込む側:
+- [`../scripts/launch_isaacsim.py`](../scripts/launch_isaacsim.py) — `robot:` セクションを読んで HSR を配置
+- [`../scripts/object_placement.py`](../scripts/object_placement.py) — `objects:` セクションを読んで物体を配置
+- [`../scripts/people_spawn.py`](../scripts/people_spawn.py) — `people:` セクションを読んで人を配置
+
+`dressing.yaml` を読み込む側:
 - [`../scripts/dressing_presets.py`](../scripts/dressing_presets.py) — この YAML を読み込む Python ローダー
 - [`../scripts/construct_environment.py`](../scripts/construct_environment.py) — `apply_lab_dressing()` 関数の実装
 - [`../scene_dressing/`](../scene_dressing/) — 実際の床・背景・照明を作る Isaac Sim パッケージ

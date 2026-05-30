@@ -1,0 +1,16 @@
+# ============================================================
+# Pick and Place Challenge のタスク設定
+# ============================================================
+# make ros2 dev run TASK=pick_and_place で使われる。
+# 書き方は configs/tasks/README.md を参照。
+
+# このタスクで使う world (worlds/ 内のファイル名)
+world: rc26_3330.world      # TODO: Pick and Place 用の world があれば変更する
+
+# 見た目 (configs/dressing.yaml のプリセットから選ぶ)
+dressing:
+  preset: lab
+  lighting: default
+
+# robot/objects/people を変えたいときは、このフォルダに placement.yaml を置く。
+# 無ければ共通の configs/placement.yaml が使われる。
