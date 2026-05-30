@@ -99,6 +99,7 @@ ADD scripts/ros2_bridge.py /app/ros2_bridge.py
 ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
 ADD scripts/construct_environment.py /app/construct_environment.py
 ADD scripts/object_placement.py /app/object_placement.py
+ADD scripts/people_spawn.py /app/people_spawn.py
 ADD scripts/dressing_presets.py /app/dressing_presets.py
 ADD scene_dressing /app/scene_dressing
 ADD configs /app/configs

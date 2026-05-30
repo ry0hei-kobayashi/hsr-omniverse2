@@ -50,12 +50,16 @@ services:
       - http_proxy=http://127.0.0.1:3128
       - NVIDIA_VISIBLE_DEVICES=all
       - HSR_ROS_VERSION=2
+      # 起動するタスク (configs/tasks/<TASK>/)。`make ros2 up TASK=hri` で渡る。
+      # 未指定なら空 → launch_isaacsim.py は configs 直下の既定で起動。
+      - TASK=${TASK:-}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
       - ../scripts/object_placement.py:/app/object_placement.py:ro
+      - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro
 
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
