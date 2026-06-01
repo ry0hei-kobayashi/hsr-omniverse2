@@ -90,6 +90,7 @@ objects:
       - object: ycb_002_master_chef_can
         dx: 0.2
         dy: -0.05
+      - led
 
     living_table:
       - object: ycb_005_tomato_soup_can
@@ -114,6 +115,8 @@ objects:
         tier: 0
       - object: ycb_011_banana
         tier: 1
+    
+    
 
 
 # ============================================================
