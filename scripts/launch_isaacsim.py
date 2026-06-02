@@ -290,6 +290,18 @@ for i in root.findall('world/include'):
     model_names.append(model_name)
 
 
+def _subtree_has_rigid_body(prim):
+    """prim とその子孫のどこかに既に剛体 (RigidBodyAPI) が付いているか調べる。
+
+    YCB など model.usd 自身に物理が入っているモデルは True を返す。
+    物理が無い自作モデル (my_models) は False。
+    """
+    for p in Usd.PrimRange(prim):
+        if p.HasAPI(UsdPhysics.RigidBodyAPI):
+            return True
+    return False
+
+
 def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
     stage_path = f'/{gazebo_name.replace("-", "_")}'
@@ -310,6 +322,17 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
         orientation=euler_angles_to_quat([roll, pitch, yaw]),
     )
     stage.add_reference_to_stage(model_path, Sdf.Path(stage_path))
+
+    # 物理 (衝突判定 + 重力) を保証する。
+    # YCB などは model.usd 自身に剛体が入っているのでそのまま使う。
+    # led のように物理を持たない自作モデルには、ここで剛体 + 当たり判定を付けて、
+    # 他の物体と同じように天板へ落ちて乗るようにする (浮いたままにならない)。
+    dropped_prim = omni.usd.get_context().get_stage().GetPrimAtPath(stage_path)
+    if not _subtree_has_rigid_body(dropped_prim):
+        # convexHull = 物体の外形を凸形状で近似した当たり判定。
+        # (動く物体の標準。三角メッシュ 'none' は静止物専用で落下に使えない)
+        physx_utils.setRigidBody(dropped_prim, 'convexHull', False)
+
     model_names.append(gazebo_name)
     return model_path
 
