@@ -114,6 +114,26 @@ source /ws/install/setup.bash
 ros2 topic list
 ```
 
+#### トラブルシューティング: トピックが `/parameter_events` と `/rosout` しか出ない
+
+`ros2 topic list` の結果が `/parameter_events` と `/rosout` の 2 つだけになることがあります。多くの場合トピックが流れていないのではなく、**`ros2` の探索デーモン (今あるトピック/ノードを覚えておく裏方プロセス) が古い「空」の状態をキャッシュしている**ためです。Isaac Sim はロードに時間がかかる (初回はシェーダーコンパイルで 10〜20 分) ので、Isaac Sim がトピックを出し始める前にデーモンが起動すると「何も無い」と覚えたまま更新されません。
+
+対処は 1 行。デーモンを止めれば次のコマンドで自動的に作り直され、最新の状態を取得します:
+
+```bash
+ros2 daemon stop
+ros2 topic list   # 再取得
+```
+
+正しく流れていれば `/joint_states` (約 30Hz)・`/scan`・`/head_rgbd_sensor/...` (カメラ)・`/tf` や、ノード `/isaac_sim_hsr` などが見えます。確認用:
+
+```bash
+ros2 topic hz /joint_states     # 流量 (Hz) を見る
+ros2 topic echo /scan --once    # 中身を 1 件だけ見る
+```
+
+> **切り分けのヒント:** isaacsim コンテナ自身と ros2 コンテナの両方から `ros2 topic list` を比べると、「コンテナ間通信の問題」か「Isaac Sim 側がまだ出していない」かを判別できます。なお Isaac Sim が完全に起動し終えてから確認すれば、最初から正しく見えることがほとんどです。
+
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
 別マシンの ROS 2 (例: HSR 実機) と通信したい場合は `make ros2 up pc` を使います (ROS1 と組み合わせるとエラー)。事前に `assets/cyclonedds.pc.xml` を環境に合わせて編集してください:
