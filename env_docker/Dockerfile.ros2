@@ -77,7 +77,7 @@ RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
         git clone -b humble https://github.com/hsr-project/hsr_common.git && \
         git clone -b humble https://github.com/hsr-project/hsrb_launch.git && \
         git clone -b humble https://github.com/hsr-project/hsrb_interfaces.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_common.git && \
+        git clone -b rc26 https://github.com/Hibikino-Musashi-Home/hsrb_common.git && \
         git clone -b humble https://github.com/hsr-project/tmc_common.git && \
         git clone -b humble https://github.com/hsr-project/tmc_common_msgs.git && \
         git clone -b humble https://github.com/hsr-project/tmc_realtime_control.git && \
