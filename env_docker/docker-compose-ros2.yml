@@ -62,6 +62,12 @@ services:
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro
 
+      # 自作モデル (my_models) はホスト側を live マウントする。
+      # こうすると usd/my_models/ にモデルを足しても再ビルド不要で反映される。
+      # (イメージにも ADD usd で焼き込み済みなので、マウントを外せばイメージ内が使われる)
+      # wrs_models はイメージ焼き込みのまま (マウント不要)。
+      - ../usd/my_models:/app/usd/my_models:ro
+
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
       # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
       - ../configs:/app/configs:ro
