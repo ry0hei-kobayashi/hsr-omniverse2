@@ -86,7 +86,7 @@ objects:
 
   placements:
     dining_table:
-      - object: rc26_practice_day_1/drink/apple_juice
+      - object: rc26_practice_day_1/drink/banana_shake
         dx: 0.0
         dy: -0.2
 
