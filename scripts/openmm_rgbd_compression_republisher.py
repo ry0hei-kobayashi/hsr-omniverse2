@@ -13,7 +13,8 @@ from sensor_msgs.msg import CompressedImage, Image
 
 
 class OpenMMRgbdCompressionRepublisher(Node):
-    """Publish OpenMM-compatible compressed RGB and compressedDepth topics."""
+    """openmmが要求するcompressed形式でのRGB-Dをpublishするノード．image_rawなど既存のtopicをsubscribeして，圧縮した上でpublishする．
+    既存のtopicに追加する形のため，もとからあるtopicには影響を与えない．"""
 
     def __init__(self) -> None:
         super().__init__('openmm_rgbd_compression_republisher')
@@ -36,6 +37,7 @@ class OpenMMRgbdCompressionRepublisher(Node):
         self.depth_quant_a = self.get_parameter('depth_quant_a').get_parameter_value().double_value
         self.depth_quant_b = self.get_parameter('depth_quant_b').get_parameter_value().double_value
 
+        # sensor_qos = rclpy.qos.qos_profile_sensor_dataでも動くはず
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
@@ -114,8 +116,10 @@ class OpenMMRgbdCompressionRepublisher(Node):
             return None
 
     def _depth_to_compressed_depth(self, msg: Image) -> Optional[CompressedImage]:
+        """openmmが要求するCompressedDepth形式に変換"""
         encoding = msg.encoding.upper()
         try:
+            # 32FC1 -> 16UC1へ量子化
             if encoding == '32FC1':
                 depth = self._image_to_array(msg, np.float32, 4)
                 valid = np.isfinite(depth) & (depth > 0.0)
