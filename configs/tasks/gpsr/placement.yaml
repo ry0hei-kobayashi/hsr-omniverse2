@@ -99,17 +99,13 @@ objects:
       - object: rc26_practice_day_1/food/tuna_can
         dx: -0.2
         dy: 0.0
+      - object: rc26_practice_day_1/misc/hikonyan
 
  
     # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
     cabinet:
       - object: rc26_practice_day_1/misc/camera_box
         tier: 0
-
-      - object: rc26_practice_day_1/misc/hikonyan
-        tier: 1
-        dx: 0.0
-        dy: -0.2
 
 
     # shelf は 2 段 (tier 0=下の段, 1=上の板)
@@ -200,9 +196,9 @@ people:
   list:
     # Instruction point に立っている人
     - name: person_idle
-      x: 5.1          # アパート中央付近 (床の上・家具と重ならない想定)
-      y: 0.76
-      yaw: 180         # +Y 方向を向く (度)
+      x: 2.728          # アパート中央付近 (床の上・家具と重ならない想定)
+      y: 3.484
+      yaw: 93         # +Y 方向を向く (度)
       motion: stand_idle_loop   # その場で立つ
 
     - name: person_wave
