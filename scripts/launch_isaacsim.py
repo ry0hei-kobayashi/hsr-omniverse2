@@ -304,10 +304,22 @@ def _subtree_has_rigid_body(prim):
 
 def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
-    stage_path = f'/{gazebo_name.replace("-", "_")}'
+    # USD の prim パスは "/" が階層区切りになるため、name に相対パス
+    # (rc26_practice_day_1/drink/led 等) が含まれると壊れる。"-" と "/" を
+    # まとめて "_" に置換し、1 階層の安全な prim 名にする。
+    safe_name = gazebo_name.replace("-", "_").replace("/", "_")
+    stage_path = f'/{safe_name}'
+    # name は次の 2 通りの書き方を許す:
+    #   (A) usd/ からの相対パス  例: 'rc26_practice_day_1/drink/led'
+    #       -> usd/rc26_practice_day_1/drink/led/model.usd を直接指す。
+    #          フォルダ階層まで明示するので、物体名の重複が起きない。
+    #   (B) 物体フォルダ名だけ    例: 'ycb_011_banana', 'led'
+    #       -> 従来どおり my_models / wrs_models を探す (後方互換)。
     model_candidates = [
+        os.path.join(repo_root, 'usd', name, 'model.usd'),          # (A)
         os.path.join(repo_root, 'usd', 'my_models', name, 'model.usd'),
         os.path.join(model_root, name, 'model.usd'),
+        '/app/usd/' + name + '/model.usd',                          # (A)
         '/app/usd/my_models/' + name + '/model.usd',
         '/app/usd/wrs_models/' + name + '/model.usd',
     ]
