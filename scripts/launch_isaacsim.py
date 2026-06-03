@@ -335,6 +335,23 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     )
     stage.add_reference_to_stage(model_path, Sdf.Path(stage_path))
 
+    # Object Capture (iPhone 撮影) 製などは upAxis=Y で作られており、Z-up の
+    # 世界ではそのままだと横倒しになる。参照の「後」に rotateX(90) を足して
+    # 立たせる。create_prim が [translate, orient] を設定済みなので、ここで足すと
+    # 順序が [translate, orient, rotateX] になり、ジオメトリにはまず rotateX
+    # (Y-up→Z-up) → 次に向き → 最後に位置、の順で効く。
+    # ※ モデルのルートに焼き込んだ回転は create_prim の設定に上書きされて効かない
+    #   ため、必ずこのコード側で足す (people_spawn.py が人を立たせるのと同じ手法)。
+    # ※ Z-up の YCB / wrs_models には足さない (upAxis を見て判定)。
+    try:
+        _src_stage = Usd.Stage.Open(model_path)
+        _is_y_up = UsdGeom.GetStageUpAxis(_src_stage) == UsdGeom.Tokens.y
+    except Exception:
+        _is_y_up = False
+    if _is_y_up:
+        _prim = omni.usd.get_context().get_stage().GetPrimAtPath(stage_path)
+        UsdGeom.Xformable(_prim).AddRotateXOp().Set(90.0)
+
     # 物理 (衝突判定 + 重力) を保証する。
     # YCB などは model.usd 自身に剛体が入っているのでそのまま使う。
     # led のように物理を持たない自作モデルには、ここで剛体 + 当たり判定を付けて、
