@@ -81,38 +81,132 @@ robot:
 #     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
 #   1 段だけの家具 (dining_table など) は tier を省略 (=0) すればよい。
 
-objects:
-  drop_clearance: 0.1
+# objects:
+#   drop_clearance: 0.1
 
-  placements:
-    dining_table:
-      - ycb_011_banana
-      - object: ycb_002_master_chef_can
-        dx: 0.2
-        dy: -0.05
-      - led
+#   placements:
+#     dining_table:
+#       - object: rc26_practice_day_1/drink/apple_juice
+#         dx: 0.0
+#         dy: -0.2
 
-    living_table:
-      - object: ycb_005_tomato_soup_can
-        dx: -0.2
-      - object: ycb_017_orange
-        dx: 0.2
+#       - object: rc26_practice_day_1/drink/milk
+#         dx: 0.0
+#         dy: 0.0
 
-    # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
-    cabinet:
-      - object: ycb_005_tomato_soup_can
-        tier: 0
-      - object: ycb_013_apple
-        tier: 1
-      - object: ycb_017_orange
-        tier: 2
-      - object: ycb_009_gelatin_box
-        tier: 3
 
-    # shelf は 2 段 (tier 0=下の段, 1=上の板)
-    shelf:
-      - object: ycb_002_master_chef_can
-        tier: 0
-      - object: ycb_011_banana
-        tier: 1
-    
+#     side_table:
+#       - object: rc26_practice_day_1/food/tuna_can
+#         dx: -0.2
+#         dy: 0.0
+
+ 
+#     # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
+#     cabinet:
+#       - object: rc26_practice_day_1/misc/camera_box
+#         tier: 0
+
+#       - object: rc26_practice_day_1/misc/hikonyan
+#         tier: 1
+#         dx: 0.0
+#         dy: -0.2
+
+
+#     # shelf は 2 段 (tier 0=下の段, 1=上の板)
+#     shelf:
+#       - object: rc26_practice_day_1/snack/stroop_wafels
+#         tier: 0
+
+
+  # ============================================================
+  # floor: 床に直接置く物体 (家具の上ではなく床へ)
+  # ============================================================
+  #
+  # placements は「家具名 + 家具中心からのズレ (dx, dy)」だったが、
+  # floor は「部屋の絶対座標 (x, y)」で床 (z=0) に直接置く。
+  #
+  #   x, y : world 座標 = map 座標 (m)。家具や人と重ならない床の上を選ぶこと。
+  #          このアパートの範囲は X:0.40〜8.37, Y:-1.48〜5.15。
+  #   yaw / roll / pitch : 向き (rad, 省略可)。
+  #   高さ z は床 (0) + drop_clearance で自動。tier は無い (床は 1 面だけ)。
+  #
+  # ※ 下の座標は暫定。実際に開いている床の場所に合わせて調整してください。
+  # floor:
+  #   - object: ycb_011_banana
+  #     x: 4.0
+  #     y: 2.5
+  #   - object: rc26_practice_day_1/drink/led
+  #     x: 4.4
+  #     y: 2.5
+  #     yaw: 1.57
+
+
+# ============================================================
+# people: アニメーションする人の配置
+# ============================================================
+#
+# シミュレーション空間に「アニメーションする人」を置く設定。
+#
+# 座標:
+#   x, y : 人を立たせる水平位置 (m)。world 座標 = map 座標。
+#          床の上 (家具と重ならない場所) を指定すること。
+#   z    : 高さ (m)。床に立たせるなら 0.0 でよい (省略時 0.0)。
+#   yaw  : 向き (度, degree)。0=+X方向, 90=+Y, 180=-X, 270(または -90)=-Y。
+#          ※ ロボット (robot) の yaw は「ラジアン」だが、人は分かりやすさを
+#            優先して「度」で書く。
+#
+# motion (動きの名前): 省略すると stand_idle_loop (その場で立つ)。
+#   使えるモーション (アセットサーバに実在するものだけ):
+#     stand_idle_loop        立ったまま (待機)
+#     stand_idle_wave_loop   手を振る (1 周ごとに手を下ろして立ちに戻る)
+#     LookAround             あたりを見回す
+#     Sit                    座る
+#     stand_walk_loop        歩く (その場で足踏みに近い)
+#     push_button            ボタンを押す
+#     type_keyboard          キーボードを打つ
+#   ※「手を上げっぱなしで振り続ける」専用アニメはライブラリに無い。
+#     上げたまま振らせたいときは stand_idle_wave_loop + 下の loop_window を使う。
+#
+# loop_window (再生する時間の窓, 秒) ※任意:
+#   指定した秒数の区間だけを繰り返し再生する。stand_idle_wave_loop の
+#   「手を上げて振っている区間」だけをループさせ、手を下ろす部分を再生範囲から
+#   外すと、"手を上げっぱなしで振り続ける" ように見せられる。
+#     loop_window:
+#       start: 1.0    # 区間の開始 (秒)
+#       end:   2.0    # 区間の終了 (秒)
+#   ※ タイムラインはシーンに 1 本だけなので、この窓は全員に共通で効く。
+#   ※ 使わないときは loop_window の行ごと消す (= アニメ全体をループ)。
+#   【調整のしかた】まず 1 回動かすと、ログに
+#       [people] spawned "person_wave" ... motion=stand_idle_wave_loop duration=○○s
+#     と「クリップの全長 (秒)」が出る。その範囲 (0〜○○) の中で start/end を動かし、
+#     手が上がっている所だけが映るように合わせる。
+#
+# list (配置リスト) の書き方:
+#   list:
+#     - name: person_1        # シーン内での名前 (重複しないように)
+#       x: 2.0
+#       y: 1.0
+#       yaw: 90               # 度
+#       motion: stand_idle_loop
+#
+# ※ コミット時の既定は「人なし (list: [])」に戻すこと。
+#   下は動作確認用に 2 人を有効にしている状態。
+
+# people:
+#   loop_window:
+#     start: 1.0
+#     end:   2.0
+
+#   list:
+#     # Instruction point に立っている人
+#     - name: person_idle
+#       x: 5.1          # アパート中央付近 (床の上・家具と重ならない想定)
+#       y: 0.76
+#       yaw: 180         # +Y 方向を向く (度)
+#       motion: stand_idle_loop   # その場で立つ
+
+#     - name: person_wave
+#       x: 3.5
+#       y: -0.5
+#       yaw: 180
+#       motion: stand_idle_wave_loop   # 手を振る (手を上げっぱなしは loop_window で)
