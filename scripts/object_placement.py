@@ -191,6 +191,22 @@ def _parse_item(item: Any) -> Dict[str, Any]:
     }
 
 
+def _parse_floor_item(item: Any) -> Dict[str, Any]:
+    """floor リストの 1 エントリを正規化する。
+
+    家具置き (_parse_item) は家具中心からのズレ dx/dy を読むが、床置きは
+    床 (z=0) の絶対座標 x/y を読む。x/y は必須なので辞書で書く必要がある。
+    """
+    return {
+        "object": item["object"],
+        "x": float(item["x"]),
+        "y": float(item["y"]),
+        "yaw": float(item.get("yaw", 0.0)),
+        "roll": float(item.get("roll", 0.0)),
+        "pitch": float(item.get("pitch", 0.0)),
+    }
+
+
 def apply_placements(
     world_file: str,
     drop_func: Callable[..., None],
@@ -266,6 +282,31 @@ def apply_placements(
                 placed += 1
             else:
                 failed.append(f"{furn_name}/{obj_name}")
+
+    # --- 床に直接置く物体 (家具ではなく world 座標を直接指定) ---
+    # placements は家具の天板に乗せるが、floor は床 (z=0) に絶対座標で置く。
+    # 例: floor: [{object: ..., x: 2.0, y: 1.0}]
+    floor_items = objects_cfg.get("floor") or []
+    for idx, raw in enumerate(floor_items):
+        it = _parse_floor_item(raw)
+        obj_name = it["object"]
+        wx, wy = it["x"], it["y"]
+        wz = clearance  # 床は z=0。drop_clearance だけ上から落として着地させる。
+
+        gazebo_name = f"floor__{obj_name}__{idx}"
+        requested += 1
+        result = drop_func(
+            gazebo_name,
+            obj_name,
+            wx, wy, wz,
+            yaw=it["yaw"],
+            roll=it["roll"],
+            pitch=it["pitch"],
+        )
+        if result:
+            placed += 1
+        else:
+            failed.append(f"floor/{obj_name}")
 
     log(f"placed {placed}/{requested} objects from {path}")
     if failed:

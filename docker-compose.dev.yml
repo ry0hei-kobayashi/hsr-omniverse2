@@ -24,7 +24,10 @@ services:
       - ${HOME}/datasets/HDRIs:/data/HDRIs:ro
       - /usr/share/nvidia/nvoptix.bin:/usr/share/nvidia/nvoptix.bin:ro
 
-      # 自作モデル (my_models) も live マウント (再ビルド無しで反映)。
+      # usd フォルダ全体を live マウント (再ビルド無しで反映)。
       # (相対パスは env_docker/ 基準なので ../usd = リポジトリ直下の usd)
-      # wrs_models はイメージに焼き込み済みなのでマウント不要。
-      - ../usd/my_models:/app/usd/my_models:ro
+      # my_models / rc26_practice_day_1 など、どのサブフォルダを増やしても
+      # ここを変えずに反映される。
+      # ※ ホスト側で wrs_models / hsrb サブモジュールが checkout 済みである必要あり
+      #   (イメージ内の焼き込み版をホスト版で上書きする形になる)。
+      - ../usd:/app/usd:ro

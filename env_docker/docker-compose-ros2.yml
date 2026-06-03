@@ -62,6 +62,13 @@ services:
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro
 
+      # usd フォルダ全体をホスト側から live マウントする。
+      # こうすると my_models / rc26_practice_day_1 など、どのサブフォルダに
+      # モデルを足しても再ビルド不要で反映される。
+      # (イメージにも ADD usd で焼き込み済みなので、マウントを外せばイメージ内が使われる)
+      # ※ ホスト側で wrs_models / hsrb サブモジュールが checkout 済みである必要あり。
+      - ../usd:/app/usd:ro
+
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
       # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
       - ../configs:/app/configs:ro
