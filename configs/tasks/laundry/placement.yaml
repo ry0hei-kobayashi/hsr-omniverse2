@@ -1,0 +1,118 @@
+# ============================================================
+# シーン初期配置 設定ファイル (placement.yaml)
+# ============================================================
+#
+# 「ロボット・物体・人」の最初の置き方を 1 つにまとめた設定ファイル。
+# 次の 3 セクションに分かれている:
+#   robot:    ロボット(HSR)の初期位置
+#   objects:  どの家具の上にどの物体を乗せるか
+#   people:   アニメーションする人の配置
+#
+# (部屋の見た目 = 床テクスチャ・背景・照明は別の dressing.yaml が担当する)
+#
+# 編集後の反映: make ros2 dev run
+#   (configs/ は bind mount なのでイメージのリビルドは不要)
+#
+# 読み込み側:
+#   robot   -> launch_isaacsim.py
+#   objects -> object_placement.py
+#   people  -> people_spawn.py
+
+
+# ============================================================
+# robot: ロボット(HSR)の初期スポーン位置
+# ============================================================
+#
+# Isaac Sim 起動時に HSR を置く位置と向き (map 座標 = world 座標)。
+#
+# 注意:
+#   env_furniture_*.yaml の operator_position は「人(オペレータ)」の位置で、
+#   ロボットの位置ではない。ロボットの初期位置はここで定義する。
+#
+# 座標:
+#   x, y : 水平位置 (m)。このアパートの範囲は X:0.40〜8.37, Y:-1.48〜5.15。
+#          床の上 (家具と重ならない場所) を指定すること。
+#   yaw  : 向き (rad)。0=+X方向, 1.57≈+Y, 3.14≈-X, -1.57≈-Y。
+#          ※ 人 (people) の yaw は「度」だが、ロボットは「ラジアン」なので注意。
+#
+# ※ 下の値は暫定 (アパート中央付近)。実際の開始位置に合わせて書き換えてください。
+
+robot:
+  x: 5.526
+  y: 5.521
+  yaw: -1.57
+
+
+# ============================================================
+# objects: 物体配置
+# ============================================================
+#
+# どの家具の上に、どの物体を乗せるかを指定する。
+# generate_wrs_task のランダム配置の代わりに使われる。
+#
+# 家具の名前: worlds/*.world の <include><name> と一致させること。
+#   例: sink, sofa, living_table, cabinet, shelf,
+#       dining_table, laundry_table, washing_machine
+#
+# 物体の名前: usd/wrs_models または usd/my_models のフォルダ名。
+#   例: ycb_011_banana, ycb_002_master_chef_can, my_object
+#   (フォルダ内に model.usd があるものだけ置ける)
+#
+# drop_clearance (物体を落とす高さの余白, m):
+#   家具の天板から、この高さだけ上に出してスポーンする。
+#   物理シミュレーションで自然に天板へ着地させるための余白。
+#   大きすぎると跳ねたり転がったりするので 0.02〜0.1 程度を推奨。
+#
+# placements (配置リスト) の書き方:
+#   placements:
+#     <家具名>:
+#       - <物体名>                      # 天板の中央に置く (一番簡単)
+#       - object: <物体名>              # オフセット等を細かく指定する書き方
+#         dx: 0.15                      # 天板中央からの横ズレ (家具のローカル座標, m)
+#         dy: -0.05                     # 同上 (奥行き方向)
+#         yaw: 0.3                      # 物体の向き (rad, 家具の向きに足される)
+#         roll: 0.0                     # 物体を倒すとき等 (rad, 省略可)
+#         pitch: 0.0                    # 同上 (rad, 省略可)
+#         tier: 1                       # 段番号 (0 = 一番下の段)。省略時は 0。
+#
+# 段 (tier) について:
+#   同じ位置に高さ違いの箱が積み重なっている家具 (cabinet, shelf など) は
+#   複数の段を持つ。tier で何段目に置くかを選べる。0 が一番下、上ほど大きい数字。
+#     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
+#   1 段だけの家具 (dining_table など) は tier を省略 (=0) すればよい。
+
+objects:
+  drop_clearance: 0.1
+
+  placements:
+    dining_table:
+      - ycb_011_banana
+      - object: ycb_002_master_chef_can
+        dx: 0.2
+        dy: -0.05
+      - led
+
+    living_table:
+      - object: ycb_005_tomato_soup_can
+        dx: -0.2
+      - object: ycb_017_orange
+        dx: 0.2
+
+    # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
+    cabinet:
+      - object: ycb_005_tomato_soup_can
+        tier: 0
+      - object: ycb_013_apple
+        tier: 1
+      - object: ycb_017_orange
+        tier: 2
+      - object: ycb_009_gelatin_box
+        tier: 3
+
+    # shelf は 2 段 (tier 0=下の段, 1=上の板)
+    shelf:
+      - object: ycb_002_master_chef_can
+        tier: 0
+      - object: ycb_011_banana
+        tier: 1
+    
