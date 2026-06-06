@@ -5,8 +5,9 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchContext, LaunchDescription
-from launch.actions import (DeclareLaunchArgument, GroupAction,
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, GroupAction,
                             IncludeLaunchDescription, OpaqueFunction)
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, SetParameter
@@ -27,6 +28,13 @@ def declare_arguments():
             'description_file',
             default_value='hsrb4s.urdf.xacro',
             description='URDF/XACRO description file with the robot.',
+        )
+    )
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'openmm_rgbd_compression',
+            default_value='true',
+            description='Publish OpenMM-compatible compressed RGB-D topics.',
         )
     )
     return declared_arguments
@@ -169,8 +177,31 @@ def generate_launch_description():
         ])
     )
 
+    launch_dir = os.path.dirname(os.path.abspath(__file__))
+    local_republisher = os.path.join(
+        os.path.dirname(launch_dir),
+        'scripts',
+        'openmm_rgbd_compression_republisher.py',
+    )
+    image_republisher_script = (
+        local_republisher
+        if os.path.exists(local_republisher)
+        else '/openmm_rgbd_compression_republisher.py'
+    )
+    openmm_rgbd_compression = ExecuteProcess(
+        cmd=[
+            'python3',
+            image_republisher_script,
+            '--ros-args',
+            '-p', 'use_sim_time:=true',
+        ],
+        output='screen',
+        condition=IfCondition(args['openmm_rgbd_compression']),
+    )
+
     nodes = [
         relay_node,
+        openmm_rgbd_compression,
         sensor_frames,
         joint_state_publisher,
         robot_state_publisher,
