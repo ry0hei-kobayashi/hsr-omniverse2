@@ -406,6 +406,10 @@ _num_people, _people_loop_start, _people_loop_end = people_spawn.spawn_people(
 # robot: セクションで定義する (robot/objects/people をまとめた設定ファイル)。
 # 注意: env_furniture の operator_position は「人」の位置であって、ロボットの位置ではない。
 _robot_spawn = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}  # 設定ファイルが無いときのフォールバック
+# どのロボットをスポーンするか (hsrb / hsrc_ex)。`make ros2 up robot=...` が渡す
+# 環境変数 ROBOT で指定する (下で反映)。未指定なら従来どおり hsrb。
+# placement.yaml では指定しない (位置 x/y/yaw のみ使う)。
+_robot_model = 'hsrb'
 # タスク個別の placement.yaml があればそれを優先 (無ければ共通の既定)。
 _spawn_candidates = ([_task_placement_path] if _task_placement_path else []) + [
     '/app/configs/placement.yaml',
@@ -415,7 +419,7 @@ _spawn_path = next((p for p in _spawn_candidates if os.path.exists(p)), None)
 if _spawn_path is not None:
     with open(_spawn_path) as _f:
         _cfg = yaml.safe_load(_f) or {}
-    _robot_cfg = _cfg.get('robot') or {}   # robot: セクションを取り出す
+    _robot_cfg = _cfg.get('robot') or {}   # robot: セクション (位置 x/y/yaw のみ使う)
     for _k in ('x', 'y', 'yaw'):
         if _robot_cfg.get(_k) is not None:
             try:
@@ -429,6 +433,13 @@ if _spawn_path is not None:
 else:
     print(f'[hsr] placement.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
 
+# どのロボットをスポーンするかは `make ros2 up robot=hsrb` が渡す環境変数 ROBOT で決める。
+# 優先順位: 環境変数 ROBOT > 既定 'hsrb'。
+_env_robot = os.environ.get('ROBOT', '').strip()
+if _env_robot:
+    _robot_model = _env_robot
+    print(f'[hsr] model=ROBOT={_env_robot} (make robot= で指定)')
+
 hsr_stage_path = '/hsrb'
 create_prim(
     prim_path=hsr_stage_path,
@@ -437,8 +448,16 @@ create_prim(
     orientation=euler_angles_to_quat([0, 0, _robot_spawn['yaw']]),
 )
 
-_hsr = hsr.hsr(stage_path=hsr_stage_path)
-model_names.append('hsrb')
+# model に応じてスポーンするクラスを切り替える。
+#   - hsrc_ex: 新ファイル hsr_hsrc_ex.py (hsr.hsr を継承し差分だけ上書き)
+#   - それ以外(既定): 従来の hsr.hsr (HSR-B)
+if _robot_model == 'hsrc_ex':
+    import hsr_hsrc_ex
+    print('[hsr] model=hsrc_ex を使用 (usd/hsrc/hsrc1s.usd)')
+    _hsr = hsr_hsrc_ex.hsr(stage_path=hsr_stage_path)
+else:
+    _hsr = hsr.hsr(stage_path=hsr_stage_path)
+model_names.append(_robot_model)
 
 if is_ros2:
     import std_msgs.msg
