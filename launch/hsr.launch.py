@@ -37,6 +37,16 @@ def declare_arguments():
             description='Publish OpenMM-compatible compressed RGB-D topics.',
         )
     )
+    # Isaac Sim 側 (この ros2 コンテナ) の MoveIt 付属 RViz2 を起動するか。
+    # 既定 false: ふだん RViz は別 (Singularity 側等) で立てるので二重起動を避ける。
+    # 立てたいときだけ `ros2 launch /hsr.launch.py use_rviz:=true`。
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_rviz',
+            default_value='false',
+            description='Launch the MoveIt RViz2 on the Isaac Sim (ros2 container) side.',
+        )
+    )
     return declared_arguments
 
 
@@ -146,7 +156,10 @@ def generate_launch_description():
                         'hsrb_demo.launch.py',
                     )
                 ]),
-                launch_arguments={'use_sim_time': 'true'}.items(),
+                launch_arguments={
+                    'use_sim_time': 'true',
+                    'use_rviz': LaunchConfiguration('use_rviz'),
+                }.items(),
             ),
         ]
     )
