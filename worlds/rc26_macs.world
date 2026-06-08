@@ -1,0 +1,374 @@
+<sdf version='1.7'>
+  <world name='default'>
+    <light name='sun' type='directional'>
+      <cast_shadows>1</cast_shadows>
+      <pose>0 0 10 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+    <model name='ground_plane'>
+      <static>1</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>65535</collide_bitmask>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>100</mu>
+                <mu2>50</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <cast_shadows>0</cast_shadows>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <physics type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>1</shadows>
+    </scene>
+    <wind/>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>0</latitude_deg>
+      <longitude_deg>0</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose>-2.70813 5.70495 19.0216 2e-06 1.5418 -1.5749</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+    <include>
+      <uri>model://unit_box</uri>
+      <name>bed</name>
+      <pose>4.28500 -2.08250 0.26000 0 0 0.01449</pose>
+      <scale>2.07 1.46 0.52</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>low_table</name>
+      <pose>0.96000 -2.27250 0.20000 0 0 2.40252</pose>
+      <scale>1.07 0.52 0.40</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>round_table</name>
+      <pose>6.90000 -2.04000 0.32500 0 0 0.00000</pose>
+      <scale>0.29 0.25 0.65</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_table</name>
+      <pose>1.42000 4.28500 0.36000 0 0 -3.11059</pose>
+      <scale>1.29 0.95 0.72</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>sofa</name>
+      <pose>4.17250 2.63000 0.20000 0 0 -3.10827</pose>
+      <scale>1.50 0.80 0.40</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>shelf</name>
+      <pose>5.60250 4.90250 0.72000 0 0 3.14159</pose>
+      <scale>0.85 0.66 1.44</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_table</name>
+      <pose>10.21750 4.88000 0.37500 0 0 1.58006</pose>
+      <scale>1.08 0.68 0.75</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>washing_machine</name>
+      <pose>14.14250 2.82500 0.20000 0 0 -1.55356</pose>
+      <scale>0.58 0.53 0.40</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>side_table</name>
+      <pose>7.96750 0.85250 0.35000 0 0 0.01667</pose>
+      <scale>0.60 0.47 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_table</name>
+      <pose>9.34750 -1.99250 0.35000 0 0 -0.01648</pose>
+      <scale>1.82 1.04 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>cabinet</name>
+      <pose>14.32750 -0.33500 0.73000 0 0 1.57080</pose>
+      <scale>0.80 0.28 1.46</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>virtual_barrier_exit_entrance</name>
+      <pose>-0.07500 1.67500 0.60000 0 0 0.00000</pose>
+      <scale>0.85 0.95 1.20</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_0_</name>
+      <pose>8.76500 1.45000 0.35000 0 0 0.00000</pose>
+      <scale>2.49 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_1_</name>
+      <pose>14.45000 -0.67500 0.35000 0 0 1.57080</pose>
+      <scale>4.25 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_2_</name>
+      <pose>10.98500 -2.80000 0.35000 0 0 0.00000</pose>
+      <scale>6.93 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_3_</name>
+      <pose>7.52000 -1.87000 0.35000 0 0 1.57080</pose>
+      <scale>1.86 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_4_</name>
+      <pose>7.52000 0.71500 0.35000 0 0 1.57080</pose>
+      <scale>1.47 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>dining_wall_5_</name>
+      <pose>12.72000 1.45000 0.35000 0 0 0.00000</pose>
+      <scale>3.46 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_0_</name>
+      <pose>0.36000 1.81500 0.35000 0 0 1.57080</pose>
+      <scale>1.41 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_1_</name>
+      <pose>3.83500 5.26000 0.35000 0 0 0.00000</pose>
+      <scale>6.95 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_2_</name>
+      <pose>7.31000 1.58500 0.35000 0 0 1.57080</pose>
+      <scale>0.95 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_3_</name>
+      <pose>1.74000 1.11000 0.35000 0 0 0.00000</pose>
+      <scale>2.76 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_4_</name>
+      <pose>5.91500 1.11000 0.35000 0 0 0.00000</pose>
+      <scale>2.79 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_5_</name>
+      <pose>7.31000 4.38500 0.35000 0 0 1.57080</pose>
+      <scale>1.75 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>living_wall_6_</name>
+      <pose>0.36000 4.29000 0.35000 0 0 1.57080</pose>
+      <scale>1.94 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_0_</name>
+      <pose>1.74000 0.95000 0.35000 0 0 0.00000</pose>
+      <scale>2.76 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_1_</name>
+      <pose>7.29000 -1.93000 0.35000 0 0 1.57080</pose>
+      <scale>1.98 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_2_</name>
+      <pose>3.82500 -2.92000 0.35000 0 0 0.00000</pose>
+      <scale>6.93 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_3_</name>
+      <pose>0.36000 -1.70500 0.35000 0 0 1.57080</pose>
+      <scale>2.43 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_4_</name>
+      <pose>0.36000 0.69000 0.35000 0 0 1.57080</pose>
+      <scale>0.52 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_5_</name>
+      <pose>5.90500 0.95000 0.35000 0 0 0.00000</pose>
+      <scale>2.77 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>kitchen_wall_6_</name>
+      <pose>7.29000 0.46500 0.35000 0 0 1.57080</pose>
+      <scale>0.97 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_0_</name>
+      <pose>8.77500 1.64000 0.35000 0 0 0.00000</pose>
+      <scale>2.47 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_1_</name>
+      <pose>7.54000 1.85000 0.35000 0 0 1.57080</pose>
+      <scale>0.42 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_2_</name>
+      <pose>11.00000 5.44000 0.35000 0 0 0.00000</pose>
+      <scale>6.92 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_3_</name>
+      <pose>14.46000 3.54000 0.35000 0 0 1.57080</pose>
+      <scale>3.80 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_4_</name>
+      <pose>12.72500 1.64000 0.35000 0 0 0.00000</pose>
+      <scale>3.47 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>laundry_room_wall_5_</name>
+      <pose>7.54000 4.47500 0.35000 0 0 1.57080</pose>
+      <scale>1.93 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_0_</name>
+      <pose>7.40500 -0.94000 0.35000 0 0 3.14159</pose>
+      <scale>0.23 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_1_</name>
+      <pose>7.40500 -0.02000 0.35000 0 0 3.14159</pose>
+      <scale>0.23 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_2_</name>
+      <pose>10.01000 1.54500 0.35000 0 0 1.57080</pose>
+      <scale>0.19 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_3_</name>
+      <pose>10.99000 1.54500 0.35000 0 0 1.57080</pose>
+      <scale>0.19 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_4_</name>
+      <pose>3.12000 1.03000 0.35000 0 0 -1.57080</pose>
+      <scale>0.16 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_5_</name>
+      <pose>4.52000 1.03000 0.35000 0 0 -1.57080</pose>
+      <scale>0.16 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_6_</name>
+      <pose>7.42500 2.06000 0.35000 0 0 0.00000</pose>
+      <scale>0.23 0.10 0.70</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>inter_room_wall_7_</name>
+      <pose>7.42500 3.51000 0.35000 0 0 0.00000</pose>
+      <scale>0.23 0.10 0.70</scale>
+    </include>
+  </world>
+</sdf>
