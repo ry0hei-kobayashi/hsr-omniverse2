@@ -98,73 +98,103 @@
       <uri>model://unit_box</uri>
       <name>bed</name>
       <pose>4.28500 -2.08250 0.26000 0 0 0.01449</pose>
-      <scale>2.07 1.46 0.52</scale>
+      <scale>2.07 1.46 0.52000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>low_table</name>
-      <pose>0.96000 -2.27250 0.20000 0 0 2.40252</pose>
-      <scale>1.07 0.52 0.40</scale>
+      <pose>0.96000 -2.27250 0.39000 0 0 2.40252</pose>
+      <scale>1.07 0.52 0.02000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>round_table</name>
-      <pose>6.90000 -2.04000 0.32500 0 0 0.00000</pose>
-      <scale>0.29 0.25 0.65</scale>
+      <pose>6.90000 -2.04000 0.64000 0 0 0.00000</pose>
+      <scale>0.29 0.25 0.02000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>living_table</name>
-      <pose>1.42000 4.28500 0.36000 0 0 -3.11059</pose>
-      <scale>1.29 0.95 0.72</scale>
+      <pose>1.42000 4.28500 0.71000 0 0 -3.11059</pose>
+      <scale>1.29 0.95 0.02000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>sofa</name>
       <pose>4.17250 2.63000 0.20000 0 0 -3.10827</pose>
-      <scale>1.50 0.80 0.40</scale>
+      <scale>1.50 0.80 0.40000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
-      <name>shelf</name>
-      <pose>5.60250 4.90250 0.72000 0 0 3.14159</pose>
-      <scale>0.85 0.66 1.44</scale>
+      <name>shelf_0</name>
+      <pose>5.60250 4.90250 0.41000 0 0 3.14159</pose>
+      <scale>0.85 0.66 0.82000</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>shelf_1</name>
+      <pose>5.60250 4.90250 1.08000 0 0 3.14159</pose>
+      <scale>0.85 0.66 0.02000</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>shelf_2</name>
+      <pose>5.60250 4.90250 1.43000 0 0 3.14159</pose>
+      <scale>0.85 0.66 0.02000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>laundry_table</name>
-      <pose>10.21750 4.88000 0.37500 0 0 1.58006</pose>
-      <scale>1.08 0.68 0.75</scale>
+      <pose>10.21750 4.88000 0.70000 0 0 1.58006</pose>
+      <scale>1.08 0.68 0.10000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>washing_machine</name>
       <pose>14.14250 2.82500 0.20000 0 0 -1.55356</pose>
-      <scale>0.58 0.53 0.40</scale>
+      <scale>0.58 0.53 0.40000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>side_table</name>
-      <pose>7.96750 0.85250 0.35000 0 0 0.01667</pose>
-      <scale>0.60 0.47 0.70</scale>
+      <pose>7.96750 0.85250 0.69000 0 0 0.01667</pose>
+      <scale>0.60 0.47 0.02000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>dining_table</name>
-      <pose>9.34750 -1.99250 0.35000 0 0 -0.01648</pose>
-      <scale>1.82 1.04 0.70</scale>
+      <pose>9.34750 -1.99250 0.68500 0 0 -0.01648</pose>
+      <scale>1.82 1.04 0.03000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
-      <name>cabinet</name>
-      <pose>14.32750 -0.33500 0.73000 0 0 1.57080</pose>
-      <scale>0.80 0.28 1.46</scale>
+      <name>cabinet_0</name>
+      <pose>14.32750 -0.33500 0.05000 0 0 1.57080</pose>
+      <scale>0.80 0.28 0.10000</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>cabinet_1</name>
+      <pose>14.32750 -0.33500 0.47000 0 0 1.57080</pose>
+      <scale>0.80 0.28 0.02000</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>cabinet_2</name>
+      <pose>14.32750 -0.33500 0.76000 0 0 1.57080</pose>
+      <scale>0.80 0.28 0.02000</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>cabinet_3</name>
+      <pose>14.32750 -0.33500 1.25000 0 0 1.57080</pose>
+      <scale>0.80 0.28 0.42000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
       <name>virtual_barrier_exit_entrance</name>
       <pose>-0.07500 1.67500 0.60000 0 0 0.00000</pose>
-      <scale>0.85 0.95 1.20</scale>
+      <scale>0.85 0.95 1.20000</scale>
     </include>
 <include>
       <uri>model://unit_box</uri>
