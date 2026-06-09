@@ -37,6 +37,17 @@ def declare_arguments():
             description='Publish OpenMM-compatible compressed RGB-D topics.',
         )
     )
+    # テレオペ "ロジック本体"(joystick_control + pseudo controllers)を Sim 側で起動するか。
+    # 既定 true: 実機ではこれらがロボットオンボードで常時動くため、その代わりである Sim
+    # 側で常時上げておく。前半(joy_node + teleop_steel_series)は Singularity 側 bringup の
+    # 担当なのでここには含めない。ジョイスティック不要のタスク等で切りたいときだけ false。
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_teleop',
+            default_value='true',
+            description='Launch joystick teleop logic (joystick_control + pseudo controllers).',
+        )
+    )
     return declared_arguments
 
 
@@ -177,6 +188,21 @@ def generate_launch_description():
         ])
     )
 
+    # テレオペ "ロジック本体"。同じ階層の teleop.launch.py を参照。
+    # (ros2 コンテナでは /hsr.launch.py と /teleop.launch.py が並んで配置される)
+    teleop = GroupAction(
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'teleop.launch.py')
+                ]),
+                launch_arguments={'use_sim_time': 'true'}.items(),
+            )
+        ],
+        condition=IfCondition(LaunchConfiguration('use_teleop')),
+    )
+
     launch_dir = os.path.dirname(os.path.abspath(__file__))
     local_republisher = os.path.join(
         os.path.dirname(launch_dir),
@@ -208,6 +234,7 @@ def generate_launch_description():
         common,
         moveit,
         odom,
+        teleop,
         # task_evaluators
     ]
 
