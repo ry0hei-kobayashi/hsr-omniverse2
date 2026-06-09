@@ -158,6 +158,7 @@ RUN curl -sSL https://github.com/hsr-project/hsrb_rosnav/raw/refs/heads/master/h
 RUN curl -sSL https://github.com/hsr-project/hsrb_rosnav/raw/refs/heads/master/hsrb_rosnav_config/maps/white_space/white_space.pgm -o /white_space.pgm
 
 ADD launch/hsr.launch.py /hsr.launch.py
+ADD launch/teleop.launch.py /teleop.launch.py
 ADD launch/hsrb_relay_topics.launch.xml /hsrb_relay_topics.launch.xml
 ADD launch/hsrb_sensor_frames.launch.xml /hsrb_sensor_frames.launch.xml
 ADD scripts/openmm_rgbd_compression_republisher.py /openmm_rgbd_compression_republisher.py
