@@ -38,8 +38,8 @@
 # ※ 下の値は暫定 (アパート中央付近)。実際の開始位置に合わせて書き換えてください。
 
 robot:
-  x: 5.526
-  y: 5.521
+  x: 0.0
+  y: 0.0
   yaw: -1.57
 
 
@@ -175,15 +175,4 @@ people:
     start: 1.0
     end:   2.0
 
-  list:
-    - name: person_idle
-      x: 6.8          # アパート中央付近 (床の上・家具と重ならない想定)
-      y: -0.0
-      yaw: 180         # +Y 方向を向く (度)
-      motion: stand_idle_loop   # その場で立つ
-
-    - name: person_wave
-      x: 3.5
-      y: -0.5
-      yaw: 180
-      motion: stand_idle_wave_loop   # 手を振る (手を上げっぱなしは loop_window で)
+  list: []

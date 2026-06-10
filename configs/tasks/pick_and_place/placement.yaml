@@ -38,9 +38,9 @@
 # ※ 下の値は暫定 (アパート中央付近)。実際の開始位置に合わせて書き換えてください。
 
 robot:
-  x: 5.526
-  y: 5.521
-  yaw: -1.57
+  x: 0.0
+  y: 0.0
+  yaw: 0.0
 
 
 # ============================================================
@@ -81,40 +81,106 @@ robot:
 #     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
 #   1 段だけの家具 (dining_table など) は tier を省略 (=0) すればよい。
 
+# rc26_macs
+# DiningTable：（皿，ナイフ，マグカップ）（Stackされている可能性あり），ゴミ，ゴミ以外のオブジェクト2つ
+# SideTable：CommonObject中の2つ（Red Bull can，Red Pringles can，Solved Rubik’s cube，Colgate toothpaste box）
+# Cabinet：ミルク，シリアルとランダムObject（DiningTableのゴミ以外のオブジェクトと同じカテゴリのオブジェクトを含む）
+# Kitchen：ゴミ箱（の近くにゴミ1つ），指定されたところにBowlとSpoon（今回はLow_tableの上に）
+#
+# この repo に実在する model.usd だけを使う。
+#   - Red Bull can / Red Pringles can は無いので YCB の缶で代替
+#   - Colgate toothpaste box は無いので配置しない
+#   - milk は無いので rc26_macs/water で代替
+#   - cereal は rc26_macs/Granola を使用
+
+
 objects:
   drop_clearance: 0.1
 
   placements:
     dining_table:
-      - object: rc26_practice_day_1/drink/apple_juice
+      # 皿・ナイフ・マグカップ。皿とナイフは同じ位置から落として stack 候補にする。
+      - object: ycb_029_plate
         dx: 0.0
-        dy: -0.2
+        dy: -0.18
+        tier: 0
 
-      - object: rc26_practice_day_1/drink/milk
+      - object: ycb_032_knife
         dx: 0.0
-        dy: 0.0
+        dy: -0.18
+        yaw: 1.57
+        tier: 0
+
+      - object: ycb_025_mug
+        dx: 0.18
+        dy: -0.18
+        tier: 0
+
+      # ゴミ
+      - object: rc26_macs/kitchen_tidy_bags
+        dx: -0.32
+        dy: 0.18
+        yaw: 0.4
+        tier: 0
+
+      # ゴミ以外のオブジェクト2つ
+      - object: rc26_macs/Curry_rice
+        dx: -0.18
+        dy: 0.16
+        tier: 0
+
+      - object: rc26_macs/Instant_udon
+        dx: 0.25
+        dy: 0.12
+        tier: 0
 
 
     side_table:
-      - object: rc26_practice_day_1/food/tuna_can
-        dx: -0.2
+      # CommonObject のうち実在する近い候補2つ:
+      #   Solved Rubik's cube -> ycb_077_rubiks_cube
+      #   Red can             -> ycb_005_tomato_soup_can
+      - object: ycb_077_rubiks_cube
+        dx: -0.16
         dy: 0.0
+        tier: 0
+
+      - object: ycb_005_tomato_soup_can
+        dx: 0.16
+        dy: 0.0
+        tier: 0
 
  
     # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
     cabinet:
-      - object: rc26_practice_day_1/misc/camera_box
+      # milk の代替
+      - object: rc26_macs/water
+        tier: 0
+        dx: -0.14
+        dy: 0.0
+
+      # cereal
+      - object: rc26_macs/Granola
+        tier: 1
+        dx: 0.12
+        dy: 0.0
+
+      # DiningTable の非ゴミ物体と同じ food カテゴリのランダム物体
+      - object: rc26_macs/Instant_ramen
+        tier: 2
+        dx: 0.0
+        dy: 0.0
+
+    # Kitchen: Bowl と Spoon を指定位置 (今回は low_table) に置く。
+    low_table:
+      - object: ycb_024_bowl
+        dx: -0.12
+        dy: 0.0
         tier: 0
 
-      - object: rc26_practice_day_1/misc/hikonyan
-        tier: 1
-        dx: 0.0
-        dy: -0.2
-
-
-    # shelf は 2 段 (tier 0=下の段, 1=上の板)
-    shelf:
-      - object: rc26_practice_day_1/snack/stroop_wafels
+      - object: ycb_031_spoon
+        dx: 0.12
+        dy: 0.0
+        yaw: 1.57
         tier: 0
 
 
@@ -130,15 +196,17 @@ objects:
   #   yaw / roll / pitch : 向き (rad, 省略可)。
   #   高さ z は床 (0) + drop_clearance で自動。tier は無い (床は 1 面だけ)。
   #
-  # ※ 下の座標は暫定。実際に開いている床の場所に合わせて調整してください。
-  # floor:
-  #   - object: ycb_011_banana
-  #     x: 4.0
-  #     y: 2.5
-  #   - object: rc26_practice_day_1/drink/led
-  #     x: 4.4
-  #     y: 2.5
-  #     yaw: 1.57
+  # Kitchen: ゴミ箱と、その近くにゴミ1つ。
+  floor:
+    - object: wrc_bin_black
+      x: 1.35
+      y: -1.55
+      yaw: 0.0
+
+    - object: rc26_macs/Food_wrap
+      x: 1.10
+      y: -1.55
+      yaw: 0.8
 
 
 # ============================================================
