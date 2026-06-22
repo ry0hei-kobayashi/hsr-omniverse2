@@ -58,6 +58,7 @@ services:
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
+      - ../scripts/hsr.py:/app/hsr.py:ro
       - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro
