@@ -1,0 +1,3218 @@
+<sdf version='1.7'>
+  <world name='default'>
+    <light name='sun' type='directional'>
+      <cast_shadows>1</cast_shadows>
+      <pose>0 0 10 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+    <model name='ground_plane'>
+      <static>1</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>65535</collide_bitmask>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>100</mu>
+                <mu2>50</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <cast_shadows>0</cast_shadows>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grey</name>
+            </script>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <physics type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>1</shadows>
+    </scene>
+    <wind/>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>0</latitude_deg>
+      <longitude_deg>0</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose>-2.70813 5.70495 19.0216 2e-06 1.5418 -1.5749</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+    <include>
+      <uri>model://unit_box</uri>
+      <name>map_box_0</name>
+      <pose>0.2325 6.4900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_1</name>
+      <pose>0.2575 6.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_2</name>
+      <pose>0.2075 6.3150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_3</name>
+      <pose>0.3075 6.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_4</name>
+      <pose>0.4075 6.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_5</name>
+      <pose>0.2575 6.3150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_6</name>
+      <pose>0.4575 6.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_7</name>
+      <pose>0.3575 6.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_8</name>
+      <pose>0.1575 6.2150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_9</name>
+      <pose>0.5075 6.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_10</name>
+      <pose>0.1575 6.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_11</name>
+      <pose>13.3575 5.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_12</name>
+      <pose>0.3575 5.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_13</name>
+      <pose>0.1825 5.8900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_14</name>
+      <pose>13.2075 5.8900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_15</name>
+      <pose>13.3075 5.7400 0.3500 0 0 0</pose>
+      <scale>0.050 0.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_16</name>
+      <pose>0.2075 4.9400 0.3500 0 0 0</pose>
+      <scale>0.050 1.750 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_17</name>
+      <pose>11.7575 5.6150 0.3500 0 0 0</pose>
+      <scale>0.050 0.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_18</name>
+      <pose>13.0825 5.7900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_19</name>
+      <pose>0.2575 5.7150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_20</name>
+      <pose>11.7075 5.7150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_21</name>
+      <pose>12.9325 5.7400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_22</name>
+      <pose>13.1075 5.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.600 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_23</name>
+      <pose>13.2325 5.6650 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_24</name>
+      <pose>11.8075 5.6900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_25</name>
+      <pose>12.9575 5.6650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_26</name>
+      <pose>8.3325 5.6400 0.3500 0 0 0</pose>
+      <scale>0.200 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_27</name>
+      <pose>10.4075 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_28</name>
+      <pose>11.1325 5.6400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_29</name>
+      <pose>11.2825 5.6400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_30</name>
+      <pose>11.4075 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_31</name>
+      <pose>11.6325 5.5400 0.3500 0 0 0</pose>
+      <scale>0.100 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_32</name>
+      <pose>11.8825 5.6400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_33</name>
+      <pose>12.8325 5.6150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_34</name>
+      <pose>13.0325 5.6150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_35</name>
+      <pose>13.1575 5.4150 0.3500 0 0 0</pose>
+      <scale>0.050 0.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_36</name>
+      <pose>13.4075 5.6400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_37</name>
+      <pose>8.3075 5.5900 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_38</name>
+      <pose>8.4825 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_39</name>
+      <pose>8.7575 5.5900 0.3500 0 0 0</pose>
+      <scale>0.250 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_40</name>
+      <pose>10.6825 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_41</name>
+      <pose>11.0325 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_42</name>
+      <pose>11.1575 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_43</name>
+      <pose>11.2575 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_44</name>
+      <pose>11.3575 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_45</name>
+      <pose>11.4825 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_46</name>
+      <pose>11.7075 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_47</name>
+      <pose>11.8075 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_48</name>
+      <pose>11.9075 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_49</name>
+      <pose>12.4575 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_50</name>
+      <pose>12.7325 5.5900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_51</name>
+      <pose>8.2075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.250 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_52</name>
+      <pose>8.6075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_53</name>
+      <pose>8.8825 5.4900 0.3500 0 0 0</pose>
+      <scale>0.300 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_54</name>
+      <pose>10.4575 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_55</name>
+      <pose>10.6075 5.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_56</name>
+      <pose>10.8575 5.4900 0.3500 0 0 0</pose>
+      <scale>0.250 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_57</name>
+      <pose>11.1075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_58</name>
+      <pose>11.2075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_59</name>
+      <pose>11.3075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_60</name>
+      <pose>11.5575 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_61</name>
+      <pose>11.8575 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_62</name>
+      <pose>11.9825 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_63</name>
+      <pose>12.2825 5.5150 0.3500 0 0 0</pose>
+      <scale>0.300 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_64</name>
+      <pose>12.5075 5.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_65</name>
+      <pose>12.6325 5.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_66</name>
+      <pose>12.8075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_67</name>
+      <pose>13.0075 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_68</name>
+      <pose>13.2075 5.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_69</name>
+      <pose>0.4575 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_70</name>
+      <pose>7.6575 5.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_71</name>
+      <pose>7.9325 5.4650 0.3500 0 0 0</pose>
+      <scale>0.300 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_72</name>
+      <pose>8.3825 5.4650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_73</name>
+      <pose>8.7075 5.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_74</name>
+      <pose>9.4575 5.4650 0.3500 0 0 0</pose>
+      <scale>0.850 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_75</name>
+      <pose>10.1575 5.4650 0.3500 0 0 0</pose>
+      <scale>0.450 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_76</name>
+      <pose>10.5325 5.4650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_77</name>
+      <pose>12.0825 5.4900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_78</name>
+      <pose>12.5575 5.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_79</name>
+      <pose>12.7325 5.4900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_80</name>
+      <pose>12.9075 5.4650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_81</name>
+      <pose>13.0575 5.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_82</name>
+      <pose>7.5575 5.4400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_83</name>
+      <pose>7.7325 5.4400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_84</name>
+      <pose>9.9075 5.4150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_85</name>
+      <pose>12.7575 5.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_86</name>
+      <pose>0.1075 5.3650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_87</name>
+      <pose>0.4575 5.3900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_88</name>
+      <pose>7.5825 5.3650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_89</name>
+      <pose>10.5575 5.3900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_90</name>
+      <pose>-0.0175 5.3400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_91</name>
+      <pose>0.2575 5.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_92</name>
+      <pose>13.0575 5.3150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_93</name>
+      <pose>0.0075 5.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_94</name>
+      <pose>0.1575 5.2150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_95</name>
+      <pose>6.9575 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_96</name>
+      <pose>7.5575 5.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_97</name>
+      <pose>-0.0425 5.2400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_98</name>
+      <pose>0.4575 5.1650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_99</name>
+      <pose>1.7825 5.2400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_100</name>
+      <pose>2.9075 5.2400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_101</name>
+      <pose>7.0075 5.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_102</name>
+      <pose>7.3575 5.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_103</name>
+      <pose>7.5075 5.2400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_104</name>
+      <pose>13.2075 5.2150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_105</name>
+      <pose>13.4325 5.2150 0.3500 0 0 0</pose>
+      <scale>0.300 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_106</name>
+      <pose>0.2575 4.2650 0.3500 0 0 0</pose>
+      <scale>0.050 1.900 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_107</name>
+      <pose>0.3575 5.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_108</name>
+      <pose>1.7575 5.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_109</name>
+      <pose>1.9075 5.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_110</name>
+      <pose>2.8575 5.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_111</name>
+      <pose>3.1325 5.1900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_112</name>
+      <pose>6.3825 5.1900 0.3500 0 0 0</pose>
+      <scale>1.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_113</name>
+      <pose>7.2575 5.1400 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_114</name>
+      <pose>13.2575 5.1900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_115</name>
+      <pose>13.6075 5.0650 0.3500 0 0 0</pose>
+      <scale>0.050 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_116</name>
+      <pose>0.0075 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_117</name>
+      <pose>0.4075 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_118</name>
+      <pose>0.5825 5.1150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_119</name>
+      <pose>1.8575 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_120</name>
+      <pose>2.9075 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_121</name>
+      <pose>3.0825 5.1400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_122</name>
+      <pose>3.2575 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_123</name>
+      <pose>3.3825 5.0650 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_124</name>
+      <pose>5.9575 5.1400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_125</name>
+      <pose>6.1075 5.1400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_126</name>
+      <pose>7.1325 5.0650 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_127</name>
+      <pose>7.4075 4.7400 0.3500 0 0 0</pose>
+      <scale>0.050 0.850 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_128</name>
+      <pose>7.5075 5.1150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_129</name>
+      <pose>13.5575 4.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.700 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_130</name>
+      <pose>0.5075 5.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_131</name>
+      <pose>1.2075 5.0650 0.3500 0 0 0</pose>
+      <scale>1.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_132</name>
+      <pose>2.9575 5.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_133</name>
+      <pose>3.0575 5.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_134</name>
+      <pose>3.4575 5.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_135</name>
+      <pose>3.6325 5.0400 0.3500 0 0 0</pose>
+      <scale>0.200 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_136</name>
+      <pose>5.9825 5.0650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_137</name>
+      <pose>7.0575 4.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_138</name>
+      <pose>7.4575 4.3150 0.3500 0 0 0</pose>
+      <scale>0.050 1.600 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_139</name>
+      <pose>-0.3425 5.0150 0.3500 0 0 0</pose>
+      <scale>0.250 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_140</name>
+      <pose>-0.0425 5.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_141</name>
+      <pose>0.1575 5.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_142</name>
+      <pose>2.3575 5.0400 0.3500 0 0 0</pose>
+      <scale>1.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_143</name>
+      <pose>3.0075 5.0150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_144</name>
+      <pose>3.1825 5.0150 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_145</name>
+      <pose>3.5075 5.0150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_146</name>
+      <pose>4.0075 5.0150 0.3500 0 0 0</pose>
+      <scale>0.550 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_147</name>
+      <pose>7.3075 4.2900 0.3500 0 0 0</pose>
+      <scale>0.050 1.550 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_148</name>
+      <pose>7.6075 4.9650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_149</name>
+      <pose>-0.1675 4.9650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_150</name>
+      <pose>0.0075 4.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_151</name>
+      <pose>2.7325 4.9900 0.3500 0 0 0</pose>
+      <scale>0.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_152</name>
+      <pose>3.3075 4.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_153</name>
+      <pose>4.7575 4.9650 0.3500 0 0 0</pose>
+      <scale>0.950 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_154</name>
+      <pose>6.0325 4.9650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_155</name>
+      <pose>7.5075 4.9650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_156</name>
+      <pose>-0.2425 4.9400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_157</name>
+      <pose>-0.0675 4.9150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_158</name>
+      <pose>0.1575 4.8650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_159</name>
+      <pose>4.2575 4.9400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_160</name>
+      <pose>7.1075 4.9400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_161</name>
+      <pose>7.2575 4.2400 0.3500 0 0 0</pose>
+      <scale>0.050 1.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_162</name>
+      <pose>-0.1425 4.8900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_163</name>
+      <pose>5.1825 4.7150 0.3500 0 0 0</pose>
+      <scale>0.100 0.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_164</name>
+      <pose>6.0575 4.7150 0.3500 0 0 0</pose>
+      <scale>0.050 0.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_165</name>
+      <pose>-0.0425 4.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_166</name>
+      <pose>14.2575 4.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_167</name>
+      <pose>6.1075 4.7900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_168</name>
+      <pose>13.6075 4.7650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_169</name>
+      <pose>5.3075 4.6900 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_170</name>
+      <pose>1.2325 4.6400 0.3500 0 0 0</pose>
+      <scale>0.200 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_171</name>
+      <pose>5.4575 4.5900 0.3500 0 0 0</pose>
+      <scale>0.250 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_172</name>
+      <pose>14.2075 4.5650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_173</name>
+      <pose>14.3575 4.5900 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_174</name>
+      <pose>1.2825 4.5900 0.3500 0 0 0</pose>
+      <scale>0.200 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_175</name>
+      <pose>1.8075 4.5900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_176</name>
+      <pose>5.2825 4.5650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_177</name>
+      <pose>5.8075 4.5650 0.3500 0 0 0</pose>
+      <scale>0.450 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_178</name>
+      <pose>13.5075 4.5900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_179</name>
+      <pose>14.2575 4.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_180</name>
+      <pose>0.1575 4.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_181</name>
+      <pose>1.3075 4.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_182</name>
+      <pose>1.9075 4.5400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_183</name>
+      <pose>13.6575 4.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_184</name>
+      <pose>13.9575 4.5150 0.3500 0 0 0</pose>
+      <scale>0.450 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_185</name>
+      <pose>14.4575 3.8400 0.3500 0 0 0</pose>
+      <scale>0.050 1.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_186</name>
+      <pose>0.1075 4.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_187</name>
+      <pose>1.9325 4.4900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_188</name>
+      <pose>13.6075 4.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_189</name>
+      <pose>13.7075 4.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_190</name>
+      <pose>14.3075 4.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_191</name>
+      <pose>14.4075 3.7900 0.3500 0 0 0</pose>
+      <scale>0.050 1.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_192</name>
+      <pose>14.3575 4.4150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_193</name>
+      <pose>9.8825 4.3150 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_194</name>
+      <pose>0.1075 3.9150 0.3500 0 0 0</pose>
+      <scale>0.050 0.900 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_195</name>
+      <pose>9.8075 4.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_196</name>
+      <pose>10.5075 4.2900 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_197</name>
+      <pose>9.9575 4.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_198</name>
+      <pose>10.6075 4.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_199</name>
+      <pose>7.4075 4.1650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_200</name>
+      <pose>1.1075 4.0150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_201</name>
+      <pose>0.3075 3.6900 0.3500 0 0 0</pose>
+      <scale>0.050 0.750 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_202</name>
+      <pose>1.0075 4.0400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_203</name>
+      <pose>1.0575 3.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_204</name>
+      <pose>1.1575 3.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_205</name>
+      <pose>1.6575 3.9650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_206</name>
+      <pose>1.7825 3.9400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_207</name>
+      <pose>1.7325 3.8900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_208</name>
+      <pose>7.3825 3.5150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_209</name>
+      <pose>0.1575 3.3650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_210</name>
+      <pose>13.9325 3.1150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_211</name>
+      <pose>13.8575 2.7900 0.3500 0 0 0</pose>
+      <scale>0.050 0.650 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_212</name>
+      <pose>14.1825 3.0900 0.3500 0 0 0</pose>
+      <scale>0.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_213</name>
+      <pose>13.9075 2.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_214</name>
+      <pose>3.8825 2.9650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_215</name>
+      <pose>4.4825 2.9650 0.3500 0 0 0</pose>
+      <scale>1.000 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_216</name>
+      <pose>13.8075 2.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_217</name>
+      <pose>3.6075 2.9400 0.3500 0 0 0</pose>
+      <scale>0.450 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_218</name>
+      <pose>3.9575 2.9400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_219</name>
+      <pose>3.4325 2.8900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_220</name>
+      <pose>4.8325 2.8900 0.3500 0 0 0</pose>
+      <scale>0.300 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_221</name>
+      <pose>3.0075 2.7900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_222</name>
+      <pose>3.3825 2.7900 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_223</name>
+      <pose>4.7075 2.8400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_224</name>
+      <pose>4.9325 2.5400 0.3500 0 0 0</pose>
+      <scale>0.100 0.650 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_225</name>
+      <pose>2.9575 2.7650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_226</name>
+      <pose>3.0575 2.7650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_227</name>
+      <pose>4.7825 2.7900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_228</name>
+      <pose>4.8575 2.7400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_229</name>
+      <pose>3.4075 2.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_230</name>
+      <pose>4.8075 2.6150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_231</name>
+      <pose>3.4575 2.6400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_232</name>
+      <pose>4.8575 2.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_233</name>
+      <pose>0.2075 2.5650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_234</name>
+      <pose>13.9575 2.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_235</name>
+      <pose>0.1575 2.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_236</name>
+      <pose>0.3075 2.5400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_237</name>
+      <pose>3.3575 2.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_238</name>
+      <pose>4.7575 2.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_239</name>
+      <pose>14.2325 2.5400 0.3500 0 0 0</pose>
+      <scale>0.500 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_240</name>
+      <pose>0.3325 1.7900 0.3500 0 0 0</pose>
+      <scale>0.100 1.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_241</name>
+      <pose>13.9075 2.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_242</name>
+      <pose>14.0575 2.4900 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_243</name>
+      <pose>14.2075 2.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_244</name>
+      <pose>14.4325 2.4400 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_245</name>
+      <pose>0.2075 1.7400 0.3500 0 0 0</pose>
+      <scale>0.050 1.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_246</name>
+      <pose>3.3575 2.3650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_247</name>
+      <pose>3.4575 2.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_248</name>
+      <pose>4.8075 2.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_249</name>
+      <pose>3.0825 2.3650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_250</name>
+      <pose>3.3075 2.3650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_251</name>
+      <pose>3.5075 2.3150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_252</name>
+      <pose>3.0075 2.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_253</name>
+      <pose>3.5575 2.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_254</name>
+      <pose>14.4575 1.9900 0.3500 0 0 0</pose>
+      <scale>0.050 0.750 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_255</name>
+      <pose>4.8575 2.2650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_256</name>
+      <pose>4.1825 2.2400 0.3500 0 0 0</pose>
+      <scale>1.300 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_257</name>
+      <pose>7.3575 2.0900 0.3500 0 0 0</pose>
+      <scale>0.250 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_258</name>
+      <pose>7.2825 1.5650 0.3500 0 0 0</pose>
+      <scale>0.100 1.000 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_259</name>
+      <pose>7.4575 2.0400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_260</name>
+      <pose>7.4825 1.7900 0.3500 0 0 0</pose>
+      <scale>0.100 0.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_261</name>
+      <pose>9.4075 1.6650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_262</name>
+      <pose>9.7575 1.6650 0.3500 0 0 0</pose>
+      <scale>0.550 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_263</name>
+      <pose>11.0575 1.6650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_264</name>
+      <pose>14.4075 1.6650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_265</name>
+      <pose>8.4575 1.6400 0.3500 0 0 0</pose>
+      <scale>1.850 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_266</name>
+      <pose>9.4575 1.6400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_267</name>
+      <pose>10.9575 1.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_268</name>
+      <pose>12.7575 1.6400 0.3500 0 0 0</pose>
+      <scale>3.250 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_269</name>
+      <pose>8.2325 1.5900 0.3500 0 0 0</pose>
+      <scale>1.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_270</name>
+      <pose>9.1075 1.5900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_271</name>
+      <pose>9.2075 1.5900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_272</name>
+      <pose>9.3075 1.5900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_273</name>
+      <pose>10.0325 1.5900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_274</name>
+      <pose>11.0075 1.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_275</name>
+      <pose>7.5575 1.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_276</name>
+      <pose>7.6575 1.5400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_277</name>
+      <pose>10.0075 1.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_278</name>
+      <pose>14.2075 1.5150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_279</name>
+      <pose>14.3825 1.5150 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_280</name>
+      <pose>7.5075 0.8400 0.3500 0 0 0</pose>
+      <scale>0.050 1.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_281</name>
+      <pose>7.6075 1.4650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_282</name>
+      <pose>8.8325 1.4650 0.3500 0 0 0</pose>
+      <scale>2.300 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_283</name>
+      <pose>12.6075 1.4900 0.3500 0 0 0</pose>
+      <scale>3.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_284</name>
+      <pose>14.2575 1.4900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_285</name>
+      <pose>14.5075 1.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_286</name>
+      <pose>7.4575 0.7150 0.3500 0 0 0</pose>
+      <scale>0.050 1.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_287</name>
+      <pose>7.6575 1.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_288</name>
+      <pose>12.4325 1.4400 0.3500 0 0 0</pose>
+      <scale>2.800 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_289</name>
+      <pose>14.4575 -0.5850 0.3500 0 0 0</pose>
+      <scale>0.050 4.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_290</name>
+      <pose>0.1575 1.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_291</name>
+      <pose>14.5075 1.2400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_292</name>
+      <pose>1.1075 1.1150 0.3500 0 0 0</pose>
+      <scale>1.450 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_293</name>
+      <pose>1.9075 1.1150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_294</name>
+      <pose>2.0825 1.1150 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_295</name>
+      <pose>2.2575 1.1150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_296</name>
+      <pose>2.6575 1.1150 0.3500 0 0 0</pose>
+      <scale>0.650 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_297</name>
+      <pose>5.6575 1.1150 0.3500 0 0 0</pose>
+      <scale>2.350 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_298</name>
+      <pose>1.8575 1.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_299</name>
+      <pose>1.9575 1.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_300</name>
+      <pose>2.2075 1.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_301</name>
+      <pose>2.3075 1.0900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_302</name>
+      <pose>3.0575 1.0900 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_303</name>
+      <pose>7.0325 1.0900 0.3500 0 0 0</pose>
+      <scale>0.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_304</name>
+      <pose>2.9575 1.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_305</name>
+      <pose>3.1325 0.9650 0.3500 0 0 0</pose>
+      <scale>0.100 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_306</name>
+      <pose>4.5325 0.9900 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_307</name>
+      <pose>14.5075 1.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_308</name>
+      <pose>0.4075 0.9650 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_309</name>
+      <pose>0.6575 0.9650 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_310</name>
+      <pose>0.2075 0.6900 0.3500 0 0 0</pose>
+      <scale>0.050 0.550 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_311</name>
+      <pose>0.3075 0.7900 0.3500 0 0 0</pose>
+      <scale>0.050 0.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_312</name>
+      <pose>0.5575 0.9400 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_313</name>
+      <pose>1.8825 0.9400 0.3500 0 0 0</pose>
+      <scale>2.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_314</name>
+      <pose>5.9575 0.9400 0.3500 0 0 0</pose>
+      <scale>2.750 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_315</name>
+      <pose>0.3575 0.6650 0.3500 0 0 0</pose>
+      <scale>0.050 0.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_316</name>
+      <pose>2.2825 0.8900 0.3500 0 0 0</pose>
+      <scale>1.600 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_317</name>
+      <pose>5.3825 0.8900 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_318</name>
+      <pose>5.8325 0.8900 0.3500 0 0 0</pose>
+      <scale>0.600 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_319</name>
+      <pose>6.2075 0.8900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_320</name>
+      <pose>6.8075 0.8900 0.3500 0 0 0</pose>
+      <scale>1.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_321</name>
+      <pose>6.9825 0.7900 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_322</name>
+      <pose>7.1575 0.8150 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_323</name>
+      <pose>7.2825 0.8150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_324</name>
+      <pose>7.5575 0.8400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_325</name>
+      <pose>6.6075 0.7900 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_326</name>
+      <pose>6.5825 0.7150 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_327</name>
+      <pose>7.3075 0.3650 0.3500 0 0 0</pose>
+      <scale>0.050 0.800 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_328</name>
+      <pose>6.9575 0.6900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_329</name>
+      <pose>7.2575 0.6900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_330</name>
+      <pose>0.2825 0.4650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_331</name>
+      <pose>7.0575 0.3650 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_332</name>
+      <pose>7.2575 0.4400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_333</name>
+      <pose>7.0075 0.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_334</name>
+      <pose>7.1075 0.3900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_335</name>
+      <pose>6.4575 0.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_336</name>
+      <pose>6.5825 0.2900 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_337</name>
+      <pose>14.5075 0.3400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_338</name>
+      <pose>6.5075 0.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_339</name>
+      <pose>7.2575 0.2900 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_340</name>
+      <pose>7.5075 0.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_341</name>
+      <pose>14.2825 0.0650 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_342</name>
+      <pose>7.2575 0.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_343</name>
+      <pose>14.2075 0.0400 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_344</name>
+      <pose>14.3825 0.0400 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_345</name>
+      <pose>7.3825 -0.0100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_346</name>
+      <pose>14.4075 -0.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_347</name>
+      <pose>0.3075 -0.4850 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_348</name>
+      <pose>0.2075 -0.6350 0.3500 0 0 0</pose>
+      <scale>0.050 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_349</name>
+      <pose>0.8325 -0.5350 0.3500 0 0 0</pose>
+      <scale>0.900 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_350</name>
+      <pose>0.3575 -1.5100 0.3500 0 0 0</pose>
+      <scale>0.050 1.950 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_351</name>
+      <pose>1.3075 -0.5600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_352</name>
+      <pose>14.4075 -0.5600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_353</name>
+      <pose>0.4075 -0.6100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_354</name>
+      <pose>1.2075 -0.6350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_355</name>
+      <pose>14.4075 -0.7100 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_356</name>
+      <pose>-0.4425 -0.8100 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_357</name>
+      <pose>14.2825 -0.7350 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_358</name>
+      <pose>-0.2925 -0.7850 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_359</name>
+      <pose>1.1075 -0.7600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_360</name>
+      <pose>14.5075 -1.6850 0.3500 0 0 0</pose>
+      <scale>0.050 1.900 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_361</name>
+      <pose>-0.3925 -0.8350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_362</name>
+      <pose>-0.2425 -0.8850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_363</name>
+      <pose>-0.2925 -0.9600 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_364</name>
+      <pose>0.2075 -0.9350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_365</name>
+      <pose>7.3825 -0.9350 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_366</name>
+      <pose>7.5075 -0.9600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_367</name>
+      <pose>-0.2425 -1.0350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_368</name>
+      <pose>7.3075 -1.6850 0.3500 0 0 0</pose>
+      <scale>0.050 1.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_369</name>
+      <pose>7.4575 -1.6850 0.3500 0 0 0</pose>
+      <scale>0.050 1.400 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_370</name>
+      <pose>0.2075 -1.0600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_371</name>
+      <pose>7.5075 -1.7100 0.3500 0 0 0</pose>
+      <scale>0.050 1.350 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_372</name>
+      <pose>-0.3425 -1.1100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_373</name>
+      <pose>-0.2425 -1.1600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_374</name>
+      <pose>0.2075 -1.2100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_375</name>
+      <pose>0.3075 -1.6350 0.3500 0 0 0</pose>
+      <scale>0.050 0.900 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_376</name>
+      <pose>0.2575 -1.2850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_377</name>
+      <pose>-0.3925 -1.3100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_378</name>
+      <pose>-0.3425 -1.3850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_379</name>
+      <pose>3.7325 -1.3850 0.3500 0 0 0</pose>
+      <scale>1.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_380</name>
+      <pose>4.3825 -1.3850 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_381</name>
+      <pose>4.5575 -1.3850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_382</name>
+      <pose>4.9825 -1.3850 0.3500 0 0 0</pose>
+      <scale>0.700 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_383</name>
+      <pose>0.2575 -1.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_384</name>
+      <pose>3.1575 -1.6850 0.3500 0 0 0</pose>
+      <scale>0.050 0.600 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_385</name>
+      <pose>4.3075 -1.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_386</name>
+      <pose>4.4825 -1.4100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_387</name>
+      <pose>4.6075 -1.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_388</name>
+      <pose>-0.4425 -1.5350 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_389</name>
+      <pose>3.2075 -2.0850 0.3500 0 0 0</pose>
+      <scale>0.050 1.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_390</name>
+      <pose>3.9075 -1.4600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_391</name>
+      <pose>5.3325 -1.8100 0.3500 0 0 0</pose>
+      <scale>0.100 0.750 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_392</name>
+      <pose>8.4075 -1.5850 0.3500 0 0 0</pose>
+      <scale>0.150 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_393</name>
+      <pose>10.2825 -1.6350 0.3500 0 0 0</pose>
+      <scale>0.100 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_394</name>
+      <pose>8.3075 -1.5850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_395</name>
+      <pose>10.2075 -2.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.950 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_396</name>
+      <pose>10.3575 -1.5600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_397</name>
+      <pose>0.2575 -1.6350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_398</name>
+      <pose>8.5075 -1.6600 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_399</name>
+      <pose>10.1575 -1.7350 0.3500 0 0 0</pose>
+      <scale>0.050 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_400</name>
+      <pose>-0.3925 -1.7100 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_401</name>
+      <pose>8.2575 -1.6600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_402</name>
+      <pose>-0.4425 -1.7100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_403</name>
+      <pose>-0.2425 -1.7350 0.3500 0 0 0</pose>
+      <scale>0.250 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_404</name>
+      <pose>7.3575 -1.7350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_405</name>
+      <pose>8.4325 -1.9850 0.3500 0 0 0</pose>
+      <scale>0.100 0.600 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_406</name>
+      <pose>-0.0925 -1.7850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_407</name>
+      <pose>0.7075 -1.7600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_408</name>
+      <pose>-0.2925 -1.8100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_409</name>
+      <pose>-0.1425 -1.8100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_410</name>
+      <pose>10.2575 -2.1600 0.3500 0 0 0</pose>
+      <scale>0.050 0.750 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_411</name>
+      <pose>0.4075 -1.8600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_412</name>
+      <pose>0.5575 -1.8850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_413</name>
+      <pose>7.3575 -2.1100 0.3500 0 0 0</pose>
+      <scale>0.050 0.550 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_414</name>
+      <pose>-0.0675 -1.9600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_415</name>
+      <pose>6.9075 -2.0100 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_416</name>
+      <pose>6.8075 -2.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_417</name>
+      <pose>-0.3425 -2.0600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_418</name>
+      <pose>0.4075 -2.0850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_419</name>
+      <pose>7.0075 -2.0850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_420</name>
+      <pose>-0.2675 -2.1100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_421</name>
+      <pose>6.9575 -2.1350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_422</name>
+      <pose>0.3075 -2.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.550 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_423</name>
+      <pose>10.1575 -2.1850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_424</name>
+      <pose>-0.0425 -2.2100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_425</name>
+      <pose>5.3825 -2.4100 0.3500 0 0 0</pose>
+      <scale>0.100 0.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_426</name>
+      <pose>7.0575 -2.3100 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_427</name>
+      <pose>10.3075 -2.3350 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_428</name>
+      <pose>-0.0425 -2.3600 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_429</name>
+      <pose>6.9075 -2.3350 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_430</name>
+      <pose>7.2075 -2.3350 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_431</name>
+      <pose>7.7325 -2.3350 0.3500 0 0 0</pose>
+      <scale>0.400 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_432</name>
+      <pose>8.4075 -2.3350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_433</name>
+      <pose>-0.3675 -2.3600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_434</name>
+      <pose>0.0575 -2.3850 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_435</name>
+      <pose>0.2575 -2.3850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_436</name>
+      <pose>-0.0925 -2.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_437</name>
+      <pose>0.1825 -2.4100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_438</name>
+      <pose>3.2575 -2.6350 0.3500 0 0 0</pose>
+      <scale>0.050 0.500 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_439</name>
+      <pose>6.8825 -2.5350 0.3500 0 0 0</pose>
+      <scale>0.100 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_440</name>
+      <pose>7.9325 -2.4100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_441</name>
+      <pose>1.4825 -2.4850 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_442</name>
+      <pose>7.8825 -2.4600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_443</name>
+      <pose>0.2575 -2.5850 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_444</name>
+      <pose>7.9075 -2.7100 0.3500 0 0 0</pose>
+      <scale>0.050 0.450 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_445</name>
+      <pose>1.4575 -2.5600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_446</name>
+      <pose>7.8575 -2.5600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_447</name>
+      <pose>8.0075 -2.6600 0.3500 0 0 0</pose>
+      <scale>0.150 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_448</name>
+      <pose>14.3325 -2.5850 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_449</name>
+      <pose>6.7325 -2.6350 0.3500 0 0 0</pose>
+      <scale>0.200 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_450</name>
+      <pose>8.1075 -2.6850 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_451</name>
+      <pose>0.3825 -2.6850 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_452</name>
+      <pose>1.3825 -2.6600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_453</name>
+      <pose>5.4075 -2.7350 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_454</name>
+      <pose>8.2325 -2.7350 0.3500 0 0 0</pose>
+      <scale>0.200 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_455</name>
+      <pose>14.3075 -2.6600 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_456</name>
+      <pose>0.5075 -2.7350 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_457</name>
+      <pose>6.6825 -2.7600 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_458</name>
+      <pose>7.8575 -2.7100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_459</name>
+      <pose>8.4575 -2.7350 0.3500 0 0 0</pose>
+      <scale>0.250 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_460</name>
+      <pose>11.4825 -2.7350 0.3500 0 0 0</pose>
+      <scale>0.700 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_461</name>
+      <pose>14.4075 -2.7600 0.3500 0 0 0</pose>
+      <scale>0.150 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_462</name>
+      <pose>0.3325 -2.7600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_463</name>
+      <pose>6.3575 -2.7600 0.3500 0 0 0</pose>
+      <scale>0.550 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_464</name>
+      <pose>9.8575 -2.7600 0.3500 0 0 0</pose>
+      <scale>2.550 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_465</name>
+      <pose>13.0825 -2.7850 0.3500 0 0 0</pose>
+      <scale>2.500 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_466</name>
+      <pose>0.5075 -2.8100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_467</name>
+      <pose>1.1575 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_468</name>
+      <pose>3.1825 -2.8350 0.3500 0 0 0</pose>
+      <scale>0.100 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_469</name>
+      <pose>5.9825 -2.8100 0.3500 0 0 0</pose>
+      <scale>1.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_470</name>
+      <pose>6.7575 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_471</name>
+      <pose>7.9825 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_472</name>
+      <pose>11.8075 -2.8350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_473</name>
+      <pose>0.4575 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_474</name>
+      <pose>1.1075 -2.8850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_475</name>
+      <pose>1.3075 -2.8850 0.3500 0 0 0</pose>
+      <scale>0.250 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_476</name>
+      <pose>1.8575 -2.8850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_477</name>
+      <pose>2.5575 -2.8600 0.3500 0 0 0</pose>
+      <scale>1.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_478</name>
+      <pose>6.7075 -2.8850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_479</name>
+      <pose>8.0575 -2.9600 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_480</name>
+      <pose>8.2575 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_481</name>
+      <pose>14.3575 -2.8600 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_482</name>
+      <pose>0.3575 -2.9350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_483</name>
+      <pose>0.8825 -2.9100 0.3500 0 0 0</pose>
+      <scale>0.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_484</name>
+      <pose>1.6325 -2.9100 0.3500 0 0 0</pose>
+      <scale>0.400 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_485</name>
+      <pose>2.3075 -2.9100 0.3500 0 0 0</pose>
+      <scale>0.850 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_486</name>
+      <pose>3.1575 -2.9100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_487</name>
+      <pose>8.2075 -2.9100 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_488</name>
+      <pose>14.4075 -2.9350 0.3500 0 0 0</pose>
+      <scale>0.150 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_489</name>
+      <pose>0.3075 -3.0850 0.3500 0 0 0</pose>
+      <scale>0.050 0.300 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_490</name>
+      <pose>0.6825 -2.9600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_491</name>
+      <pose>1.4575 -2.9600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_492</name>
+      <pose>7.9575 -2.9850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_493</name>
+      <pose>8.1575 -2.9600 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_494</name>
+      <pose>8.2575 -3.0600 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_495</name>
+      <pose>0.6575 -3.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_496</name>
+      <pose>6.7575 -3.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_497</name>
+      <pose>8.0075 -3.0350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_498</name>
+      <pose>8.1075 -3.0100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_499</name>
+      <pose>8.2075 -3.1100 0.3500 0 0 0</pose>
+      <scale>0.050 0.250 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_500</name>
+      <pose>14.4325 -3.0100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_501</name>
+      <pose>0.6075 -3.1100 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_502</name>
+      <pose>0.2575 -3.1100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_503</name>
+      <pose>0.5575 -3.1850 0.3500 0 0 0</pose>
+      <scale>0.050 0.200 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_504</name>
+      <pose>8.1075 -3.1350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_505</name>
+      <pose>8.3075 -3.1350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_506</name>
+      <pose>0.3825 -3.2100 0.3500 0 0 0</pose>
+      <scale>0.100 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_507</name>
+      <pose>0.5075 -3.2100 0.3500 0 0 0</pose>
+      <scale>0.050 0.150 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_508</name>
+      <pose>8.1575 -3.1850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_509</name>
+      <pose>0.4575 -3.2100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_510</name>
+      <pose>0.4825 -3.3600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_511</name>
+      <pose>0.4575 -3.4100 0.3500 0 0 0</pose>
+      <scale>0.050 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_512</name>
+      <pose>7.8575 -8.1850 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_513</name>
+      <pose>7.7825 -8.2100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_514</name>
+      <pose>7.9575 -8.2100 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_515</name>
+      <pose>7.9825 -8.2600 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_516</name>
+      <pose>8.2075 -8.7350 0.3500 0 0 0</pose>
+      <scale>0.050 0.100 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_517</name>
+      <pose>8.3825 -8.7100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_518</name>
+      <pose>8.1075 -8.7600 0.3500 0 0 0</pose>
+      <scale>0.150 0.050 0.700</scale>
+    </include>
+<include>
+      <uri>model://unit_box</uri>
+      <name>map_box_519</name>
+      <pose>8.2325 -9.0100 0.3500 0 0 0</pose>
+      <scale>0.100 0.050 0.700</scale>
+    </include>
+  </world>
+</sdf>
