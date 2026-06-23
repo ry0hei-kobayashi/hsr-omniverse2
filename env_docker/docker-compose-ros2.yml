@@ -64,6 +64,8 @@ services:
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
       - ../scripts/hsr.py:/app/hsr.py:ro
       - ../scripts/hsr_hsrc_ex.py:/app/hsr_hsrc_ex.py:ro
+      # ros2_bridge.py も live マウント (gripper preempt 修正等を再ビルド無しで反映)
+      - ../scripts/ros2_bridge.py:/app/ros2_bridge.py:ro
       - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro
