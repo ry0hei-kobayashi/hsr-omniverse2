@@ -1993,6 +1993,7 @@ class hsr:
 
         cmd = CartSpace()
         if self.odom_trajectory_action_server._action_goal is not None:
+            self._base_hold_pose = None  # 追従中はホールド解除
             self.odom_trajectory_action_server._odometry = self.odometry_estimator.pose
             cmd.dot_x = (
                 self.odom_trajectory_action_server._joints['odom_x']
@@ -2010,12 +2011,29 @@ class hsr:
             self.last_cmd_vel_time + 2.0 > self.simulation_context.current_time
             and self.cmd_vel_msg is not None
         ):
+            self._base_hold_pose = None  # 手動指令中はホールド解除
             ang = self.odometry_estimator.pose.ang + 0.5 * self.cmd_vel_msg.angular.z * dt
             cosr = math.cos(ang)
             sinr = math.sin(ang)
             cmd.dot_x = self.cmd_vel_msg.linear.x * cosr - self.cmd_vel_msg.linear.y * sinr
             cmd.dot_y = self.cmd_vel_msg.linear.x * sinr + self.cmd_vel_msg.linear.y * cosr
             cmd.dot_r = self.cmd_vel_msg.angular.z
+        else:
+            # 無指令: 現在位置を保持目標にして、ずれたら戻る (P制御)。速度0指令だけだと
+            # 車輪ドリフト/アーム反力で台車が漂う(実測: move_to_go後にゆっくり旋回)。
+            # ※真値odom(isaac4.5.0と競合)は入れず、台車ホールドのみ。
+            if getattr(self, '_base_hold_pose', None) is None:
+                self._base_hold_pose = (
+                    self.odometry_estimator.pose.x,
+                    self.odometry_estimator.pose.y,
+                    self.odometry_estimator.pose.ang,
+                )
+            hx, hy, ht = self._base_hold_pose
+            cmd.dot_x = hx - self.odometry_estimator.pose.x
+            cmd.dot_y = hy - self.odometry_estimator.pose.y
+            cmd.dot_r = math.atan2(
+                math.sin(ht - self.odometry_estimator.pose.ang),
+                math.cos(ht - self.odometry_estimator.pose.ang))
 
         relcmd = CartSpace()
         diff_r = cmd.dot_r * dt
