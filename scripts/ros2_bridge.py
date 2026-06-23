@@ -476,6 +476,9 @@ class RosControlFollowJointTrajectory(RosController):
 
             previous_point = self._action_goal.trajectory.points[self._action_point_index - 1]
             current_point = self._action_goal.trajectory.points[self._action_point_index]
+            if self._action_start_time is None:
+                # 開始時刻未設定のまま物理ステップが先行するレースのガード
+                self._action_start_time = self._node.get_clock().now().nanoseconds / 1e9
             time_passed = self._node.get_clock().now().nanoseconds / 1e9 - self._action_start_time
 
             # set target using linear interpolation
@@ -624,6 +627,7 @@ class RosControllerGripperCommand(RosController):
         # feedback / result
         self._action_result_message = None
         self._action_feedback_message = GripperCommand.Feedback()
+        self._action_type = GripperCommand  # サブクラスが実機の型に上書き可能
 
     def start(self, _articulation_path, _action_topic_name) -> None:
         """Start the action server
@@ -637,7 +641,7 @@ class RosControllerGripperCommand(RosController):
 
         # start action server
         self._action_server = ActionServer(self._node,
-                                           GripperCommand,
+                                           self._action_type,
                                            self.action_topic_name,
                                            execute_callback=self._on_execute,
                                            goal_callback=self._on_goal,
@@ -755,10 +759,9 @@ class RosControllerGripperCommand(RosController):
         :return: Whether the goal was accepted
         :rtype: rclpy.action.server.GoalResponse
         """
-        # reject if there is an active goal
+        # 以前のゴールが残っていても reject せず preempt (最新コマンド優先)
         if self._action_goal is not None:
-            print("[Warning][semu.robotics.ros2_bridge] RosControllerGripperCommand: multiple goals not supported")
-            return GoalResponse.REJECT
+            print("[Info][semu.robotics.ros2_bridge] RosControllerGripperCommand: preempting previous goal")
 
         # reset internal data
         self._action_goal = None
@@ -806,9 +809,10 @@ class RosControllerGripperCommand(RosController):
         self._action_goal_handle = goal_handle
         self._action_goal = goal_handle.request
         # wait for the goal to be executed
-        while self._action_result_message is None: 
+        while self._action_result_message is None:
             if self._action_goal is None:
-                return GripperCommand.Result()
+                # サーバのアクション型に合った Result を返す
+                return self._action_type.Result()
             time.sleep(self._action_dt)
         self._action_goal = None
         self._action_goal_handle = None
