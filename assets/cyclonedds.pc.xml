@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-
+<!-- 自動生成: scripts/gen_cyclonedds_pc.sh 192.168.0.10  (NIC=enp3s0) -->
 <CycloneDDS xmlns="https://cdds.io/config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd">
     <Domain Id="any">
         <General>
             <Interfaces>
-                <!-- TODO: Please configure settings according to your device (name="xxx"). -->
-                <!-- You can check it using the 'ip addr' command. -->
-                <NetworkInterface name="enx68da73a10903"/>
+                <NetworkInterface name="enp3s0"/>
             </Interfaces>
             <AllowMulticast>false</AllowMulticast>
             <EnableMulticastLoopback>false</EnableMulticastLoopback>
@@ -15,8 +13,8 @@
         </General>
         <Discovery>
             <Peers>
-                <Peer Address="localhost"/>  <!-- Necessary -->
-                <Peer Address="192.168.11.5"/>  <!-- TODO: IP address of the connecting robot -->
+                <Peer Address="localhost"/>
+                <Peer Address="192.168.0.10"/>
             </Peers>
             <ParticipantIndex>auto</ParticipantIndex>
             <MaxAutoParticipantIndex>100</MaxAutoParticipantIndex>
@@ -27,4 +25,3 @@
         </Internal>
     </Domain>
 </CycloneDDS>
-

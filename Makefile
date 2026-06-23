@@ -143,6 +143,13 @@ build:
 #   例: make ros2 up TASK=hri   (未指定なら configs 直下の既定)
 up:
 	TASK=$(TASK) ROBOT=$(ROBOT) $(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
+	@if [ "$(PC)" = "1" ] && [ -n "$(PEER)" ]; then \
+	  echo "[pc] cyclonedds.pc.xml を生成 (PEER=$(PEER))"; \
+	  ./scripts/gen_cyclonedds_pc.sh $(PEER); \
+	elif [ "$(PC)" = "1" ]; then \
+	  echo "[pc] PEER 未指定 → 既存の assets/cyclonedds.pc.xml を使用 (自動生成するなら: make ros2 up pc PEER=192.168.0.10)"; \
+	fi
+	TASK=$(TASK) $(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
 
 down:
 	$(COMPOSE) down

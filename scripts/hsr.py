@@ -1305,7 +1305,7 @@ class hsr:
             draw_points=False,
             draw_lines=True,
             horizontal_fov=240.0,
-            horizontal_resolution=1.0,
+            horizontal_resolution=0.25,
             rotation_rate=30,
             high_lod=False,
             yaw_offset=0.0,

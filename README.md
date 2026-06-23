@@ -79,6 +79,7 @@ make ros2 build               # 全イメージをビルド
 make ros2 up                  # standalone モード起動 (host ローカル、ROS_DOMAIN_ID=0)
 make ros2 up pc               # PC モード (CycloneDDS PC + ROS_DOMAIN_ID=55)
 ROS_DOMAIN_ID=49 make ros2 up pc  # Domain ID を上書き
+ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
 make ros2 down                # 停止
 make ros2 ps                  # コンテナ状態
 make ros2 ros                 # ros2 コンテナで bash
@@ -136,17 +137,37 @@ ros2 topic echo /scan --once    # 中身を 1 件だけ見る
 
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
-別マシンの ROS 2 (例: HSR 実機) と通信したい場合は `make ros2 up pc` を使います (ROS1 と組み合わせるとエラー)。事前に `assets/cyclonedds.pc.xml` を環境に合わせて編集してください:
+別マシンの ROS 2 (例: HSR 実機 / Singularity を入れた操作用ラップトップ) と通信したい場合は
+`make ros2 up pc` を使います (ROS1 と組み合わせるとエラー)。
 
-- `<NetworkInterface name="..."/>` をホストの NIC 名に (`ip -br addr` で確認)
-- `<Peer Address="192.168.11.5"/>` を相手 (ロボット/PC) の IP に
+**相手 IP を `PEER=` で渡すと `assets/cyclonedds.pc.xml` を自動生成します**(NIC 名は相手と同じ
+サブネットから自動判定。手編集不要):
 
 ```bash
-make ros2 up pc                       # ROS_DOMAIN_ID=55 (Makefile デフォルト)
-ROS_DOMAIN_ID=49 make ros2 up pc      # Domain ID を上書き
+ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10        # 相手1台
+ROS_DOMAIN_ID=26 make ros2 up pc PEER="192.168.0.10 192.168.0.11"  # 複数台
 ```
 
-`pc` 修飾子は `CYCLONEDDS_URI=file:///cyclonedds.pc.xml` と `ROS_DOMAIN_ID` を export して compose を起動します。`assets/cyclonedds.pc.xml` は常時 bind mount されているのでイメージのリビルドは不要です。
+- `PEER=` を付けると起動前に `scripts/gen_cyclonedds_pc.sh` が走り、自分の NIC を自動判定して
+  `assets/cyclonedds.pc.xml` を書き出します。NIC を明示したいときは `ISAAC_NIC=enp3s0` を併用。
+- `PEER=` を省くと既存の `assets/cyclonedds.pc.xml` をそのまま使います。
+- 手動生成だけしたいとき: `./scripts/gen_cyclonedds_pc.sh 192.168.0.10`
+- 生成される `assets/cyclonedds.pc.xml` は**環境依存**です(git では変更扱いになるのでコミットしない)。
+
+`pc` 修飾子は `CYCLONEDDS_URI=file:///cyclonedds.pc.xml` と `ROS_DOMAIN_ID` を export して compose を
+起動します。`assets/cyclonedds.pc.xml` は常時 bind mount されているのでイメージのリビルドは不要です。
+
+> **ROS_DOMAIN_ID は両 PC で必ず揃える**こと。`pc` の Makefile 既定は 55 ですが、操作側
+> (Singularity の `5d_isaac_sim_mode.sh`) が 26 を使う場合は、Sim 側も `ROS_DOMAIN_ID=26` を付けて
+> 揃えます。ずれると一切つながりません。
+
+#### 相手がジョイスティック操作用ラップトップ (Singularity) の場合
+
+役割分担は実機と同じで、Sim 側 (この ros2 コンテナ) がロボット本体の代わりにテレオペ
+"ロジック本体"(`hsr.launch.py` の `use_teleop`、既定 ON) を動かし、ラップトップ側は通常の
+bringup(joy_node + teleop 並べ替え)を動かして `/joy` を送ります。ラップトップ側は
+`. 5d_isaac_sim_mode.sh --network <この PC の IP>` で domain/peer/NIC が自動設定されます
+(NIC は同サブネットから自動判定、`ip` が無い環境でも python3 でフォールバック)。
 
 ---
 
