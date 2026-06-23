@@ -45,6 +45,8 @@ def declare_arguments():
             'use_rviz',
             default_value='false',
             description='Launch the MoveIt RViz2 on the Isaac Sim (ros2 container) side.',
+        )
+    )
     # テレオペ "ロジック本体"(joystick_control + pseudo controllers)を Sim 側で起動するか。
     # 既定 true: 実機ではこれらがロボットオンボードで常時動くため、その代わりである Sim
     # 側で常時上げておく。前半(joy_node + teleop_steel_series)は Singularity 側 bringup の
