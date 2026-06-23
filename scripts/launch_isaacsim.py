@@ -153,6 +153,12 @@ model_root = os.path.join(repo_root, 'usd', 'wrs_models')
 if not os.path.exists(model_root):
     model_root = '/app/usd/wrs_models'
 
+# 自作モデル (my_models / rc26_practice_day_1 など) を読み込み時に剛体化したとき
+# に付ける「既定の質量 (kg)」。YCB は 1 つずつ実測値が入っているが、自作モデルは
+# 値が無いので一律この既定値を入れる (PhysX 任せの自動推定だと密度×体積で大きく
+# ブレるため)。個別の正確な値が必要になったら、後でモデルごとに調整する。
+DEFAULT_OBJECT_MASS_KG = 0.2
+
 # ============================================================
 # タスク選択 (TASK 環境変数)
 # ============================================================
@@ -302,6 +308,20 @@ def _subtree_has_rigid_body(prim):
     return False
 
 
+def _ensure_default_mass(prim, mass_kg=DEFAULT_OBJECT_MASS_KG):
+    """剛体 prim に質量がまだ無ければ既定値を入れる。
+
+    setRigidBody だけだと質量が未指定で、PhysX が「密度 × 当たり判定の体積」から
+    自動推定する。これはモデルの大きさで大きくブレるため、自作モデルには一律の
+    既定質量 (DEFAULT_OBJECT_MASS_KG) を入れて把持挙動を安定させる。
+    既に質量が書かれていれば (YCB など) 触らない。
+    """
+    mass_api = UsdPhysics.MassAPI.Apply(prim)
+    mass_attr = mass_api.GetMassAttr()
+    if not mass_attr or not mass_attr.HasAuthoredValue() or not mass_attr.Get():
+        mass_api.CreateMassAttr(float(mass_kg))
+
+
 def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
     # USD の prim パスは "/" が階層区切りになるため、name に相対パス
@@ -360,7 +380,11 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     if not _subtree_has_rigid_body(dropped_prim):
         # convexHull = 物体の外形を凸形状で近似した当たり判定。
         # (動く物体の標準。三角メッシュ 'none' は静止物専用で落下に使えない)
+        # これで YCB と同じ「剛体 + convexHull の当たり判定」が読み込み時に
+        # 自動で付くので、自作モデルの model.usd を手作業で編集しなくてよい。
         physx_utils.setRigidBody(dropped_prim, 'convexHull', False)
+        # 質量も既定値を入れて YCB 相当の構成にする (上のコメント参照)。
+        _ensure_default_mass(dropped_prim)
 
     # 物体に ArticulationRootAPI が付いていると PhysX が「アーティキュレーション」として
     # 扱い、ロボット(別アーティキュレーション)と衝突しなくなる(静的な机/床とは衝突するが、
