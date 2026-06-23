@@ -43,7 +43,6 @@ from tmc_wrs_gazebo_worlds import randomizer
 
 import hsr
 import construct_environment
-import convert_object_to_ycb_physics
 import object_placement
 import people_spawn
 
@@ -149,6 +148,11 @@ ground_prim.apply_physics_material(
     floor_material, weaker_than_descendants=True)
 
 model_names = []
+# 生オブジェクト(物理を持たない自作モデル)に drop_object で剛体を付けた prim パス。
+# 剛体が spawn root に付き /body プリムにならないため、[recol] の /body 判定では
+# 拾えない。ここに記録しておき、recol で同じ実行時メンテナンス(collider 再登録)を
+# 適用してロボットがすり抜けないようにする。
+_runtime_rigid_object_paths = []
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model_root = os.path.join(repo_root, 'usd', 'wrs_models')
 if not os.path.exists(model_root):
@@ -349,17 +353,6 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
         print(f'Model not found for {name}: tried {model_candidates}')
         return None
 
-    # placement で出す物体に、YCB と同じ物理構造(body / body/visuals / body/collisions,
-    # convexHull, 既定質量)を「参照する前」に自動付与する。生スキャン(ObjectCapture /
-    # Scaniverse 等)の model.usd を 1 回だけ書き換える(2 回目以降は冪等でスキップ)。
-    # 既に剛体 + 当たり判定を持つ物体(YCB / 変換済み)は convert() 側でスキップされる。
-    try:
-        _conv_msg = convert_object_to_ycb_physics.convert(
-            model_path, mass_kg=DEFAULT_OBJECT_MASS_KG)
-        print(f'[obj-convert] {_conv_msg}', flush=True)
-    except Exception as _conv_e:
-        print(f'[obj-convert] FAILED {name}: {_conv_e!r}', flush=True)
-
     create_prim(
         prim_path=stage_path,
         prim_type='Xform',
@@ -398,6 +391,8 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
         physx_utils.setRigidBody(dropped_prim, 'convexHull', False)
         # 質量も既定値を入れて YCB 相当の構成にする (上のコメント参照)。
         _ensure_default_mass(dropped_prim)
+        # 剛体は spawn root に付き /body にはならないので、[recol] が拾えるように記録する。
+        _runtime_rigid_object_paths.append(stage_path)
 
     # 物体に ArticulationRootAPI が付いていると PhysX が「アーティキュレーション」として
     # 扱い、ロボット(別アーティキュレーション)と衝突しなくなる(静的な机/床とは衝突するが、
@@ -651,6 +646,9 @@ def get_xform(stage, model_name):
         prim = stage.GetPrimAtPath(f'/{name}/link')
         if not prim.IsValid():
             prim = stage.GetPrimAtPath(f'/{name}/body')
+        if not prim.IsValid() and f'/{name}' in _runtime_rigid_object_paths:
+            # 生オブジェクト: 剛体は /body ではなく spawn root に付く。
+            prim = stage.GetPrimAtPath(f'/{name}')
         if not prim.IsValid():
             prim = stage.GetPrimAtPath(f'/{name}/hsrb/base_footprint')
         return UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
@@ -779,7 +777,10 @@ while kit.is_running():
                 _ps = str(_p.GetPath())
                 if _ps.startswith('/hsrb'):
                     continue
-                if _ps.endswith('/body') and _p.HasAPI(_UP3.RigidBodyAPI):
+                # /body (YCB/焼き込み) と、生オブジェクトの spawn root
+                # (_runtime_rigid_object_paths に記録) の両方を再登録対象にする。
+                if _p.HasAPI(_UP3.RigidBodyAPI) and (
+                        _ps.endswith('/body') or _ps in _runtime_rigid_object_paths):
                     try:
                         from pxr import PhysxSchema as _PX3
                         # 再登録前の質量を読む(再登録で 0 にリセットされ浮くのを防ぐため)
@@ -817,7 +818,9 @@ while kit.is_running():
                 _opaths = []
                 for _p in _st5.Traverse():
                     _pp = str(_p.GetPath())
-                    if (not _pp.startswith('/hsrb')) and _pp.endswith('/body') and _p.HasAPI(_UP5.RigidBodyAPI):
+                    # /body (YCB/焼き込み) と生オブジェクトの spawn root の両方を wake 対象に。
+                    if (not _pp.startswith('/hsrb')) and _p.HasAPI(_UP5.RigidBodyAPI) and (
+                            _pp.endswith('/body') or _pp in _runtime_rigid_object_paths):
                         _opaths.append(_pp)
                 globals()['_obj_body_paths'] = _opaths
             for _op in _opaths:
