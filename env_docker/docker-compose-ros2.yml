@@ -22,6 +22,7 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
+      - ../launch/hsr.launch.py:/hsr.launch.py:ro
     security_opt:
       - seccomp:unconfined
   cacheproxy:
@@ -53,12 +54,18 @@ services:
       # 起動するタスク (configs/tasks/<TASK>/)。`make ros2 up TASK=hri` で渡る。
       # 未指定なら空 → launch_isaacsim.py は configs 直下の既定で起動。
       - TASK=${TASK:-}
+      # スポーンするロボット。`make ros2 up robot=hsrb` で渡る。
+      # 未指定なら空 → launch_isaacsim.py は placement.yaml の robot.model を使う。
+      - ROBOT=${ROBOT:-}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
       - ../scripts/hsr.py:/app/hsr.py:ro
+      - ../scripts/hsr_hsrc_ex.py:/app/hsr_hsrc_ex.py:ro
+      # ros2_bridge.py も live マウント (gripper preempt 修正等を再ビルド無しで反映)
+      - ../scripts/ros2_bridge.py:/app/ros2_bridge.py:ro
       - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../worlds:/app/worlds:ro

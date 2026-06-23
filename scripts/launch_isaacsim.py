@@ -153,6 +153,12 @@ model_root = os.path.join(repo_root, 'usd', 'wrs_models')
 if not os.path.exists(model_root):
     model_root = '/app/usd/wrs_models'
 
+# 自作モデル (my_models / rc26_practice_day_1 など) を読み込み時に剛体化したとき
+# に付ける「既定の質量 (kg)」。YCB は 1 つずつ実測値が入っているが、自作モデルは
+# 値が無いので一律この既定値を入れる (PhysX 任せの自動推定だと密度×体積で大きく
+# ブレるため)。個別の正確な値が必要になったら、後でモデルごとに調整する。
+DEFAULT_OBJECT_MASS_KG = 0.2
+
 # ============================================================
 # タスク選択 (TASK 環境変数)
 # ============================================================
@@ -302,6 +308,20 @@ def _subtree_has_rigid_body(prim):
     return False
 
 
+def _ensure_default_mass(prim, mass_kg=DEFAULT_OBJECT_MASS_KG):
+    """剛体 prim に質量がまだ無ければ既定値を入れる。
+
+    setRigidBody だけだと質量が未指定で、PhysX が「密度 × 当たり判定の体積」から
+    自動推定する。これはモデルの大きさで大きくブレるため、自作モデルには一律の
+    既定質量 (DEFAULT_OBJECT_MASS_KG) を入れて把持挙動を安定させる。
+    既に質量が書かれていれば (YCB など) 触らない。
+    """
+    mass_api = UsdPhysics.MassAPI.Apply(prim)
+    mass_attr = mass_api.GetMassAttr()
+    if not mass_attr or not mass_attr.HasAuthoredValue() or not mass_attr.Get():
+        mass_api.CreateMassAttr(float(mass_kg))
+
+
 def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     global model_names
     # USD の prim パスは "/" が階層区切りになるため、name に相対パス
@@ -360,7 +380,26 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     if not _subtree_has_rigid_body(dropped_prim):
         # convexHull = 物体の外形を凸形状で近似した当たり判定。
         # (動く物体の標準。三角メッシュ 'none' は静止物専用で落下に使えない)
+        # これで YCB と同じ「剛体 + convexHull の当たり判定」が読み込み時に
+        # 自動で付くので、自作モデルの model.usd を手作業で編集しなくてよい。
         physx_utils.setRigidBody(dropped_prim, 'convexHull', False)
+        # 質量も既定値を入れて YCB 相当の構成にする (上のコメント参照)。
+        _ensure_default_mass(dropped_prim)
+
+    # 物体に ArticulationRootAPI が付いていると PhysX が「アーティキュレーション」として
+    # 扱い、ロボット(別アーティキュレーション)と衝突しなくなる(静的な机/床とは衝突するが、
+    # 腕が全部すり抜ける)。YCB の model.usd にこれが入っているため、ここで除去して
+    # 物体を単なる剛体に戻す。これでロボットの指/腕が物体に当たるようになる。
+    try:
+        from pxr import PhysxSchema as _PXS
+        for _op in Usd.PrimRange(dropped_prim):
+            if _op.HasAPI(UsdPhysics.ArticulationRootAPI):
+                _op.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+                print('[obj-fix] removed ArticulationRootAPI from %s' % _op.GetPath(), flush=True)
+            if _op.HasAPI(_PXS.PhysxArticulationAPI):
+                _op.RemoveAPI(_PXS.PhysxArticulationAPI)
+    except Exception as _e:
+        print('[obj-fix] err %r' % _e, flush=True)
 
     model_names.append(gazebo_name)
     return model_path
@@ -406,6 +445,10 @@ _num_people, _people_loop_start, _people_loop_end = people_spawn.spawn_people(
 # robot: セクションで定義する (robot/objects/people をまとめた設定ファイル)。
 # 注意: env_furniture の operator_position は「人」の位置であって、ロボットの位置ではない。
 _robot_spawn = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}  # 設定ファイルが無いときのフォールバック
+# どのロボットをスポーンするか (hsrb / hsrc_ex)。`make ros2 up robot=...` が渡す
+# 環境変数 ROBOT で指定する (下で反映)。未指定なら従来どおり hsrb。
+# placement.yaml では指定しない (位置 x/y/yaw のみ使う)。
+_robot_model = 'hsrb'
 # タスク個別の placement.yaml があればそれを優先 (無ければ共通の既定)。
 _spawn_candidates = ([_task_placement_path] if _task_placement_path else []) + [
     '/app/configs/placement.yaml',
@@ -415,7 +458,7 @@ _spawn_path = next((p for p in _spawn_candidates if os.path.exists(p)), None)
 if _spawn_path is not None:
     with open(_spawn_path) as _f:
         _cfg = yaml.safe_load(_f) or {}
-    _robot_cfg = _cfg.get('robot') or {}   # robot: セクションを取り出す
+    _robot_cfg = _cfg.get('robot') or {}   # robot: セクション (位置 x/y/yaw のみ使う)
     for _k in ('x', 'y', 'yaw'):
         if _robot_cfg.get(_k) is not None:
             try:
@@ -429,6 +472,13 @@ if _spawn_path is not None:
 else:
     print(f'[hsr] placement.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
 
+# どのロボットをスポーンするかは `make ros2 up robot=hsrb` が渡す環境変数 ROBOT で決める。
+# 優先順位: 環境変数 ROBOT > 既定 'hsrb'。
+_env_robot = os.environ.get('ROBOT', '').strip()
+if _env_robot:
+    _robot_model = _env_robot
+    print(f'[hsr] model=ROBOT={_env_robot} (make robot= で指定)')
+
 hsr_stage_path = '/hsrb'
 create_prim(
     prim_path=hsr_stage_path,
@@ -437,8 +487,16 @@ create_prim(
     orientation=euler_angles_to_quat([0, 0, _robot_spawn['yaw']]),
 )
 
-_hsr = hsr.hsr(stage_path=hsr_stage_path)
-model_names.append('hsrb')
+# model に応じてスポーンするクラスを切り替える。
+#   - hsrc_ex: 新ファイル hsr_hsrc_ex.py (hsr.hsr を継承し差分だけ上書き)
+#   - それ以外(既定): 従来の hsr.hsr (HSR-B)
+if _robot_model == 'hsrc_ex':
+    import hsr_hsrc_ex
+    print('[hsr] model=hsrc_ex を使用 (usd/hsrc/hsrc1s.usd)')
+    _hsr = hsr_hsrc_ex.hsr(stage_path=hsr_stage_path)
+else:
+    _hsr = hsr.hsr(stage_path=hsr_stage_path)
+model_names.append(_robot_model)
 
 if is_ros2:
     import std_msgs.msg
@@ -508,6 +566,12 @@ _contact_report_event_sub = get_physx_simulation_interface().subscribe_contact_r
 # Start simulation
 kit.update()
 simulation_context = SimulationContext(stage_units_in_meters=1.0)
+# [usdsync] 物理結果を USD にも毎フレーム書き戻す設定。
+#   既定(False)では物理は Fabric(描画用の速いメモリ)だけに書かれ、USD はスポーン時の値で
+#   凍結する→ギズモ/Property の数値だけが置いてけぼりになり「見た目と数値がズレる」。
+#   True にすると物理位置が USD にも反映され、見た目・当たり判定・物理・ギズモが常に同じ位置に
+#   そろう(数値も生の物理に追従)。代償は毎フレームの USD 書き込みでわずかに描画が重くなること。
+kit.set_setting('/physics/updateToUsd', True)
 kit.update()
 _hsr.onsimulationstart(simulation_context)
 simulation_context.initialize_physics()
@@ -677,7 +741,79 @@ while kit.is_running():
     else:
         # 人が居ないときは従来どおり (描画つき物理ステップのみ)。
         simulation_context.step(render=True)
-    _hsr.step()
+    try:
+        _hsr.step()
+    except Exception:
+        # ここで例外が抜けるとメインループ全体が死に、Sim の ROS 制御
+        # (全アクション/サービス) が永久に沈黙してロボットが未制御のまま
+        # 漂流する (実際に発生)。1 ステップ分の制御エラーはログして続行する。
+        import traceback
+        traceback.print_exc()
+    # --- [recol] 物体の collider を実行時に再登録(GUIの "Set Dynamic Collider (Convex Hull)"
+    #     相当)。spawn時の body(YCBの ArticulationRoot 由来)はロボット(別アーティキュレーション)
+    #     と衝突しないが、起動後に setRigidBody を再適用すると body が作り直されてロボットと
+    #     衝突するようになる(ユーザがGUIで確認)。これが「指が物体をすり抜ける」の根本原因。
+    #     指の collider は薄いまま(convexHull)でよい。 ---
+    try:
+        _rc = globals().get('_recol_step', 0) + 1
+        globals()['_recol_step'] = _rc
+        if _rc == 120 and not globals().get('_recol_done', False):
+            globals()['_recol_done'] = True
+            import omni.usd as _ou3
+            from pxr import UsdPhysics as _UP3
+            _st4 = _ou3.get_context().get_stage()
+            for _p in list(_st4.Traverse()):
+                _ps = str(_p.GetPath())
+                if _ps.startswith('/hsrb'):
+                    continue
+                if _ps.endswith('/body') and _p.HasAPI(_UP3.RigidBodyAPI):
+                    try:
+                        from pxr import PhysxSchema as _PX3
+                        # 再登録前の質量を読む(再登録で 0 にリセットされ浮くのを防ぐため)
+                        _m0 = None
+                        if _p.HasAPI(_UP3.MassAPI):
+                            _m0 = _UP3.MassAPI(_p).GetMassAttr().Get()
+                        physx_utils.setRigidBody(_p, 'convexHull', False)
+                        _rbapi = _PX3.PhysxRigidBodyAPI.Apply(_p)
+                        _rbapi.CreateDisableGravityAttr(False)
+                        _rbapi.CreateSleepThresholdAttr(0.0)
+                        # 質量を復元(再登録後 0 だと重力が効かず浮く)。元が無/0なら 0.3kg。
+                        _mapi = _UP3.MassAPI.Apply(_p)
+                        _m1 = _mapi.GetMassAttr().Get()
+                        _mset = _m0 if (_m0 and _m0 > 0.0) else 0.3
+                        _mapi.CreateMassAttr(float(_mset))
+                        print('[recol] re-applied: %s mass(before=%s afterRB=%s set=%.3f)'
+                              % (_ps, _m0, _m1, _mset), flush=True)
+                    except Exception as _e:
+                        print('[recol] err %s %r' % (_ps, _e), flush=True)
+    except Exception as _e:
+        print('[recol] outer err %r' % _e, flush=True)
+
+    # --- [wake] 動的物体を定期的に起こす。recol(setRigidBody)後の body はスリープしやすく、
+    #     掴んで静止→眠る→開放しても起きず空中で止まる(落ちない)。USD の sleepThreshold は
+    #     生の PhysX body に伝わらないので、dc で明示的に wake する。 ---
+    try:
+        _wk = globals().get('_wake_step', 0) + 1
+        globals()['_wake_step'] = _wk
+        if _wk > 150 and _wk % 15 == 0:
+            _opaths = globals().get('_obj_body_paths')
+            if _opaths is None:
+                import omni.usd as _ou5
+                from pxr import UsdPhysics as _UP5
+                _st5 = _ou5.get_context().get_stage()
+                _opaths = []
+                for _p in _st5.Traverse():
+                    _pp = str(_p.GetPath())
+                    if (not _pp.startswith('/hsrb')) and _pp.endswith('/body') and _p.HasAPI(_UP5.RigidBodyAPI):
+                        _opaths.append(_pp)
+                globals()['_obj_body_paths'] = _opaths
+            for _op in _opaths:
+                _h = _hsr.dc.get_rigid_body(_op)
+                if _h:
+                    _hsr.dc.wake_up_rigid_body(_h)
+    except Exception:
+        pass
+
 
 simulation_context.stop()
 kit.close()

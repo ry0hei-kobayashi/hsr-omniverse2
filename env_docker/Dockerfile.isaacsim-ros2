@@ -95,6 +95,7 @@ WORKDIR /isaac-sim
 RUN mkdir /app
 WORKDIR /app
 ADD scripts/hsr.py /app/hsr.py
+ADD scripts/hsr_hsrc_ex.py /app/hsr_hsrc_ex.py
 ADD scripts/ros2_bridge.py /app/ros2_bridge.py
 ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
 ADD scripts/construct_environment.py /app/construct_environment.py

@@ -25,6 +25,10 @@
 
 ROS_DOMAIN_ID_PC ?= 55
 
+# スポーンするロボット切替。`make ros2 up robot=hsrb` のように小文字 robot= でも、
+# ROBOT=hsrb でも渡せる。未指定なら空 → placement.yaml の robot.model に従う。
+ROBOT ?= $(robot)
+
 # --- ROS version selection (from goals) -------------------------------------
 ROS := 2
 ifneq (,$(filter ros1,$(MAKECMDGOALS)))
@@ -104,6 +108,8 @@ help:
 	@echo "  make ros2 build"
 	@echo "  make ros2 up"
 	@echo "  make ros2 up TASK=hri   # configs/tasks/hri/ の設定で起動"
+	@echo "  make ros2 up robot=hsrb     # ロボットを hsrb で起動 (placement.yaml より優先)"
+	@echo "  make ros2 up robot=hsrc_ex  # ロボットを hsrc_ex で起動"
 	@echo "  make ros2 up pc"
 	@echo "  ROS_DOMAIN_ID=49 make ros2 up pc"
 	@echo "  make ros1 build"
@@ -123,7 +129,7 @@ ros1 ros2 pc dev:
 # TASK=<名前> を付けると configs/tasks/<名前>/ の world/placement/dressing を使う。
 #   例: make ros2 dev run TASK=hri   (未指定なら configs 直下の既定)
 run:
-	$(COMPOSE) exec -e TASK=$(TASK) isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
+	$(COMPOSE) exec -e TASK=$(TASK) -e ROBOT=$(ROBOT) isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
 
 # アセットサーバにある「人のアニメ」ファイル一覧を表示する確認用 (画面なし)。
 #   make ros2 dev list-anims   (先に 'make ros2 dev up' でコンテナ起動が必要)
@@ -136,6 +142,7 @@ build:
 # TASK=<名前> を付けると configs/tasks/<名前>/ の設定で起動する。
 #   例: make ros2 up TASK=hri   (未指定なら configs 直下の既定)
 up:
+	TASK=$(TASK) ROBOT=$(ROBOT) $(ENV_PC) $(COMPOSE) up $(UP_FLAGS)
 	@if [ "$(PC)" = "1" ] && [ -n "$(PEER)" ]; then \
 	  echo "[pc] cyclonedds.pc.xml を生成 (PEER=$(PEER))"; \
 	  ./scripts/gen_cyclonedds_pc.sh $(PEER); \

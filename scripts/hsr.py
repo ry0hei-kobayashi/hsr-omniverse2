@@ -272,7 +272,13 @@ class gripper_apply_force_action_server(gripper_command_action_server):
             super().__init__(hsr, node, _dci)
             self._action_result_message = GripperApplyEffort.Result()
             self._action_feedback_message = GripperApplyEffort.Feedback()
+            # 実機の gripper_controller/grasp, apply_force と同じアクション型で
+            # ActionServer を立てる (既定の GripperCommand のままだと型不一致で
+            # hsrb_interface クライアントのゴールに応答できず把持が失敗する)。
+            self._action_type = GripperApplyEffort
         self._inverse_direction = False
+        # 「指が止まった」(stalled) 判定用の連続静止ステップ数カウンタ。
+        self._action_stall_steps = 0
 
     def _get_joint_effort(self, name: str) -> float:
         effort = self.dci.get_dof_state(
@@ -290,12 +296,28 @@ class gripper_apply_force_action_server(gripper_command_action_server):
             self._init_articulation()
             return
         if self._action_goal is not None and self._action_goal_handle is not None:
+            # 結果メッセージはローカルで組み立て、succeed()/abort() を呼んだ後に
+            # self._action_result_message へ公開する。途中で公開すると、ros2_bridge の
+            # _on_execute スレッド (50ms 周期でループ監視) がゴール状態の設定前に
+            # return してしまい、rclpy が "Goal state not set, assuming aborted" と
+            # して ABORTED を返すレース条件になる (gripper_close が常に失敗する)。
+            # 同じ理由で self._action_goal = None も公開より後にする。
+            if is_ros2 is False:
+                result_message = GripperApplyEffortResult()
+            else:
+                result_message = GripperApplyEffort.Result()
             target_effort = self._action_goal.effort
             if self._inverse_direction:
                 target_effort = -target_effort
 
+            # 重要: self._joints は _init_articulation が articulation の全DOF
+            # (arm/head/wheel 等すべて) を登録する。ここで全DOFに位置0を出すと、
+            # gripper_close のたびに腕が原点(arm_lift=0,arm_flex=0)へ畳まれて、把持点から
+            # 離れ常に空振りする (実測で確定: close前 arm=(0.5,-1.0)→close後 (0,0))。
+            # → グリッパ(hand_*)の指関節だけに限定する。
+            gripper_names = [n for n in self._joints if n.startswith('hand_')]
             self.dci.wake_up_articulation(self._articulation)
-            for name in self._joints:
+            for name in gripper_names:
                 if target_effort >= 0.0:
                     self._set_joint_position(name, 0.0)
                 else:
@@ -303,51 +325,102 @@ class gripper_apply_force_action_server(gripper_command_action_server):
 
             effort = 0
             effort_reached = True
-            for name in self._joints:
+            for name in gripper_names:
                 effort = self._get_joint_effort(name)
                 if abs(effort) - abs(target_effort) < 0.0:
                     effort_reached = False
                     break
             if effort_reached:
-                self._action_goal = None
-                self._action_result_message.effort = effort
-                self._action_result_message.stalled = False
+                result_message.effort = effort
+                result_message.stalled = False
                 if self._action_goal_handle is not None:
                     if is_ros2 is False:
-                        self._action_goal_handle.set_succeeded(
-                            self._action_result_message)
+                        self._action_goal_handle.set_succeeded(result_message)
                     else:
                         self._action_goal_handle.succeed()
                     self._action_goal_handle = None
+                self._action_result_message = result_message
+                self._action_goal = None
                 return
 
             current_position_sum = 0
-            for name in self._joints:
+            for name in gripper_names:
                 position = self._get_joint_position(name)
                 current_position_sum += position
-            if abs(current_position_sum - self._action_previous_position_sum) < 1e-6:
-                self._action_goal = None
-                self._action_result_message.effort = effort
-                self._action_result_message.stalled = True
+            # stalled (指が止まった) 判定。元の閾値 1e-6 は Isaac の物理では
+            # 永遠に成立しない (閉じ切った後も指は 5e-4〜1e-3/step 程度のクリープ/
+            # 微振動を続けると実測) ため、10 秒タイムアウト→ABORTED になっていた。
+            # 実測に基づき閾値 2e-3 とし、連続 10 ステップで stalled 確定とする
+            # (閉じ動作中は ~2e-2/step なので明確に区別できる)。
+            if self._action_previous_position_sum == float('inf'):
+                self._action_stall_steps = 0  # 新しいゴールの開始
+            pos_diff = abs(current_position_sum - self._action_previous_position_sum)
+            if pos_diff < 2e-3:
+                self._action_stall_steps += 1
+            else:
+                self._action_stall_steps = 0
+            if self._action_stall_steps >= 10:
+                print('[hsr][gripper] stalled -> succeed (effort=%.3f)' % effort)
+                result_message.effort = effort
+                result_message.stalled = True
                 if self._action_goal_handle is not None:
                     if is_ros2 is False:
-                        self._action_goal_handle.set_aborted(
-                            self._action_result_message)
+                        self._action_goal_handle.set_aborted(result_message)
                     else:
-                        self._action_goal_handle.abort()
+                        # stalled = 指が止まった状態。物を掴んで止まるのは正常な把持
+                        # 完了なので、実機の gripper controller と同様 succeed を返す
+                        # (結果の stalled=True で状態は伝わる)。abort のままだと
+                        # hsrb_interface の apply_force が
+                        # "Failed to apply force state 6" 例外を投げ、空把持でも
+                        # 物を掴んだときでも gripper_close が常に失敗扱いになる。
+                        self._action_goal_handle.succeed()
                     self._action_goal_handle = None
+                self._action_result_message = result_message
+                self._action_goal = None
                 return
             self._action_previous_position_sum = current_position_sum
 
             time_passed = self._get_time() - self._action_start_time
             if time_passed >= self._action_timeout:
-                self._action_goal = None
+                print('[hsr][gripper] timeout -> abort (stall_steps=%d pos_sum=%.6f time=%.2f)'
+                      % (self._action_stall_steps, current_position_sum, time_passed))
                 if self._action_goal_handle is not None:
                     if is_ros2 is False:
                         self._action_goal_handle.set_aborted()
                     else:
                         self._action_goal_handle.abort()
                     self._action_goal_handle = None
+                self._action_result_message = result_message
+                self._action_goal = None
+
+
+# 案A(アタッチ把持)を使うか。recol(衝突)と併用して確実な保持・綺麗なリリースにする。
+_ATTACH_GRASP_ENABLED = True
+
+
+# --- 案A(アタッチ把持)用クォータニオン補助 (x,y,z,w) ---
+def _q_conj(q):
+    return (-q[0], -q[1], -q[2], q[3])
+
+
+def _q_mul(a, b):
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw,
+            aw * bw - ax * bx - ay * by - az * bz)
+
+
+def _q_rot(q, v):
+    qx, qy, qz, qw = q
+    vx, vy, vz = v
+    tx = 2.0 * (qy * vz - qz * vy)
+    ty = 2.0 * (qz * vx - qx * vz)
+    tz = 2.0 * (qx * vy - qy * vx)
+    return (vx + qw * tx + (qy * tz - qz * ty),
+            vy + qw * ty + (qz * tx - qx * tz),
+            vz + qw * tz + (qx * ty - qy * tx))
 
 
 class hsr_config:
@@ -589,8 +662,19 @@ class hsr:
         self.robots = ArticulationView(
             prim_paths_expr=self.stage_path + self.prefix, name='hsr_view'
         )
-        self.ft_sensor_pub = self.create_publisher(
+        # wrench は RELIABLE で出す。実機の /hsrb/wrist_wrench/* は RELIABLE で、
+        # skill の is_hand_collision は rclpy.wait_for_message を既定QoS(RELIABLE)で
+        # 購読する。BEST_EFFORT で出すと QoS 不一致でメッセージが届かず
+        # wait_for_message が永久ブロックする (実測)。
+        self.ft_sensor_pub = self.create_publisher_reliable(
             self.prefix + '/wrist_wrench/raw', WrenchStamped)
+        # 重力補正済み wrench。実機は compensated を出すので skill は
+        # こちらを優先購読する。EMA で重力(=ゆっくり変化)を差し引き、
+        # 接触の過渡だけ残す。
+        self.ft_sensor_comp_pub = self.create_publisher_reliable(
+            self.prefix + '/wrist_wrench/compensated', WrenchStamped)
+        self._wrench_bias = [0.0] * 6
+        self._wrench_bias_inited = False
 
         self.dc = _dynamic_control.acquire_dynamic_control_interface()
 
@@ -1386,6 +1470,96 @@ class hsr:
                 material_purpose='physics',
             )
 
+        # グリッパ指に高摩擦マテリアルを付ける。既定摩擦だと軽い缶が握っても滑って
+        # 抜ける(実測: 0.4cm持ち上げて落ちる)。指の衝突プリム(hand_*/.../collisions)を
+        # 自動探索してバインドする(リンク名の取り違え回避)。
+        finger_material = PhysicsMaterial(
+            prim_path='/GripperFinger',
+            static_friction=30.0,
+            dynamic_friction=30.0,
+        )
+        # 摩擦の合成モードを max にする。既定(average)だと缶側の低い摩擦と平均されて
+        # 弱まるが、max なら指の高摩擦(8.0)が支配して滑りにくくなる。
+        try:
+            _fm_prim = stage.get_current_stage().GetPrimAtPath('/GripperFinger')
+            _fm_api = PhysxSchema.PhysxMaterialAPI.Apply(_fm_prim)
+            _fm_api.CreateFrictionCombineModeAttr().Set('max')
+            print('[grip-fric] frictionCombineMode=max', flush=True)
+        except Exception as _e:
+            print('[grip-fric] combine-mode err %r' % _e, flush=True)
+        _root = self.stage_path + self.prefix
+        _st = stage.get_current_stage()
+        _bound = []
+        for _p in _st.Traverse():
+            _ps = str(_p.GetPath())
+            if _ps.startswith(_root) and 'hand_' in _ps and _ps.endswith('/collisions'):
+                try:
+                    omni.kit.commands.execute(
+                        'BindMaterialExt',
+                        material_path='/GripperFinger',
+                        prim_path=[_ps],
+                        strength=['weakerThanDescendants'],
+                        material_purpose='physics',
+                    )
+                    _bound.append(_ps)
+                except Exception as _e:
+                    print('[grip-fric] bind fail %s: %r' % (_ps, _e))
+        print('[grip-fric] bound finger material to %d prims: %s' % (len(_bound), _bound), flush=True)
+
+        # 指コライダーが動的物体(缶)と接触判定を起こさない問題への対策(実測+GUIで確認:
+        # 手のひらは衝突するが指リンクだけ缶を貫通する)。指の collider は convexHull だが、
+        # convexHull は cook(凸包の生成計算)に失敗すると enabled のままでも実体の無い
+        # 当たり判定になり、見た目だけ残って貫通する(手のひらは cook 成功・指は薄mesh で
+        # 失敗、の非対称で説明可)。cook 不要の boundingCube(箱)に変えて確実に実体を作る。
+        try:
+            from omni.physx.scripts import utils as _pxutils
+            _finger_col_prims = [
+                self.stage_path + self.prefix + '/hand_l_spring_proximal_link/collisions',
+                self.stage_path + self.prefix + '/hand_l_distal_link/collisions',
+                self.stage_path + self.prefix + '/hand_r_spring_proximal_link/collisions',
+                self.stage_path + self.prefix + '/hand_r_distal_link/collisions',
+            ]
+            for _cp in _finger_col_prims:
+                _cpr = _st.GetPrimAtPath(_cp)
+                if not _cpr or not _cpr.IsValid():
+                    print('[grip-col] missing %s' % _cp, flush=True)
+                    continue
+                _pxutils.setCollider(_cpr, approximationShape='convexHull')
+                print('[grip-col] convexHull collider (薄いまま) %s' % _cp, flush=True)
+        except Exception as _e:
+            print('[grip-col] error: %r' % _e, flush=True)
+
+        # グリッパ指関節の駆動を「弱く・ゆっくり」にする。
+        # URDF Importer 既定の指ドライブは stiffness(ばね定数)が高く、閉じ指令
+        # (position=0)へ一気に駆動するため、軽い自由物体(缶)を弾き飛ばす(実測)。
+        # stiffness を下げて握る力を弱め、damping(粘性=動きへの抵抗)を上げて
+        # ゆっくり閉じさせ、maxForce(=トルク上限)を絞ることで、「物体に触れたら
+        # 弱い力で握って止まる」コンプライアント(柔らかい)な閉じにする。
+        # ※ 値は実機合わせ。弾く→さらに下げる / 持ち上げで滑る→少し上げる で調整。
+        # 衝突が効くようになったので、握り力を上げて缶を押し付ける(摩擦で保持するため)。
+        # damping を上げて閉じをゆっくりにし、缶を揺らさず噛む。
+        FINGER_STIFFNESS = 8.0
+        FINGER_DAMPING = 28.0
+        FINGER_MAX_FORCE = 8.0
+        finger_joint_paths = [
+            self.stage_path + self.prefix + '/hand_palm_link/hand_l_proximal_joint',
+            self.stage_path + self.prefix + '/hand_l_mimic_distal_link/hand_l_distal_joint',
+            self.stage_path + self.prefix + '/hand_palm_link/hand_r_proximal_joint',
+            self.stage_path + self.prefix + '/hand_r_mimic_distal_link/hand_r_distal_joint',
+        ]
+        for _fp in finger_joint_paths:
+            _fd = UsdPhysics.DriveAPI.Get(
+                stage.get_current_stage().GetPrimAtPath(_fp), 'angular'
+            )
+            if not _fd:
+                print('[grip-drive] DriveAPI not found: %s' % _fp, flush=True)
+                continue
+            _fd.GetStiffnessAttr().Set(FINGER_STIFFNESS)
+            _fd.GetDampingAttr().Set(FINGER_DAMPING)
+            _fd.GetMaxForceAttr().Set(FINGER_MAX_FORCE)
+            print('[grip-drive] tuned %s (k=%.1f d=%.1f maxF=%.1f)'
+                  % (_fp, FINGER_STIFFNESS, FINGER_DAMPING, FINGER_MAX_FORCE), flush=True)
+
         left_passive1_drive = UsdPhysics.DriveAPI.Get(
             stage.get_current_stage().GetPrimAtPath(
                 self.stage_path
@@ -1549,9 +1723,112 @@ class hsr:
             js.effort.extend([0, 0, 0])
         self.joint_state_pub.publish(js)
 
+    def _object_body_paths(self):
+        # ロボット以外の剛体(=掴める物体)プリムのパス一覧を一度だけ集めてキャッシュ。
+        if self._obj_paths_cache is not None:
+            return self._obj_paths_cache
+        paths = []
+        try:
+            _st = stage.get_current_stage()
+            _root = self.stage_path + self.prefix
+            for _p in _st.Traverse():
+                _ps = str(_p.GetPath())
+                if _ps.startswith(_root):
+                    continue  # ロボット自身は除く
+                if _p.HasAPI(UsdPhysics.RigidBodyAPI):
+                    paths.append(_ps)
+        except Exception as _e:
+            print('[graspA] object scan err %r' % _e, flush=True)
+        self._obj_paths_cache = paths
+        print('[graspA] graspable bodies: %s' % paths, flush=True)
+        return paths
+
+    def _grasp_attach_update(self):
+        # 案A: 指の衝突が効かない問題を迂回して把持を再現する。
+        # グリッパが閉じていて把持中心の近くに物体があれば、その物体をグリッパに
+        # 追従させる(=掴む)。グリッパが開いたら追従を止める(=離す)。
+        if not getattr(self, '_joints', None) or 'hand_motor_joint' not in self._joints:
+            return
+        try:
+            _hm = self.dc.get_dof_state(
+                self._joints['hand_motor_joint'][0], _dynamic_control.STATE_POS).pos
+        except Exception:
+            return
+        if self._palm_body is None:
+            self._palm_body = self.dc.get_rigid_body(
+                self.stage_path + self.prefix + '/hand_palm_link')
+        if getattr(self, '_lfinger_body', None) is None:
+            self._lfinger_body = self.dc.get_rigid_body(
+                self.stage_path + self.prefix + '/hand_l_distal_link')
+            self._rfinger_body = self.dc.get_rigid_body(
+                self.stage_path + self.prefix + '/hand_r_distal_link')
+        if not self._palm_body or not self._lfinger_body or not self._rfinger_body:
+            return
+        _palm = self.dc.get_rigid_body_pose(self._palm_body)
+        _pp = (_palm.p.x, _palm.p.y, _palm.p.z)
+        _pq = (_palm.r.x, _palm.r.y, _palm.r.z, _palm.r.w)
+        # 把持中心 = 左右の指先(distal)の中点。物体が来るべき場所そのもの。
+        _lf = self.dc.get_rigid_body_pose(self._lfinger_body).p
+        _rf = self.dc.get_rigid_body_pose(self._rfinger_body).p
+        _gc = ((_lf.x + _rf.x) / 2.0, (_lf.y + _rf.y) / 2.0, (_lf.z + _rf.z) / 2.0)
+
+        CLOSE_T, OPEN_T, GRASP_DIST = 0.5, 0.6, 0.15
+        if self._grasp_obj is None:
+            if _hm < CLOSE_T:  # 閉じている/閉じ動作中
+                _best = None
+                _bestd = GRASP_DIST
+                _mind = 999.0
+                for _bp in self._object_body_paths():
+                    _h = self.dc.get_rigid_body(_bp)
+                    if not _h:
+                        continue
+                    _op = self.dc.get_rigid_body_pose(_h)
+                    _d = math.sqrt((_gc[0] - _op.p.x) ** 2 + (_gc[1] - _op.p.y) ** 2
+                                   + (_gc[2] - _op.p.z) ** 2)
+                    _mind = min(_mind, _d)
+                    if _d < _bestd:
+                        _bestd = _d
+                        _best = (_bp, _h, _op)
+                if _mind < 0.4 and not getattr(self, '_grasp_dbg_done', False):
+                    print('[graspA] try: gc=(%.3f,%.3f,%.3f) nearest_obj_dist=%.3f (閾値%.2f)'
+                          % (_gc[0], _gc[1], _gc[2], _mind, GRASP_DIST), flush=True)
+                    self._grasp_dbg_done = True
+                if _best is not None:
+                    _bp, _h, _op = _best
+                    _rel_p = _q_rot(_q_conj(_pq),
+                                    (_op.p.x - _pp[0], _op.p.y - _pp[1], _op.p.z - _pp[2]))
+                    _rel_q = _q_mul(_q_conj(_pq), (_op.r.x, _op.r.y, _op.r.z, _op.r.w))
+                    self._grasp_obj = {'h': _h, 'rel_p': _rel_p, 'rel_q': _rel_q, 'path': _bp}
+                    print('[graspA] 掴んだ: %s (dist=%.3f)' % (_bp, _bestd), flush=True)
+        else:
+            if _hm > OPEN_T:  # 開いた → 離す
+                try:
+                    self.dc.set_rigid_body_linear_velocity(self._grasp_obj['h'], (0.0, 0.0, 0.0))
+                    self.dc.set_rigid_body_angular_velocity(self._grasp_obj['h'], (0.0, 0.0, 0.0))
+                except Exception:
+                    pass
+                print('[graspA] 離した: %s' % self._grasp_obj['path'], flush=True)
+                self._grasp_obj = None
+                self._grasp_dbg_done = False  # 次の閉じで再びデバッグ出力
+            else:  # 掴んだまま → palm に追従
+                _g = self._grasp_obj
+                _wp = _q_rot(_pq, _g['rel_p'])
+                _wp = (_pp[0] + _wp[0], _pp[1] + _wp[1], _pp[2] + _wp[2])
+                _wq = _q_mul(_pq, _g['rel_q'])
+                _t = _dynamic_control.Transform()
+                _t.p = _wp
+                _t.r = _wq
+                self.dc.set_rigid_body_pose(_g['h'], _t)
+                self.dc.set_rigid_body_linear_velocity(_g['h'], (0.0, 0.0, 0.0))
+                self.dc.set_rigid_body_angular_velocity(_g['h'], (0.0, 0.0, 0.0))
+
     def onsimulationstart(self, simulation_context):
         self.simulation_context = simulation_context
         self.prev_time = self.simulation_context.current_time
+        # 案A(アタッチ把持)用の状態
+        self._grasp_obj = None        # 掴んでいる物体 {h, rel_p, rel_q, path}
+        self._palm_body = None        # hand_palm_link の剛体ハンドル(キャッシュ)
+        self._obj_paths_cache = None  # 物体(剛体)プリムのパス一覧(キャッシュ)
 
     def step(self):
         og.Controller.set(
@@ -1596,6 +1873,11 @@ class hsr:
         self.dc.wake_up_articulation(self.art)
 
         self.publish_joint_states()
+
+        # 案A: グリッパが閉じて物体が近ければ掴んで追従、開いたら離す
+        # (正攻法=物理衝突の検証中は _ATTACH_GRASP_ENABLED=False で無効化)
+        if _ATTACH_GRASP_ENABLED:
+            self._grasp_attach_update()
 
         left_state = self.dc.get_dof_state(
             self.left_wheel_ptr, _dynamic_control.STATE_ALL)
@@ -1711,6 +1993,7 @@ class hsr:
 
         cmd = CartSpace()
         if self.odom_trajectory_action_server._action_goal is not None:
+            self._base_hold_pose = None  # 追従中はホールド解除
             self.odom_trajectory_action_server._odometry = self.odometry_estimator.pose
             cmd.dot_x = (
                 self.odom_trajectory_action_server._joints['odom_x']
@@ -1728,12 +2011,29 @@ class hsr:
             self.last_cmd_vel_time + 2.0 > self.simulation_context.current_time
             and self.cmd_vel_msg is not None
         ):
+            self._base_hold_pose = None  # 手動指令中はホールド解除
             ang = self.odometry_estimator.pose.ang + 0.5 * self.cmd_vel_msg.angular.z * dt
             cosr = math.cos(ang)
             sinr = math.sin(ang)
             cmd.dot_x = self.cmd_vel_msg.linear.x * cosr - self.cmd_vel_msg.linear.y * sinr
             cmd.dot_y = self.cmd_vel_msg.linear.x * sinr + self.cmd_vel_msg.linear.y * cosr
             cmd.dot_r = self.cmd_vel_msg.angular.z
+        else:
+            # 無指令: 現在位置を保持目標にして、ずれたら戻る (P制御)。速度0指令だけだと
+            # 車輪ドリフト/アーム反力で台車が漂う(実測: move_to_go後にゆっくり旋回)。
+            # ※真値odom(isaac4.5.0と競合)は入れず、台車ホールドのみ。
+            if getattr(self, '_base_hold_pose', None) is None:
+                self._base_hold_pose = (
+                    self.odometry_estimator.pose.x,
+                    self.odometry_estimator.pose.y,
+                    self.odometry_estimator.pose.ang,
+                )
+            hx, hy, ht = self._base_hold_pose
+            cmd.dot_x = hx - self.odometry_estimator.pose.x
+            cmd.dot_y = hy - self.odometry_estimator.pose.y
+            cmd.dot_r = math.atan2(
+                math.sin(ht - self.odometry_estimator.pose.ang),
+                math.cos(ht - self.odometry_estimator.pose.ang))
 
         relcmd = CartSpace()
         diff_r = cmd.dot_r * dt
@@ -1773,6 +2073,27 @@ class hsr:
         wrench.wrench.torque.y = float(force_readings[0][0][4])
         wrench.wrench.torque.z = float(force_readings[0][0][5])
         self.ft_sensor_pub.publish(wrench)
+
+        # gravity-compensated wrench: EMA ベースライン(重力)を差し引く。
+        raw6 = [float(force_readings[0][0][i]) for i in range(6)]
+        if not self._wrench_bias_inited:
+            self._wrench_bias = list(raw6)
+            self._wrench_bias_inited = True
+        else:
+            # alpha 小さめ: ゆっくりの重力変化は追従、接触の急変は残す。
+            a = 0.02
+            for i in range(6):
+                self._wrench_bias[i] += a * (raw6[i] - self._wrench_bias[i])
+        comp = WrenchStamped()
+        comp.header.stamp = wrench.header.stamp
+        comp.header.frame_id = 'wrist_ft_sensor_frame'
+        comp.wrench.force.x = raw6[0] - self._wrench_bias[0]
+        comp.wrench.force.y = raw6[1] - self._wrench_bias[1]
+        comp.wrench.force.z = raw6[2] - self._wrench_bias[2]
+        comp.wrench.torque.x = raw6[3] - self._wrench_bias[3]
+        comp.wrench.torque.y = raw6[4] - self._wrench_bias[4]
+        comp.wrench.torque.z = raw6[5] - self._wrench_bias[5]
+        self.ft_sensor_comp_pub.publish(comp)
 
         self.arm_trajectory_action_server.step(dt=dt)
         self.head_trajectory_action_server.step(dt=dt)
