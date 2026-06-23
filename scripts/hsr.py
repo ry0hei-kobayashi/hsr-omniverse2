@@ -1743,6 +1743,29 @@ class hsr:
         print('[graspA] graspable bodies: %s' % paths, flush=True)
         return paths
 
+    def _set_grasp_object_collision(self, body_path, enabled):
+        """把持中の物体の衝突を一時的に切る/戻す。
+
+        案A(アタッチ把持)は物体を毎ステップ手の位置へテレポートして保持する。物体の
+        衝突(recol で有効化)が残っていると、テレポート先で指と毎ステップ押し合い、
+        移動時に発散してロボットごと吹き飛ぶ。把持中は衝突を切り、離したら戻す。
+        """
+        try:
+            import omni.usd
+            from pxr import Usd, UsdPhysics
+            _st = omni.usd.get_context().get_stage()
+            _root = _st.GetPrimAtPath(body_path)
+            if not _root or not _root.IsValid():
+                return
+            for _p in Usd.PrimRange(_root):
+                if _p.HasAPI(UsdPhysics.CollisionAPI):
+                    _a = _p.GetAttribute('physics:collisionEnabled')
+                    if not _a:
+                        _a = UsdPhysics.CollisionAPI(_p).CreateCollisionEnabledAttr()
+                    _a.Set(bool(enabled))
+        except Exception as _e:
+            print('[graspA] collision toggle err %r' % _e, flush=True)
+
     def _grasp_attach_update(self):
         # 案A: 指の衝突が効かない問題を迂回して把持を再現する。
         # グリッパが閉じていて把持中心の近くに物体があれば、その物体をグリッパに
@@ -1799,6 +1822,8 @@ class hsr:
                                     (_op.p.x - _pp[0], _op.p.y - _pp[1], _op.p.z - _pp[2]))
                     _rel_q = _q_mul(_q_conj(_pq), (_op.r.x, _op.r.y, _op.r.z, _op.r.w))
                     self._grasp_obj = {'h': _h, 'rel_p': _rel_p, 'rel_q': _rel_q, 'path': _bp}
+                    # 把持中はテレポート保持なので衝突を切る(指との押し合いで発散しない)。
+                    self._set_grasp_object_collision(_bp, False)
                     print('[graspA] 掴んだ: %s (dist=%.3f)' % (_bp, _bestd), flush=True)
         else:
             if _hm > OPEN_T:  # 開いた → 離す
@@ -1807,6 +1832,8 @@ class hsr:
                     self.dc.set_rigid_body_angular_velocity(self._grasp_obj['h'], (0.0, 0.0, 0.0))
                 except Exception:
                     pass
+                # 離したら衝突を戻す(机に乗る/他物体と当たる)。
+                self._set_grasp_object_collision(self._grasp_obj['path'], True)
                 print('[graspA] 離した: %s' % self._grasp_obj['path'], flush=True)
                 self._grasp_obj = None
                 self._grasp_dbg_done = False  # 次の閉じで再びデバッグ出力
@@ -2019,21 +2046,29 @@ class hsr:
             cmd.dot_y = self.cmd_vel_msg.linear.x * sinr + self.cmd_vel_msg.linear.y * cosr
             cmd.dot_r = self.cmd_vel_msg.angular.z
         else:
-            # 無指令: 現在位置を保持目標にして、ずれたら戻る (P制御)。速度0指令だけだと
-            # 車輪ドリフト/アーム反力で台車が漂う(実測: move_to_go後にゆっくり旋回)。
-            # ※真値odom(isaac4.5.0と競合)は入れず、台車ホールドのみ。
-            if getattr(self, '_base_hold_pose', None) is None:
-                self._base_hold_pose = (
-                    self.odometry_estimator.pose.x,
-                    self.odometry_estimator.pose.y,
-                    self.odometry_estimator.pose.ang,
-                )
-            hx, hy, ht = self._base_hold_pose
-            cmd.dot_x = hx - self.odometry_estimator.pose.x
-            cmd.dot_y = hy - self.odometry_estimator.pose.y
-            cmd.dot_r = math.atan2(
-                math.sin(ht - self.odometry_estimator.pose.ang),
-                math.cos(ht - self.odometry_estimator.pose.ang))
+            # 無指令時は速度0で停止する(pull前の挙動)。
+            #
+            # 下の「その場保持 P 制御」は本来、把持時に台車が振動するのを抑えるために
+            # 追加された。しかし副作用として、スポーン直後などにオドメトリの微小誤差を
+            # P制御が追いかけ、一度動き出すと止まらず台車がひとりでに動く問題があった。
+            # そのため既定では無効化し、速度0指令(=停止)に戻す。
+            # 把持時の台車振動を抑えたいときは、下のブロックのコメントを外して復活させる。
+            cmd.dot_x = 0.0
+            cmd.dot_y = 0.0
+            cmd.dot_r = 0.0
+            # --- 把持時の振動抑制用「その場保持P制御」(必要なときだけ有効化) ---
+            # if getattr(self, '_base_hold_pose', None) is None:
+            #     self._base_hold_pose = (
+            #         self.odometry_estimator.pose.x,
+            #         self.odometry_estimator.pose.y,
+            #         self.odometry_estimator.pose.ang,
+            #     )
+            # hx, hy, ht = self._base_hold_pose
+            # cmd.dot_x = hx - self.odometry_estimator.pose.x
+            # cmd.dot_y = hy - self.odometry_estimator.pose.y
+            # cmd.dot_r = math.atan2(
+            #     math.sin(ht - self.odometry_estimator.pose.ang),
+            #     math.cos(ht - self.odometry_estimator.pose.ang))
 
         relcmd = CartSpace()
         diff_r = cmd.dot_r * dt
@@ -2042,7 +2077,10 @@ class hsr:
         sinr = math.sin(-ang)
         relcmd.dot_x = cmd.dot_x * cosr - cmd.dot_y * sinr
         relcmd.dot_y = cmd.dot_x * sinr + cmd.dot_y * cosr
-        relcmd.dot_r = diff_r / dt
+        # diff_r = cmd.dot_r * dt なので diff_r/dt は数学的に cmd.dot_r と同じ。
+        # ただし dt=0(タイムライン一時停止中など)だと 0/0 でゼロ割りクラッシュになり、
+        # step() が毎フレーム落ちてログが溢れる。割り算をやめて等価な cmd.dot_r を使う。
+        relcmd.dot_r = cmd.dot_r
 
         jcmd = self.vehicle_dynamics.inverse(relcmd, state_)
 
