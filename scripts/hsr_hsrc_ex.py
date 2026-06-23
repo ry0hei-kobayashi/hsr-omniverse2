@@ -122,10 +122,16 @@ class hsr(base.hsr):
         # camera_local = rpy(-90,0,-90)*Rx(180) = XYZオイラー(90,0,-90)。
         xform_api.SetRotate(
             (90, 0, -90), UsdGeom.XformCommonAPI.RotationOrderXYZ)
+        # camera_info を実機 Gemini 336L に合わせる。Isaac は
+        #   fx = 焦点距離 / 水平絞り × 幅,  fy = 焦点距離 / 垂直絞り × 高さ
+        # で K 行列を自動計算し、cx,cy は常に画像中心 (320,240) になる。
+        # 実機 /head_rgbd_sensor/rgb/camera_info の実測値: fx=fy≈320.0, cx=320, cy=240,
+        # 歪みゼロ (640x480, 水平視野90°)。Xtion の 554.38 のままだと fx が合わないので
+        # 320 にする。焦点距離 = 320 × 0.003 = 0.96 (0.003 は絞りと共通の倍率で打ち消し合う)。
         rgbd_camera_prim.GetHorizontalApertureAttr().Set(640 * 0.003)
         rgbd_camera_prim.GetVerticalApertureAttr().Set(480 * 0.003)
         rgbd_camera_prim.GetProjectionAttr().Set('perspective')
-        rgbd_camera_prim.GetFocalLengthAttr().Set(554.382712823 * 0.003)
+        rgbd_camera_prim.GetFocalLengthAttr().Set(320.0 * 0.003)
         rgbd_camera_prim.GetFocusDistanceAttr().Set(400)
 
         # ハンドカメラの取付先は hsrc_ex では hand_camera_link (hand_camera_frame は無い)。
