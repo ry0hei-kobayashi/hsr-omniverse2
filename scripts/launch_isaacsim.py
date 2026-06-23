@@ -362,6 +362,21 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
         # (動く物体の標準。三角メッシュ 'none' は静止物専用で落下に使えない)
         physx_utils.setRigidBody(dropped_prim, 'convexHull', False)
 
+    # 物体に ArticulationRootAPI が付いていると PhysX が「アーティキュレーション」として
+    # 扱い、ロボット(別アーティキュレーション)と衝突しなくなる(静的な机/床とは衝突するが、
+    # 腕が全部すり抜ける)。YCB の model.usd にこれが入っているため、ここで除去して
+    # 物体を単なる剛体に戻す。これでロボットの指/腕が物体に当たるようになる。
+    try:
+        from pxr import PhysxSchema as _PXS
+        for _op in Usd.PrimRange(dropped_prim):
+            if _op.HasAPI(UsdPhysics.ArticulationRootAPI):
+                _op.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+                print('[obj-fix] removed ArticulationRootAPI from %s' % _op.GetPath(), flush=True)
+            if _op.HasAPI(_PXS.PhysxArticulationAPI):
+                _op.RemoveAPI(_PXS.PhysxArticulationAPI)
+    except Exception as _e:
+        print('[obj-fix] err %r' % _e, flush=True)
+
     model_names.append(gazebo_name)
     return model_path
 
@@ -527,6 +542,12 @@ _contact_report_event_sub = get_physx_simulation_interface().subscribe_contact_r
 # Start simulation
 kit.update()
 simulation_context = SimulationContext(stage_units_in_meters=1.0)
+# [usdsync] 物理結果を USD にも毎フレーム書き戻す設定。
+#   既定(False)では物理は Fabric(描画用の速いメモリ)だけに書かれ、USD はスポーン時の値で
+#   凍結する→ギズモ/Property の数値だけが置いてけぼりになり「見た目と数値がズレる」。
+#   True にすると物理位置が USD にも反映され、見た目・当たり判定・物理・ギズモが常に同じ位置に
+#   そろう(数値も生の物理に追従)。代償は毎フレームの USD 書き込みでわずかに描画が重くなること。
+kit.set_setting('/physics/updateToUsd', True)
 kit.update()
 _hsr.onsimulationstart(simulation_context)
 simulation_context.initialize_physics()
@@ -696,7 +717,79 @@ while kit.is_running():
     else:
         # 人が居ないときは従来どおり (描画つき物理ステップのみ)。
         simulation_context.step(render=True)
-    _hsr.step()
+    try:
+        _hsr.step()
+    except Exception:
+        # ここで例外が抜けるとメインループ全体が死に、Sim の ROS 制御
+        # (全アクション/サービス) が永久に沈黙してロボットが未制御のまま
+        # 漂流する (実際に発生)。1 ステップ分の制御エラーはログして続行する。
+        import traceback
+        traceback.print_exc()
+    # --- [recol] 物体の collider を実行時に再登録(GUIの "Set Dynamic Collider (Convex Hull)"
+    #     相当)。spawn時の body(YCBの ArticulationRoot 由来)はロボット(別アーティキュレーション)
+    #     と衝突しないが、起動後に setRigidBody を再適用すると body が作り直されてロボットと
+    #     衝突するようになる(ユーザがGUIで確認)。これが「指が物体をすり抜ける」の根本原因。
+    #     指の collider は薄いまま(convexHull)でよい。 ---
+    try:
+        _rc = globals().get('_recol_step', 0) + 1
+        globals()['_recol_step'] = _rc
+        if _rc == 120 and not globals().get('_recol_done', False):
+            globals()['_recol_done'] = True
+            import omni.usd as _ou3
+            from pxr import UsdPhysics as _UP3
+            _st4 = _ou3.get_context().get_stage()
+            for _p in list(_st4.Traverse()):
+                _ps = str(_p.GetPath())
+                if _ps.startswith('/hsrb'):
+                    continue
+                if _ps.endswith('/body') and _p.HasAPI(_UP3.RigidBodyAPI):
+                    try:
+                        from pxr import PhysxSchema as _PX3
+                        # 再登録前の質量を読む(再登録で 0 にリセットされ浮くのを防ぐため)
+                        _m0 = None
+                        if _p.HasAPI(_UP3.MassAPI):
+                            _m0 = _UP3.MassAPI(_p).GetMassAttr().Get()
+                        physx_utils.setRigidBody(_p, 'convexHull', False)
+                        _rbapi = _PX3.PhysxRigidBodyAPI.Apply(_p)
+                        _rbapi.CreateDisableGravityAttr(False)
+                        _rbapi.CreateSleepThresholdAttr(0.0)
+                        # 質量を復元(再登録後 0 だと重力が効かず浮く)。元が無/0なら 0.3kg。
+                        _mapi = _UP3.MassAPI.Apply(_p)
+                        _m1 = _mapi.GetMassAttr().Get()
+                        _mset = _m0 if (_m0 and _m0 > 0.0) else 0.3
+                        _mapi.CreateMassAttr(float(_mset))
+                        print('[recol] re-applied: %s mass(before=%s afterRB=%s set=%.3f)'
+                              % (_ps, _m0, _m1, _mset), flush=True)
+                    except Exception as _e:
+                        print('[recol] err %s %r' % (_ps, _e), flush=True)
+    except Exception as _e:
+        print('[recol] outer err %r' % _e, flush=True)
+
+    # --- [wake] 動的物体を定期的に起こす。recol(setRigidBody)後の body はスリープしやすく、
+    #     掴んで静止→眠る→開放しても起きず空中で止まる(落ちない)。USD の sleepThreshold は
+    #     生の PhysX body に伝わらないので、dc で明示的に wake する。 ---
+    try:
+        _wk = globals().get('_wake_step', 0) + 1
+        globals()['_wake_step'] = _wk
+        if _wk > 150 and _wk % 15 == 0:
+            _opaths = globals().get('_obj_body_paths')
+            if _opaths is None:
+                import omni.usd as _ou5
+                from pxr import UsdPhysics as _UP5
+                _st5 = _ou5.get_context().get_stage()
+                _opaths = []
+                for _p in _st5.Traverse():
+                    _pp = str(_p.GetPath())
+                    if (not _pp.startswith('/hsrb')) and _pp.endswith('/body') and _p.HasAPI(_UP5.RigidBodyAPI):
+                        _opaths.append(_pp)
+                globals()['_obj_body_paths'] = _opaths
+            for _op in _opaths:
+                _h = _hsr.dc.get_rigid_body(_op)
+                if _h:
+                    _hsr.dc.wake_up_rigid_body(_h)
+    except Exception:
+        pass
+
 
 simulation_context.stop()
 kit.close()
