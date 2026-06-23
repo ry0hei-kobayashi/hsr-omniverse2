@@ -43,6 +43,7 @@ from tmc_wrs_gazebo_worlds import randomizer
 
 import hsr
 import construct_environment
+import convert_object_to_ycb_physics
 import object_placement
 import people_spawn
 
@@ -347,6 +348,18 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     if model_path is None:
         print(f'Model not found for {name}: tried {model_candidates}')
         return None
+
+    # placement で出す物体に、YCB と同じ物理構造(body / body/visuals / body/collisions,
+    # convexHull, 既定質量)を「参照する前」に自動付与する。生スキャン(ObjectCapture /
+    # Scaniverse 等)の model.usd を 1 回だけ書き換える(2 回目以降は冪等でスキップ)。
+    # 既に剛体 + 当たり判定を持つ物体(YCB / 変換済み)は convert() 側でスキップされる。
+    try:
+        _conv_msg = convert_object_to_ycb_physics.convert(
+            model_path, mass_kg=DEFAULT_OBJECT_MASS_KG)
+        print(f'[obj-convert] {_conv_msg}', flush=True)
+    except Exception as _conv_e:
+        print(f'[obj-convert] FAILED {name}: {_conv_e!r}', flush=True)
+
     create_prim(
         prim_path=stage_path,
         prim_type='Xform',
