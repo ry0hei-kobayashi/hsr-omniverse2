@@ -98,7 +98,6 @@ ADD scripts/hsr.py /app/hsr.py
 ADD scripts/hsr_hsrc_ex.py /app/hsr_hsrc_ex.py
 ADD scripts/ros2_bridge.py /app/ros2_bridge.py
 ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
-ADD scripts/convert_object_to_ycb_physics.py /app/convert_object_to_ycb_physics.py
 ADD scripts/construct_environment.py /app/construct_environment.py
 ADD scripts/object_placement.py /app/object_placement.py
 ADD scripts/people_spawn.py /app/people_spawn.py

@@ -62,7 +62,6 @@ services:
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
-      - ../scripts/convert_object_to_ycb_physics.py:/app/convert_object_to_ycb_physics.py:ro
       - ../scripts/hsr.py:/app/hsr.py:ro
       - ../scripts/hsr_hsrc_ex.py:/app/hsr_hsrc_ex.py:ro
       # ros2_bridge.py も live マウント (gripper preempt 修正等を再ビルド無しで反映)
@@ -76,9 +75,7 @@ services:
       # モデルを足しても再ビルド不要で反映される。
       # (イメージにも ADD usd で焼き込み済みなので、マウントを外せばイメージ内が使われる)
       # ※ ホスト側で wrs_models / hsrb サブモジュールが checkout 済みである必要あり。
-      # rw: 起動時に launch_isaacsim.py が生スキャン物体を YCB 物理構造へ自動変換し、
-      # その場で model.usd を書き換えるため書き込み可にする(変換は冪等)。
-      - ../usd:/app/usd:rw
+      - ../usd:/app/usd:ro
 
       # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
       # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
