@@ -80,6 +80,7 @@ make ros2 up                  # standalone モード起動 (host ローカル、
 make ros2 up pc               # PC モード (CycloneDDS PC + ROS_DOMAIN_ID=55)
 ROS_DOMAIN_ID=49 make ros2 up pc  # Domain ID を上書き
 ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
+make ros2 up robot=hsrc_ex    # スポーンするロボットを切り替え (hsrb/hsrc_ex、後述)
 make ros2 down                # 停止
 make ros2 ps                  # コンテナ状態
 make ros2 ros                 # ros2 コンテナで bash
@@ -198,6 +199,25 @@ make ros2 up                  # TASK を付けないと既定設定で起動
 make ros2 up TASK=restaurant  # 別のタスクに切り替え
 make ros2 down                # 終了 (コンテナ停止)
 ```
+
+### ロボットを切り替える（hsrb / hsrc_ex）
+
+スポーンするロボットは `robot=`（小文字）または `ROBOT=`（大文字）で選びます。`TASK=` と同じく `up` に付けます。
+
+| `robot=` の値 | ロボット | 使う USD |
+|---|---|---|
+| `hsrb` | HSR-B（**既定**） | `usd/hsrb/` |
+| `hsrc_ex` | HSR-C 拡張版 | `usd/hsrc/hsrc1s.usd`（`scripts/hsr_hsrc_ex.py` で起動） |
+
+```bash
+make ros2 up robot=hsrb              # HSR-B で起動（既定なので省略しても同じ）
+make ros2 up robot=hsrc_ex           # HSR-C 拡張版で起動
+make ros2 up TASK=hri robot=hsrc_ex  # TASK と併用も可
+ROBOT=hsrc_ex make ros2 up           # 大文字の環境変数でも同じ
+```
+
+- 省略時は `hsrb` で起動します。
+- 優先順位は `robot=` / `ROBOT=` ＞ 既定（`hsrb`）。
 
 ### タスクごとの設定を変えたいとき
 
