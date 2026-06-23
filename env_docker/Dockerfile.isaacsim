@@ -61,6 +61,7 @@ RUN /isaac-sim/python.sh -m pip install rospkg
 WORKDIR /app
 COPY scripts/hsr.py /app/hsr.py
 COPY scripts/launch_isaacsim.py /app/launch_isaacsim.py
+COPY scripts/convert_object_to_ycb_physics.py /app/convert_object_to_ycb_physics.py
 COPY scripts/construct_environment.py /app/construct_environment.py
 COPY scripts/dressing_presets.py /app/dressing_presets.py
 COPY scene_dressing /app/scene_dressing
