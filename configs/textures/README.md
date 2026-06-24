@@ -16,8 +16,10 @@
 | `wall_2.jpg` | 南壁 (-Y) |
 | `wall_3.jpg` | 東壁 (+X) |
 | `wall_4.jpg` | 西壁 (-X) |
+| `restaurant_floor.jpg` | レストラン風の木製フローリング床 (`restaurant` プリセット用)。出典: [Polyhaven](https://polyhaven.com/a/wood_floor) **CC0** (パブリックドメイン) |
 
-これらは [`../dressing.yaml`](../dressing.yaml) の `lab` プリセット (デフォルト) が参照する。
+`floor.jpg` / `wall_*.jpg` は [`../dressing.yaml`](../dressing.yaml) の `lab` プリセット (デフォルト) が、
+`restaurant_floor.jpg` は `restaurant` プリセット (restaurant タスク) が参照する。
 
 ## コンテナ内マッピング
 

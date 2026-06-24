@@ -47,4 +47,28 @@ dressing:
 | `pick_and_place/` | Pick and Place Challenge |
 | `gpsr/` | General Purpose Service Robot Challenge |
 | `laundry/` | Doing Laundry Challenge |
-| `restaurant/` | Restaurant Challenge |
+| `restaurant/` | Restaurant Challenge (本物の机・椅子 USD + 手を振る人。下記参照) |
+
+## 本物の机・椅子 (furniture) を置く
+
+`restaurant/` は「レストランのデバッグ環境」として、箱ではなく**本物のメッシュの机・椅子**を
+置いている。人 (`people:`) と同じく Isaac 公式アセットサーバから USD を取得して配置する
+仕組みで、`placement.yaml` の **`furniture:`** セクションで位置を指定する。
+
+```yaml
+furniture:
+  - usd: restaurant/Whittershins/Whittershins.usd   # 丸テーブル(直径約1.5m, usd/restaurant/ 同梱)
+    name: table_a
+    x: 3.0
+    y: 1.6
+    yaw: 0        # 度
+```
+
+- `usd` … `usd/` からの相対パス (例 `restaurant/...`) はリポジトリ同梱のローカル USD、
+  `/` 始まりはアセットサーバ上のパス、`omniverse://`/`http(s)://` はその URL。
+- restaurant タスクは机・椅子を `usd/restaurant/` に同梱しているので**起動時のネット取得が不要**
+  (人 `people:` は別途アセットサーバから取得)。詳細は [`usd/restaurant/README.md`](../../usd/restaurant/README.md)。
+- 向き (Y-up→Z-up) と単位 (cm→m) と床への着地 (snap_to_floor) は **自動補正**されるので、
+  基本は `x` / `y` / `yaw` を書くだけでよい。詳細は `restaurant/placement.yaml` の
+  コメントと `scripts/furniture_spawn.py` を参照。
+- `furniture:` を書いていないタスク (hri/gpsr 等) では何も起きない (no-op)。

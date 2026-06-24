@@ -20,6 +20,7 @@
 | タスクごとに world/配置/見た目を切り替える | [`tasks/<名前>/`](./tasks/) を用意し、`make ros2 up TASK=<名前>` で実行 |
 | ロボットの初期位置を変える | [`placement.yaml`](./placement.yaml) の **`robot:`** (x, y, yaw[rad]) |
 | 家具の上に物体を置く | `placement.yaml` の **`objects.placements:`** |
+| 本物の机・椅子 (USD) を置く | `placement.yaml` の **`furniture:`** (例: `tasks/restaurant/placement.yaml`) |
 | 人 (アニメ付き) を置く | `placement.yaml` の **`people.list:`** |
 | 部屋の見た目をプリセットごと切り替える (例: lab → office) | [`dressing.yaml`](./dressing.yaml) の **`defaults.preset:`** |
 | 照明モードを切り替える (例: default → bright) | `dressing.yaml` の **`defaults.lighting:`** |
@@ -253,6 +254,7 @@ make ros2 up
 | `lab` | ラボ風(`/data/textures/` 配下の floor, wall_1〜4) |
 | `floor_only` | 床のみ、背景なし |
 | `backdrop_only` | 背景のみ、床なし |
+| `restaurant` | レストラン風(木目の床 `restaurant_floor.jpg`・背景なし・広い空間)。restaurant タスク用 |
 
 ### `lighting_presets` (照明)
 
@@ -271,6 +273,7 @@ make ros2 up
 - [`../scripts/launch_isaacsim.py`](../scripts/launch_isaacsim.py) — `robot:` セクションを読んで HSR を配置
 - [`../scripts/object_placement.py`](../scripts/object_placement.py) — `objects:` セクションを読んで物体を配置
 - [`../scripts/people_spawn.py`](../scripts/people_spawn.py) — `people:` セクションを読んで人を配置
+- [`../scripts/furniture_spawn.py`](../scripts/furniture_spawn.py) — `furniture:` セクションを読んで本物の机・椅子 USD を配置
 
 `dressing.yaml` を読み込む側:
 - [`../scripts/dressing_presets.py`](../scripts/dressing_presets.py) — この YAML を読み込む Python ローダー
