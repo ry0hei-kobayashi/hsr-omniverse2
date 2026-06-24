@@ -1,0 +1,278 @@
+# ============================================================
+# Restaurant Challenge シーン初期配置 (placement.yaml)
+# ============================================================
+#
+# 「ロボット・家具(机/椅子)・人」の最初の置き方をまとめた設定。
+# make ros2 up TASK=restaurant で使われる。
+#
+# このタスクは「レストランのデバッグ環境」を作る:
+#   - 本物のメッシュの机・椅子 (リポジトリ同梱 usd/restaurant/, CC0) を任意の位置に置く
+#   - 手を振っている人 (お客さんが店員ロボットを呼んでいるイメージ) をテーブル近くに置く
+#   - ロボットは食事エリアから少し離れた所に立ち、遠くから全体を見る
+#
+# セクション:
+#   robot:     ロボット(HSR)の初期位置        -> launch_isaacsim.py
+#   furniture: 机・椅子など本物の家具 USD       -> furniture_spawn.py   ★このタスクの主役
+#   people:    アニメーションする人             -> people_spawn.py
+#   objects:   家具の上に乗せる物体 (任意)      -> object_placement.py
+#
+# 部屋(床/背景/照明)は configs/dressing.yaml + task.yaml の dressing: が担当。
+# このタスクは壁なしの「広い空間」(床だけ)。world は worlds/rc26_restaurant.world。
+# 床は木目テクスチャ (configs/dressing.yaml の restaurant プリセット)。
+
+# ============================================================
+# robot: ロボット(HSR)の初期スポーン位置
+# ============================================================
+# x, y : 水平位置 (m, world=map 座標)。 yaw : 向き (ラジアン)。
+#        0=+X, 1.57≈+Y, 3.14≈-X, -1.57≈-Y。 ※人(people)/家具(furniture)の yaw は「度」。
+# 食事エリア (X が 0〜7 付近) から離れた X=-4.5 に立ち、+X を向いて遠くから全体を見る。
+# (最寄りの丸テーブルまで約6m、最遠で約11m。)
+robot:
+  x: -4.5
+  y: 0.0
+  yaw: 0.0
+
+# ============================================================
+# furniture: 本物のメッシュの家具 (机・椅子) を任意の位置に置く
+# ============================================================
+#
+# 仕組み: 机・椅子はリポジトリ同梱の usd/restaurant/ から読み込む (ネット不要)。
+# 読み込み側は furniture_spawn.py。
+#
+# 各エントリのキー:
+#   usd  (必須) : 家具 USD の場所。usd/ からの相対パス (例 restaurant/...) はローカル同梱。
+#                  "/" 始まりはアセットサーバ上のパス、"omniverse://"/"http(s)://" はその URL。
+#   name (任意) : シーン内の名前 (重複しても自動で連番)
+#   x, y (必須) : 置く水平位置 (m, world=map 座標)
+#   z    (任意) : 床の高さ (m, 省略時 0)。snap_to_floor が底を z に合わせる。
+#   yaw  (任意) : 向き (度)。0=+X, 90=+Y, 180=-X, 270=-Y。省略時 0。
+#   scale/collision/collision_approximation/snap_to_floor : 任意 (詳細は furniture_spawn.py)。
+#
+# 向き・大きさは furniture_spawn.py が USD のメタデータから自動補正する
+# (Y-up→立たせ, cm→m, 底面を床へ)。なので位置(x,y)と向き(yaw)を書くだけで置ける。
+#
+# 使っているアセット (Polyhaven CC0, 同梱, すべて Z-up・メートル単位・底面 z=0。実測):
+#   restaurant/round_table/model.usd  : 円形・直径 約1.3m・高 0.49m の丸テーブル (やや低めのカフェ風)
+#   restaurant/long_table/model.usd   : 1.33×0.56×0.83m の木製テーブル (右脇の長机)
+#   restaurant/dining_chair/model.usd : 0.43×0.58×0.97m のダイニングチェア。yaw=0 で座面が -Y 向き
+#                                       (背もたれ +Y 側)。
+#   ※ 出典/ライセンスは usd/restaurant/README.md 参照。
+#
+# 丸テーブルを 4 脚の椅子で囲む向き (椅子は yaw=0 で座面が -Y。中心を向かせる):
+#   北 (+Y) = yaw 0  /  南 (-Y) = yaw 180  /  東 (+X) = yaw 270  /  西 (-X) = yaw 90
+# 椅子は中心から 1.1m の位置に置く (テーブル半径 約0.65m + 少し引いた分)。
+#
+# レイアウト (上から見た図, 単位 m。壁なしの広い空間。○=丸テーブル, ■=長机):
+#        Y
+#    3.8|      ○table_3            ○table_6
+#    0  R-->        ○table_2  ●人  ○table_5      (R=ロボット(-4.5,0) +X向き)
+#  -3.8 |      ○table_1            ○table_4
+#       | ■長机(ロボット右脇)
+#       +-------------------------------------→ X
+#         -4.5      1.5        3.5     5.5
+#   ○列: x=1.5 と x=5.5 (4.0m間隔) / 行: y=-3.8, 0, 3.8 (3.8m間隔)。計6セット。
+#   ●人=(3.5,0.8) 通路に立ちロボットを向く。
+#
+
+furniture:
+  # ===== ロボット初期位置のすぐ右側 (-Y) に置く長机 (四角い長テーブル) =====
+  - usd: restaurant/long_table/model.usd
+    name: counter_table
+    x: -4.5
+    y: -1.15
+    yaw: 0 # 長辺(1.33m)が X 方向。ロボット(-4.5,0)の右脇
+
+  # ===== 丸テーブルセット 1 (1.5, -3.8) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_1
+    x: 1.5
+    y: -3.8
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_1_chair_n
+    x: 1.5
+    y: -2.7
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_1_chair_s
+    x: 1.5
+    y: -4.9
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_1_chair_e
+    x: 2.6
+    y: -3.8
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_1_chair_w
+    x: 0.4
+    y: -3.8
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+  # ===== 丸テーブルセット 2 (1.5, 0.0) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_2
+    x: 1.5
+    y: 0.0
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_2_chair_n
+    x: 1.5
+    y: 1.1
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_2_chair_s
+    x: 1.5
+    y: -1.1
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_2_chair_e
+    x: 2.6
+    y: 0.0
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_2_chair_w
+    x: 0.4
+    y: 0.0
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+  # ===== 丸テーブルセット 3 (1.5, 3.8) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_3
+    x: 1.5
+    y: 3.8
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_3_chair_n
+    x: 1.5
+    y: 4.9
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_3_chair_s
+    x: 1.5
+    y: 2.7
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_3_chair_e
+    x: 2.6
+    y: 3.8
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_3_chair_w
+    x: 0.4
+    y: 3.8
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+  # ===== 丸テーブルセット 4 (5.5, -3.8) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_4
+    x: 5.5
+    y: -3.8
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_4_chair_n
+    x: 5.5
+    y: -2.7
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_4_chair_s
+    x: 5.5
+    y: -4.9
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_4_chair_e
+    x: 6.6
+    y: -3.8
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_4_chair_w
+    x: 4.4
+    y: -3.8
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+  # ===== 丸テーブルセット 5 (5.5, 0.0) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_5
+    x: 5.5
+    y: 0.0
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_5_chair_n
+    x: 5.5
+    y: 1.1
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_5_chair_s
+    x: 5.5
+    y: -1.1
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_5_chair_e
+    x: 6.6
+    y: 0.0
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_5_chair_w
+    x: 4.4
+    y: 0.0
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+  # ===== 丸テーブルセット 6 (5.5, 3.8) + 椅子4脚 =====
+  - usd: restaurant/round_table/model.usd
+    name: table_6
+    x: 5.5
+    y: 3.8
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_6_chair_n
+    x: 5.5
+    y: 4.9
+    yaw: 0 # 北 -> 中心(-Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_6_chair_s
+    x: 5.5
+    y: 2.7
+    yaw: 180 # 南 -> 中心(+Y)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_6_chair_e
+    x: 6.6
+    y: 3.8
+    yaw: 270 # 東 -> 中心(-X)を向く
+  - usd: restaurant/dining_chair/model.usd
+    name: table_6_chair_w
+    x: 4.4
+    y: 3.8
+    yaw: 90 # 西 -> 中心(+X)を向く
+
+# ============================================================
+# people: アニメーションする人 (手を振るお客さん)
+# ============================================================
+# x, y : 水平位置 (m)。 z : 高さ (m, 省略時 0=床)。 yaw : 向き (度)。
+# motion: 手を振るのは stand_idle_wave_loop。他: stand_idle_loop/LookAround/Sit/
+#         stand_walk_loop/push_button/type_keyboard (アセットサーバに実在するものだけ)。
+people:
+  # 「手を上げっぱなしで振り続ける」風にしたいとき (任意)。まずは不要。
+  loop_window:
+    start: 1.0
+    end: 2.0
+  list:
+    # テーブルの近く (中央の通路, table_2 と table_5 の間) に立ち、
+    # 遠くのロボット(-4.5,0)の方を向いて手を振る = 店員ロボットを呼ぶお客さん。
+    - name: customer_wave_1
+      x: 3.5
+      y: 0.8
+      yaw: 270 # -X (ロボット) の方を向く
+      motion: stand_idle_wave_loop # 手を振る
+
+    - name: customer_wave_2
+      x: 4.5
+      y: 4.8
+      yaw: 270 # -X (ロボット) の方を向く
+      motion: stand_idle_wave_loop # 手を振る
+
+
+# ============================================================
+# objects: 机の上に物体を乗せる (任意・このデバッグ環境では未使用)
+# ============================================================
+# ※ objects.placements は worlds/*.world の「箱の家具」の天板に乗せる仕組みで、
+#   furniture: で置く本物 USD の机の上には直接は乗せられない。まずは家具と人だけで OK。

@@ -5,12 +5,16 @@
 # 書き方は configs/tasks/README.md を参照。
 
 # このタスクで使う world (worlds/ 内のファイル名)
-world: rc26_3330.world      # TODO: Restaurant 用の world があれば変更する
+# Restaurant 用の最小ワールド (床だけ・壁なしの広い空間)。机・椅子は placement.yaml
+# の furniture: で本物のメッシュ USD として置く。
+world: rc26_restaurant.world
 
 # 見た目 (configs/dressing.yaml のプリセットから選ぶ)
+# レストラン風: 木目の床テクスチャ + 背景の壁なしの広い空間 (restaurant プリセット)。
+# 床テクスチャは configs/textures/restaurant_floor.jpg (木製フローリング, Polyhaven CC0)。
 dressing:
-  preset: lab
+  preset: restaurant
   lighting: default
 
-# robot/objects/people を変えたいときは、このフォルダに placement.yaml を置く。
-# 無ければ共通の configs/placement.yaml が使われる。
+# robot/furniture/people は同フォルダの placement.yaml で指定している。
+# (机・椅子=furniture:, 手を振る人=people:)。

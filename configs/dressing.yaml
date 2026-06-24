@@ -60,6 +60,12 @@ dressing_presets:
     floor_texture: /data/textures/floor.jpg
     backdrop_textures: null
 
+  # レストラン風 (木目の床・背景なしの広い空間)。restaurant タスクで使用。
+  restaurant:
+    floor_texture: /data/textures/restaurant_floor.jpg   # 木製フローリング (Polyhaven, CC0)
+    backdrop_textures: null
+    floor_tile: 5.33   # 約15m四方の床に対し ~2.8m/タイル (テクスチャを縦横1.5倍に拡大)
+
   # 背景のみ (床なし)
   backdrop_only:
     floor_texture: null

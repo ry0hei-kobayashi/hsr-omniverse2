@@ -45,6 +45,7 @@ import hsr
 import construct_environment
 import object_placement
 import people_spawn
+import furniture_spawn
 
 
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
@@ -426,6 +427,14 @@ object_placement.apply_placements(world_file, drop_object,
 # タイムラインの再生区間 (start_time / end_time) に使う。
 # config_path=None のときは各ローダーが共通の configs/placement.yaml を読む。
 _num_people, _people_loop_start, _people_loop_end = people_spawn.spawn_people(
+    assets_root_path, kit, config_path=_task_placement_path)
+
+# placement.yaml の furniture: セクションに従って「本物のメッシュの家具(机/椅子)」を
+# 配置する。人 (people) と同じく Isaac 公式アセットサーバから取得する。furniture: が
+# 無いタスク (hri/gpsr 等) では何も置かない no-op なので無条件に呼んでよい。
+# 静的 collider を付けるだけで剛体は付けないため、play() の前後どちらでも問題ないが、
+# people と同じく play() 前に置いておく。
+furniture_spawn.spawn_furniture(
     assets_root_path, kit, config_path=_task_placement_path)
 
 # 独自オブジェクト (usd/my_models) の配置は使わない。

@@ -68,6 +68,7 @@ services:
       - ../scripts/ros2_bridge.py:/app/ros2_bridge.py:ro
       - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
+      - ../scripts/furniture_spawn.py:/app/furniture_spawn.py:ro
       - ../worlds:/app/worlds:ro
 
       # usd フォルダ全体をホスト側から live マウントする。
