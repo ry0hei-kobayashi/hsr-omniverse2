@@ -103,6 +103,10 @@
       </camera>
     </gui>
 
-    <!-- 外壁は置かない (広い空間で使う)。机・椅子・人は placement.yaml で配置。 -->
+    <!-- 外壁 (高さ2.5m,厚さ0.1m)。自己位置推定用に4辺を囲う。部屋: X=-7〜8, Y=-6.5〜6.5。 -->
+    <include><uri>model://unit_box</uri><name>wall_north</name><pose>0.5 6.5 1.25 0 0 0</pose><scale>15.0 0.1 2.5</scale></include>
+    <include><uri>model://unit_box</uri><name>wall_south</name><pose>0.5 -6.5 1.25 0 0 0</pose><scale>15.0 0.1 2.5</scale></include>
+    <include><uri>model://unit_box</uri><name>wall_east</name><pose>8.0 0.0 1.25 0 0 0</pose><scale>0.1 13.0 2.5</scale></include>
+    <include><uri>model://unit_box</uri><name>wall_west</name><pose>-7.0 0.0 1.25 0 0 0</pose><scale>0.1 13.0 2.5</scale></include>
   </world>
 </sdf>

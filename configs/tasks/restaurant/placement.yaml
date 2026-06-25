@@ -244,6 +244,60 @@ furniture:
     y: 3.8
     yaw: 90 # 西 -> 中心(+X)を向く
 
+  # hsr 左側(+Y)を埋める: 丸机 + 椅子4 (N/S/E/W)
+  - usd: restaurant/round_table/model.usd
+    name: table_left
+    x: -4.5
+    y: 3.2
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_left_chair_n
+    x: -4.5
+    y: 4.3
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_left_chair_s
+    x: -4.5
+    y: 2.1
+    yaw: 180
+  - usd: restaurant/dining_chair/model.usd
+    name: table_left_chair_e
+    x: -3.4
+    y: 3.2
+    yaw: 270
+  - usd: restaurant/dining_chair/model.usd
+    name: table_left_chair_w
+    x: -5.6
+    y: 3.2
+    yaw: 90
+
+  # hsr 右側(-Y)を埋める: 丸机 + 椅子4 (counter_table より奥)
+  - usd: restaurant/round_table/model.usd
+    name: table_right
+    x: -4.5
+    y: -3.5
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_right_chair_n
+    x: -4.5
+    y: -2.4
+    yaw: 0
+  - usd: restaurant/dining_chair/model.usd
+    name: table_right_chair_s
+    x: -4.5
+    y: -4.6
+    yaw: 180
+  - usd: restaurant/dining_chair/model.usd
+    name: table_right_chair_e
+    x: -3.4
+    y: -3.5
+    yaw: 270
+  - usd: restaurant/dining_chair/model.usd
+    name: table_right_chair_w
+    x: -5.6
+    y: -3.5
+    yaw: 90
+
 # ============================================================
 # people: アニメーションする人 (手を振るお客さん)
 # ============================================================
@@ -272,7 +326,15 @@ people:
 
 
 # ============================================================
-# objects: 机の上に物体を乗せる (任意・このデバッグ環境では未使用)
+# objects: 物体を絶対座標で配置 (floor: x,y と z[省略時0=床]。usd/ 配下から)
 # ============================================================
-# ※ objects.placements は worlds/*.world の「箱の家具」の天板に乗せる仕組みで、
-#   furniture: で置く本物 USD の机の上には直接は乗せられない。まずは家具と人だけで OK。
+# hsr 隣の長机(counter_table, -4.5,-1.15)の【天板の手前】にドリンクを5本 横一列で置く。
+# 長机の天板高さ ≒ 0.83m なので z=0.83 にして天板へ落として着地させる。
+objects:
+  drop_clearance: 0.1
+  floor:
+    - {object: rc26_practice_day_1/drink/apple_juice,  x: -5.00, y: -0.97, z: 0.83}
+    - {object: rc26_practice_day_1/drink/milk,         x: -4.72, y: -0.97, z: 0.83}
+    - {object: rc26_practice_day_1/drink/banana_shake, x: -4.44, y: -0.97, z: 0.83}
+    - {object: rc26_practice_day_1/drink/coffee_beans, x: -4.16, y: -0.97, z: 0.83}
+    - {object: rc26_practice_day_1/drink/apple_juice,  x: -3.88, y: -0.97, z: 0.83}

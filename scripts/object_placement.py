@@ -201,6 +201,7 @@ def _parse_floor_item(item: Any) -> Dict[str, Any]:
         "object": item["object"],
         "x": float(item["x"]),
         "y": float(item["y"]),
+        "z": float(item.get("z", 0.0)),  # 省略時 0=床。机の天板等に載せるなら高さを指定。
         "yaw": float(item.get("yaw", 0.0)),
         "roll": float(item.get("roll", 0.0)),
         "pitch": float(item.get("pitch", 0.0)),
@@ -227,8 +228,8 @@ def apply_placements(
     placements = objects_cfg.get("placements") or {}
     clearance = float(objects_cfg.get("drop_clearance", 0.05))
 
-    if not placements:
-        log("WARNING: 'placements' が空です。配置する物体がありません。")
+    if not placements and not objects_cfg.get("floor"):
+        log("WARNING: 'placements' も 'floor' も空です。配置する物体がありません。")
         return 0
 
     furniture = read_furniture(world_file)
@@ -291,7 +292,7 @@ def apply_placements(
         it = _parse_floor_item(raw)
         obj_name = it["object"]
         wx, wy = it["x"], it["y"]
-        wz = clearance  # 床は z=0。drop_clearance だけ上から落として着地させる。
+        wz = it["z"] + clearance  # z=0 で床、z>0 で机の天板など指定高さの上に落として着地。
 
         gazebo_name = f"floor__{obj_name}__{idx}"
         requested += 1

@@ -14,7 +14,7 @@ world: rc26_restaurant.world
 # 床テクスチャは configs/textures/restaurant_floor.jpg (木製フローリング, Polyhaven CC0)。
 dressing:
   preset: restaurant
-  lighting: default
+  lighting: bright   # 壁を囲うと暗く見えるので明るめ(default の約4倍)。暗ければ studio、明るすぎれば default。
 
 # robot/furniture/people は同フォルダの placement.yaml で指定している。
 # (机・椅子=furniture:, 手を振る人=people:)。
