@@ -19,10 +19,14 @@ class OpenMMRgbdCompressionRepublisher(Node):
     def __init__(self) -> None:
         super().__init__('openmm_rgbd_compression_republisher')
 
-        self.declare_parameter('rgb_input_topic', '/head_rgbd_sensor/rgb/image_rect_color')
-        self.declare_parameter('rgb_output_topic', '/head_rgbd_sensor/rgb/image_rect_color/compressed')
-        self.declare_parameter('depth_input_topic', '/head_rgbd_sensor/depth_registered/image_raw')
-        self.declare_parameter('depth_output_topic', '/head_rgbd_sensor/depth_registered/image_raw/compressedDepth')
+        # hsrc_ex 実機と同じ命名(color/image_raw, depth/image_raw)に合わせる。
+        # hsr_hsrc_ex.py がこの名前で RAW を publish し、ここで openmm/mmpose が見る
+        # /compressed・/compressedDepth を作る。実機 hsrc_ex / navigation の消費側とも一致。
+        # ※ HSR-B(rgb/image_rect_color)で使う場合はパラメータで上書きすること。
+        self.declare_parameter('rgb_input_topic', '/head_rgbd_sensor/color/image_raw')
+        self.declare_parameter('rgb_output_topic', '/head_rgbd_sensor/color/image_raw/compressed')
+        self.declare_parameter('depth_input_topic', '/head_rgbd_sensor/depth/image_raw')
+        self.declare_parameter('depth_output_topic', '/head_rgbd_sensor/depth/image_raw/compressedDepth')
         self.declare_parameter('jpeg_quality', 95)
         self.declare_parameter('png_level', 3)
         self.declare_parameter('depth_quant_a', 1000.0)

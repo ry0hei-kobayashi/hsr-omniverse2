@@ -1692,8 +1692,14 @@ class hsr:
 
         q = msg.pose.orientation
         yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)[2]
-        self.odometry_estimator.set_pose(
-            msg.pose.position.x, msg.pose.position.y, yaw)
+        # 【無効化】base の odom をレーザ pose で上書きすると、scan が不良(壁を捉え
+        # られず最大レンジばかり)なときにこの pose がドリフトし、台車の軌道P制御が
+        # それを追いかけて指令ゼロでもゆっくり回り続ける原因になる。
+        # Sim では車輪オドメトリ(WheelOdometry.integrate)が正確なので base odom は
+        # それに任せ、ここでのレーザ上書きは行わない。地図との整合は別の
+        # localization(map->odom)が担当する想定。
+        # self.odometry_estimator.set_pose(
+        #     msg.pose.position.x, msg.pose.position.y, yaw)
 
     def publish_joint_states(self):
         js = JointState()
@@ -2021,19 +2027,38 @@ class hsr:
         cmd = CartSpace()
         if self.odom_trajectory_action_server._action_goal is not None:
             self._base_hold_pose = None  # 追従中はホールド解除
-            self.odom_trajectory_action_server._odometry = self.odometry_estimator.pose
-            cmd.dot_x = (
-                self.odom_trajectory_action_server._joints['odom_x']
-                - self.odometry_estimator.pose.x
-            )
-            cmd.dot_y = (
-                self.odom_trajectory_action_server._joints['odom_y']
-                - self.odometry_estimator.pose.y
-            )
-            cmd.dot_r = (
-                self.odom_trajectory_action_server._joints['odom_t']
-                - self.odometry_estimator.pose.ang
-            )
+            srv = self.odom_trajectory_action_server
+            srv._odometry = self.odometry_estimator.pose
+            # 軌道の全点を消化し終えたか(= もう動かす目標が無い)を判定。
+            try:
+                traj_done = (
+                    srv._action_point_index
+                    >= len(srv._action_goal.trajectory.points)
+                )
+            except Exception:
+                traj_done = True
+            if traj_done:
+                # 軌道完了後に固定の odom 目標を保持し続けると、laser 補正で
+                # ドリフトする odom を P 制御(dot = 目標 - 現在)が追いかけ、
+                # 台車が指令ゼロでもゆっくり回り続ける(cmd_vel=0 でもこの分岐が
+                # 優先されるため止まらない)。完了後は目標を現在の odom に
+                # 再アンカー(= その場保持)して回転を止める。新しい軌道点が来れば
+                # executor が _joints を上書きするので通常の追従に戻る。
+                srv._joints['odom_x'] = self.odometry_estimator.pose.x
+                srv._joints['odom_y'] = self.odometry_estimator.pose.y
+                srv._joints['odom_t'] = self.odometry_estimator.pose.ang
+            cmd.dot_x = srv._joints['odom_x'] - self.odometry_estimator.pose.x
+            cmd.dot_y = srv._joints['odom_y'] - self.odometry_estimator.pose.y
+            cmd.dot_r = srv._joints['odom_t'] - self.odometry_estimator.pose.ang
+            # 残留P誤差(オドメトリ残差や物理ノイズ)で台車がじわじわ動く/回るのを
+            # 防ぐ最終デッドバンド。目標にほぼ到達している軸は 0 にする(軸独立)。
+            # 走行(cmd_vel)分岐には影響しない。
+            if abs(cmd.dot_x) < 0.01:
+                cmd.dot_x = 0.0
+            if abs(cmd.dot_y) < 0.01:
+                cmd.dot_y = 0.0
+            if abs(cmd.dot_r) < 0.01:
+                cmd.dot_r = 0.0
         elif (
             self.last_cmd_vel_time + 2.0 > self.simulation_context.current_time
             and self.cmd_vel_msg is not None

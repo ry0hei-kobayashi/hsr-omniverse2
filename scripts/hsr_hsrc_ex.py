@@ -334,21 +334,23 @@ class hsr(base.hsr):
                          self.RGBD_FRAME),
                         (
                             'cameraHelperRgb.inputs:topicName',
-                            topic_prefix + '/head_rgbd_sensor/rgb/image_rect_color',
+                            # hsrc_ex 実機と同じ命名(color/image_raw)。openmm/mmpose や
+                            # navigation の hsrc_ex 消費側もこの名前を前提にしている。
+                            topic_prefix + '/head_rgbd_sensor/color/image_raw',
                         ),
                         ('cameraHelperRgb.inputs:type', 'rgb'),
                         ('cameraHelperInfo.inputs:frameId',
                          self.RGBD_FRAME),
                         (
                             'cameraHelperInfo.inputs:topicName',
-                            topic_prefix + '/head_rgbd_sensor/rgb/camera_info',
+                            topic_prefix + '/head_rgbd_sensor/color/camera_info',
                         ),
                         ('cameraHelperInfo.inputs:type', 'camera_info'),
                         ('cameraHelperDepth.inputs:frameId',
                          self.RGBD_FRAME),
                         (
                             'cameraHelperDepth.inputs:topicName',
-                            topic_prefix + '/head_rgbd_sensor/depth_registered/image_rect_raw',
+                            topic_prefix + '/head_rgbd_sensor/depth/image_raw',
                         ),
                         ('cameraHelperDepth.inputs:type', 'depth'),
                         # Sensor Data QoS (BEST_EFFORT) so the depth image
@@ -364,7 +366,7 @@ class hsr(base.hsr):
                          self.RGBD_FRAME),
                         (
                             'cameraHelperDepthInfo.inputs:topicName',
-                            topic_prefix + '/head_rgbd_sensor/depth_registered/camera_info',
+                            topic_prefix + '/head_rgbd_sensor/depth/camera_info',
                         ),
                         ('cameraHelperDepthInfo.inputs:type', 'camera_info'),
                         # camera_info stays RELIABLE (default) — small payload,

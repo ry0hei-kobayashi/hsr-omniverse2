@@ -233,6 +233,13 @@ def generate_launch_description():
             image_republisher_script,
             '--ros-args',
             '-p', 'use_sim_time:=true',
+            # hsrc_ex 実機と同じ命名で /compressed を作り、openmm/mmpose に渡す。
+            # (hsr_hsrc_ex.py が color/image_raw・depth/image_raw で RAW を publish する)
+            # ※ HSR-B 知覚で使う場合は rgb/image_rect_color 等に上書きすること。
+            '-p', 'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
+            '-p', 'rgb_output_topic:=/head_rgbd_sensor/color/image_raw/compressed',
+            '-p', 'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
+            '-p', 'depth_output_topic:=/head_rgbd_sensor/depth/image_raw/compressedDepth',
         ],
         output='screen',
         condition=IfCondition(args['openmm_rgbd_compression']),
