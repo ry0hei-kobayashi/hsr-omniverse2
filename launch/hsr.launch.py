@@ -37,6 +37,17 @@ def declare_arguments():
             description='Publish OpenMM-compatible compressed RGB-D topics.',
         )
     )
+    # hma_env2 の HSR-B 知覚(pcl_reconst)向けに、実機HSR-Bと同じ名前の
+    # compressed RGB-D と rgb/camera_info を「追加で」publish するか。
+    # 既定 true。hsrc_ex シーンが出す color/・depth/ の RAW を入力にし、
+    # 既存トピックはそのまま残す(= openmm/mmpose や hsrc_ex 消費側に影響しない)。
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'hsrb_reconst_topics',
+            default_value='true',
+            description='Also publish HSR-B-named compressed RGB-D and rgb/camera_info for hma_env2 pcl_reconst.',
+        )
+    )
     # Isaac Sim 側 (この ros2 コンテナ) の MoveIt 付属 RViz2 を起動するか。
     # 既定 false: ふだん RViz は別 (Singularity 側等) で立てるので二重起動を避ける。
     # 立てたいときだけ `ros2 launch /hsr.launch.py use_rviz:=true`。
@@ -245,9 +256,48 @@ def generate_launch_description():
         condition=IfCondition(args['openmm_rgbd_compression']),
     )
 
+    # hma_env2 の HSR-B 知覚(pcl_reconst)向けに、実機HSR-Bと同じ名前の
+    # compressed RGB-D を「追加で」publish する。入力は hsrc_ex シーンが出す
+    # color/image_raw・depth/image_raw（既存topicはそのまま）。
+    # pcl_reconst は use_compressed=True で rgb/image_rect_color/compressed と
+    # depth_registered/image_rect_raw/compressedDepth を subscribe する。
+    hsrb_reconst_compression = ExecuteProcess(
+        cmd=[
+            'python3',
+            image_republisher_script,
+            '--ros-args',
+            '-p', 'use_sim_time:=true',
+            # 同じスクリプトを2つ起動するのでノード名を変えて衝突を避ける
+            '-r', '__node:=hsrb_reconst_compression_republisher',
+            '-p', 'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
+            '-p', 'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
+            '-p', 'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
+            '-p', 'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
+        ],
+        output='screen',
+        condition=IfCondition(args['hsrb_reconst_topics']),
+    )
+
+    # pcl_reconst は rgb/camera_info を要求するが、hsrc_ex シーンは
+    # color/camera_info で出すため、名前替えして中継する
+    # (中身は同じ 640x480・同一フレームのカメラ内部パラメータ)。
+    hsrb_reconst_camera_info_relay = Node(
+        package='topic_tools',
+        executable='relay',
+        name='hsrb_reconst_camera_info_relay',
+        arguments=[
+            '/head_rgbd_sensor/color/camera_info',
+            '/head_rgbd_sensor/rgb/camera_info',
+        ],
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(args['hsrb_reconst_topics']),
+    )
+
     nodes = [
         relay_node,
         openmm_rgbd_compression,
+        hsrb_reconst_compression,
+        hsrb_reconst_camera_info_relay,
         sensor_frames,
         joint_state_publisher,
         robot_state_publisher,
