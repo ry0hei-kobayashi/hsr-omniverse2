@@ -111,41 +111,53 @@ create_prim(
 
 assets_root_path = get_assets_root_path()
 if assets_root_path is None:
-    raise RuntimeError('Could not find Isaac Sim assets root')
+    # オフライン等でアセットサーバが見つからないとき、既知の公開URLにフォールバックして
+    # 起動クラッシュを防ぐ。家具・床・背景・地面はローカルなので動く。人(people)など
+    # アセットサーバ依存のものは OV キャッシュがあれば効き、無ければスキップされる。
+    # 別サーバ/別バージョンを使うときは環境変数 ISAAC_ASSETS_ROOT で上書きできる。
+    assets_root_path = os.environ.get(
+        'ISAAC_ASSETS_ROOT',
+        'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5')
+    print(f'[assets] get_assets_root_path() が None。フォールバック使用: {assets_root_path}')
 
 
-# Loading the simple_room environment
-# assets_root_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/" + get_version()[0]
-BACKGROUND_STAGE_PATH = '/background'
-# BACKGROUND_USD_PATH = "/Isaac/Environments/Simple_Room/simple_room.usd"
-# BACKGROUND_USD_PATH = "/Isaac/Environments/Simple_Warehouse/warehouse.usd"
-# BACKGROUND_USD_PATH = "/Isaac/Environments/Hospital/hospital.usd"
-# BACKGROUND_USD_PATH = "/Isaac/Environments/Office/office.usd"
-BACKGROUND_USD_PATH = '/Isaac/Environments/Grid/default_environment.usd'
+# ============================================================
+# 背景と床 (全タスク共通・オフライン対応)
+# ============================================================
+# 以前は Grid 環境 (/Isaac/Environments/Grid/default_environment.usd) をアセット
+# サーバ(ネット)から読み込み、その GroundPlane を物理の床に使っていた。
+#   (1) ネット無し(オフライン)でも起動できるようにする
+#   (2) 背景を白い無地にする (青いグリッドをやめる)
+# ため、ネット取得をやめてローカルに「白い背景(DomeLight) + 当たり判定付きの地面」を作る。
+# 床の見た目テクスチャは後段の dressing がこの上に貼る。
+BACKGROUND_STAGE_PATH = '/background'  # 互換のため名前だけ残す (contact 判定の文字列等)
 
-stage.add_reference_to_stage(
-    assets_root_path + BACKGROUND_USD_PATH, BACKGROUND_STAGE_PATH)
+# 白い背景: テクスチャ無しの DomeLight は、その色がそのまま背景として見える。
+# 白すぎ/暗すぎる場合は inputs:intensity を調整する。
+create_prim(
+    '/World/WhiteBackground',
+    'DomeLight',
+    attributes={'inputs:intensity': 1000.0, 'inputs:color': (1.0, 1.0, 1.0)},
+)
 
-# adjust friction of the floor
-floor_material = PhysicsMaterial(
-    prim_path='/Floor', static_friction=60.0, dynamic_friction=60.0)
+# 物理の地面 (ロボット・物体が乗る面)。大きく薄い箱に当たり判定を付け、上面を z=0 に置く。
+# (以前は背景 USD に含まれていた GroundPlane の代わり。)
+_GROUND_PATH = '/World/GroundPlane'
+_ground_prim = create_prim(
+    prim_path=_GROUND_PATH,
+    prim_type='Cube',
+    translation=[0.0, 0.0, -1.0],   # サイズ2の Cube を z 方向 1 倍 → 上面が z=0
+    scale=[50.0, 50.0, 1.0],        # 約 100m x 100m の床 (場所を選ばず乗れる)
+)
+physx_utils.setCollider(_ground_prim, approximationShape='none')
 
-# omni.kit.commands.execute('BindMaterialExt',
-#                            material_path='/Floor',
-#                            prim_path=[BACKGROUND_STAGE_PATH + '/GroundPlane/CollisionPlane'],
-#                            strength=['weakerThanDescendants'],
-#                            material_purpose='physics')
-
-
+# 床の摩擦 (滑り防止) をこのローカル地面に適用する。
 floor_material = PhysicsMaterial(
     prim_path='/World/PhysicsMaterials/FloorMaterial',
     static_friction=60.0,
     dynamic_friction=60.0,
 )
-
-ground_prim = GeometryPrim(
-    prim_path=BACKGROUND_STAGE_PATH + '/GroundPlane/CollisionPlane')
-ground_prim.apply_physics_material(
+GeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
     floor_material, weaker_than_descendants=True)
 
 model_names = []
