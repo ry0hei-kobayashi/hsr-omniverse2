@@ -2117,9 +2117,55 @@ class hsr:
             jcmd.vel_wheel_l /= ratio
             jcmd.vel_wheel_r /= ratio
 
-        self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
-        self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
-        self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
+        # === アイドル時の位置保持ブレーキ(creep 対策) ===
+        # 車輪/ステアは stiffness=0 の velocity ドライブのため、速度0指令でも
+        # 位置復元力が無く、わずかな外乱トルクで vel=torque/damping≠0 の平衡に落ちて
+        # 微小に動き続ける(≈0.0018rad/s の自転 creep)。指令ヨー/並進が厳密に0
+        # (=静止すべき)のときだけ、現在の関節角をラッチして stiffness を上げ位置保持し、
+        # creep を物理的に止める。動作指令時は stiffness=0 の velocity ドライブに戻す。
+        _base_idle = (abs(cmd.dot_x) < 1e-6
+                      and abs(cmd.dot_y) < 1e-6
+                      and abs(cmd.dot_r) < 1e-6)
+        _BRAKE_STIFFNESS = 1.0e6
+        _base_ptrs = (self.left_wheel_ptr, self.right_wheel_ptr, self.roll_ptr)
+        if not getattr(self, '_base_brake_failed', False):
+            try:
+                if _base_idle:
+                    if not getattr(self, '_base_braked', False):
+                        for _ptr in _base_ptrs:
+                            _pos = self.dc.get_dof_state(
+                                _ptr, _dynamic_control.STATE_ALL).pos
+                            _pr = self.dc.get_dof_properties(_ptr)
+                            _pr.stiffness = _BRAKE_STIFFNESS
+                            self.dc.set_dof_properties(_ptr, _pr)
+                            self.dc.set_dof_position_target(_ptr, _pos)
+                        self._base_braked = True
+                    for _ptr in _base_ptrs:
+                        self.dc.set_dof_velocity_target(_ptr, 0.0)
+                else:
+                    if getattr(self, '_base_braked', False):
+                        for _ptr in _base_ptrs:
+                            _pr = self.dc.get_dof_properties(_ptr)
+                            _pr.stiffness = 0.0
+                            self.dc.set_dof_properties(_ptr, _pr)
+                        self._base_braked = False
+                    self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
+                    self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
+                    self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
+            except Exception as _e:
+                # API が想定と違う等で失敗したら一度だけ警告し、従来動作へ戻す(落とさない)
+                self._base_brake_failed = True
+                try:
+                    print('[base brake] disabled:', _e)
+                except Exception:
+                    pass
+                self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
+                self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
+                self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
+        else:
+            self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
+            self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
+            self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
 
         force_readings = self.robots.get_measured_joint_forces(
             joint_indices=[
