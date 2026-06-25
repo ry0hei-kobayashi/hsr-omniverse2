@@ -52,8 +52,10 @@ dressing:
 ## 本物の机・椅子 (furniture) を置く
 
 `restaurant/` は「レストランのデバッグ環境」として、箱ではなく**本物のメッシュの机・椅子**を
-置いている。人 (`people:`) と同じく Isaac 公式アセットサーバから USD を取得して配置する
-仕組みで、`placement.yaml` の **`furniture:`** セクションで位置を指定する。
+置いている。`placement.yaml` の **`furniture:`** セクションで位置を指定する。机・椅子は
+`usd/restaurant/`（CC0・同梱）から読むのでネット不要。人 (`people:`) も会場（ネットなし）で
+動くよう、人体モデルとアニメを `usd/isaac_offline/` に同梱済み（ローカルにあればそれを使い、
+無ければアセットサーバへフォールバック）。詳細はリポジトリ直下 `README.md` の「オフライン対応」。
 
 ```yaml
 furniture:
@@ -66,8 +68,9 @@ furniture:
 
 - `usd` … `usd/` からの相対パス (例 `restaurant/...`) はリポジトリ同梱のローカル USD、
   `/` 始まりはアセットサーバ上のパス、`omniverse://`/`http(s)://` はその URL。
-- restaurant タスクは机・椅子を `usd/restaurant/` に同梱しているので**起動時のネット取得が不要**
-  (人 `people:` は別途アセットサーバから取得)。詳細は [`usd/restaurant/README.md`](../../usd/restaurant/README.md)。
+- restaurant タスクは机・椅子を `usd/restaurant/` に、人を `usd/isaac_offline/` に同梱しているので
+  **起動時のネット取得が不要**（完全オフライン）。詳細は [`usd/restaurant/README.md`](../../usd/restaurant/README.md)
+  と [`usd/isaac_offline/README.md`](../../usd/isaac_offline/README.md)。
 - 向き (Y-up→Z-up) と単位 (cm→m) と床への着地 (snap_to_floor) は **自動補正**されるので、
   基本は `x` / `y` / `yaw` を書くだけでよい。詳細は `restaurant/placement.yaml` の
   コメントと `scripts/furniture_spawn.py` を参照。

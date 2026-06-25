@@ -90,6 +90,35 @@ def log(message: str) -> None:
 
 
 # ============================================================
+# オフライン用ローカルミラーの解決 (会場=WiFiなし対策)
+# ============================================================
+# people_spawn.py と同じ仕組み。usd: が "/" 始まり(アセットサーバ上のパス)のとき、
+# まず usd/isaac_offline/ に同じ構成で同梱されていないかを見て、あればローカルから
+# 読む(ネット不要)。無ければ従来どおり assets_root(オンライン)に連結する。
+_MIRROR_DIRS = [
+    "/app/usd/isaac_offline",  # コンテナ内 (usd マウント / イメージ ADD で配備済み)
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "usd", "isaac_offline"),  # ホストで直接実行したとき
+]
+if os.environ.get("ISAAC_OFFLINE_MIRROR"):
+    _MIRROR_DIRS.insert(0, os.environ["ISAAC_OFFLINE_MIRROR"])
+
+
+def _resolve_server_path(server_path: str, assets_root: str) -> str:
+    """アセットサーバ上のパス("/Isaac/...", "/NVIDIA/...") をローカルミラー優先で解決。
+
+    ローカルミラー(usd/isaac_offline/)に同じ構成のファイルがあればその実ファイル
+    パスを返し(ネット不要)、無ければ従来どおり assets_root に連結した URL を返す。
+    """
+    rel = server_path.lstrip("/")
+    for base in _MIRROR_DIRS:
+        cand = os.path.join(base, rel)
+        if os.path.exists(cand):
+            return cand
+    return f"{assets_root.rstrip('/')}{server_path}"
+
+
+# ============================================================
 # YAML 読み込み (object_placement.py と同じフォールバック)
 # ============================================================
 def load_config(path: str) -> Dict[str, Any]:
@@ -159,8 +188,10 @@ def _resolve_usd_url(usd: str, assets_root: str) -> Optional[str]:
     #     同じ root で、家具は assets_root + "/NVIDIA/Assets/ArchVis/..." を使う
     #     (どちらも同じ root の隣り合うフォルダ。Isaac 標準コードの慣用)。
     #     末尾スラッシュの有無で "//" にならないよう rstrip しておく。
+    #     さらに、ローカルミラー(usd/isaac_offline/)に同梱があればそちらを優先し、
+    #     会場(ネットなし)でもサーバ家具を配置できるようにする(無ければオンライン)。
     if usd.startswith("/"):
-        return f"{assets_root.rstrip('/')}{usd}"
+        return _resolve_server_path(usd, assets_root)
     # (C) それ以外はリポジトリ内 usd/ 配下のローカルファイルを探す。
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     candidates = [

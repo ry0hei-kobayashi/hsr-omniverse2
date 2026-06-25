@@ -82,6 +82,40 @@ def log(message: str) -> None:
 
 
 # ============================================================
+# オフライン用ローカルミラーの解決 (会場=WiFiなし対策)
+# ============================================================
+# 人(キャラ+アニメ)はこれまでアセットサーバ(ネット)から取得していた。会場では
+# ネットが使えないため、必要な USD を usd/isaac_offline/ にアセットサーバと同じ
+# 構成で同梱しておき、「ローカルにあればローカル、無ければオンライン」で解決する。
+#   例) /Isaac/People/Characters/Biped_Setup.usd
+#       -> usd/isaac_offline/Isaac/People/Characters/Biped_Setup.usd があればそれを使う
+# アニメ(手を振る等)は .skelanim.usd という「骨の動きの数値データ」ファイルで、一度
+# ローカルに読めば再生中にネットは要らない。だからローカル同梱だけで完全オフラインになる。
+_MIRROR_DIRS = [
+    "/app/usd/isaac_offline",  # コンテナ内 (usd マウント / イメージ ADD で配備済み)
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "usd", "isaac_offline"),  # ホストで直接実行したとき
+]
+if os.environ.get("ISAAC_OFFLINE_MIRROR"):
+    _MIRROR_DIRS.insert(0, os.environ["ISAAC_OFFLINE_MIRROR"])
+
+
+def _resolve_server_path(server_path: str, assets_root: str) -> str:
+    """アセットサーバ上のパス("/Isaac/...") をローカルミラー優先で解決する。
+
+    ローカルミラー(usd/isaac_offline/)に同じ構成のファイルがあればその実ファイル
+    パスを返し(ネット不要)、無ければ従来どおり assets_root に連結した URL を返す
+    (後方互換: 同梱が無い環境ではこれまで通りオンライン取得になる)。
+    """
+    rel = server_path.lstrip("/")
+    for base in _MIRROR_DIRS:
+        cand = os.path.join(base, rel)
+        if os.path.exists(cand):
+            return cand
+    return f"{assets_root.rstrip('/')}{server_path}"
+
+
+# ============================================================
 # YAML 読み込み
 # ============================================================
 def load_config(path: str) -> Dict[str, Any]:
@@ -232,7 +266,8 @@ def _bind_motion(stage: Usd.Stage, person_path: str, assets_root: str,
     # add_reference_to_stage だと Xform になり SkelAnimation と認識されないため、
     # OverridePrim + AddReference を使う (復元ガイドの知見)。
     anim_path = f"{person_path}/{_ANIM_SCOPE_SUBPATH}/{motion}"
-    anim_url = f"{assets_root}{ANIM_DIR}/{MOTION_FILES[motion]}"
+    # ローカルミラーがあればそこから(オフライン)、無ければアセットサーバから。
+    anim_url = _resolve_server_path(f"{ANIM_DIR}/{MOTION_FILES[motion]}", assets_root)
     anim_prim = stage.OverridePrim(anim_path)
     anim_prim.GetReferences().AddReference(anim_url)
 
@@ -264,8 +299,9 @@ def _spawn_one(stage: Usd.Stage, assets_root: str, person: Dict[str, Any],
     name = person["name"]
     person_path = f"{PEOPLE_ROOT}/{name}"
 
-    # 1) Biped_Setup を読み込む (ネット取得)。
-    char_url = f"{assets_root}{CHARACTER_USD}"
+    # 1) Biped_Setup を読み込む。ローカルミラー(usd/isaac_offline/)があればそこから
+    #    (ネット不要)、無ければ従来どおりアセットサーバ(ネット)から取得する。
+    char_url = _resolve_server_path(CHARACTER_USD, assets_root)
     add_reference_to_stage(char_url, person_path)
     # 参照を解決させるため数回更新する。
     kit.update()
@@ -346,6 +382,16 @@ def spawn_people(assets_root: str, kit: Any,
     # まとめ親 (なければ作る)。
     if not stage.GetPrimAtPath(PEOPLE_ROOT).IsValid():
         UsdGeom.Xform.Define(stage, PEOPLE_ROOT)
+
+    # 人アセットの取得元(ローカル同梱 or オンライン)を一度だけ知らせる。
+    # 会場(ネットなし)でちゃんとオフライン動作するかを起動ログで確認できるようにする。
+    sample = _resolve_server_path(CHARACTER_USD, assets_root)
+    if sample.startswith(("http://", "https://", "omniverse://")):
+        log(f"WARNING: 人アセットのローカル同梱が見つかりません。オンライン取得に"
+            f"フォールバックします: {sample}  (会場ではネットが必要になります。"
+            f"usd/isaac_offline/ の同梱と scripts/fetch_isaac_offline_assets.py を確認)")
+    else:
+        log(f"人アセットはローカル同梱を使用します(オフラインOK・ネット不要): {sample}")
 
     requested = 0
     spawned = 0

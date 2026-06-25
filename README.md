@@ -228,6 +228,65 @@ ROBOT=hsrc_ex make ros2 up           # 大文字の環境変数でも同じ
 
 ---
 
+## オフライン対応（会場でネットが使えないとき）
+
+RoboCup 会場は Wi-Fi が使えないため、このシミュレータは**完全オフライン**で動くようにしてあります。
+
+### 何が問題だったか
+これまで「人（手を振るお客さん等）」は、起動のたびに NVIDIA のアセットサーバ（ネット）から
+人体モデル（`Biped_Setup.usd`）とアニメ（`*.skelanim.usd`）を取得していました。会場では
+ネットが無いので、ここが動かなくなる恐れがありました。
+
+### どう直したか
+必要な人アセットを、**アセットサーバと同じフォルダ構成のまま** `usd/isaac_offline/` に
+同梱（コピー）しました。`people_spawn.py` / `furniture_spawn.py` は
+
+1. まず `usd/isaac_offline/` にファイルがあればそれを使う（＝ネット不要）
+2. 無ければ従来どおりアセットサーバから取得（オンライン時のフォールバック）
+
+の順で解決します。**アニメ（手を振る等）は「骨の動きの数値データ」ファイルで、一度ローカルに
+読み込めば再生中はネット不要**です。だからモーション込みで完全オフラインになります。
+
+```
+usd/isaac_offline/                         ← アセットサーバのローカルミラー（同梱）
+└── Isaac/People/
+    ├── Characters/Biped_Setup.usd         ← 人体モデル（+ biped_demo/ のメッシュ・テクスチャ）
+    └── Animations/*.skelanim.usd          ← 手を振る/立つ/座る 等のアニメ
+```
+
+### ミラーを作り直す・増やす（オンライン環境で一度だけ）
+`usd/isaac_offline/` は、ネットに繋がる環境で次を一度実行すれば自動生成されます
+（依存ファイルを再帰的にたどって漏れなく取得します）。
+
+```bash
+make ros2 offline-assets
+# 追加でサーバ上の家具なども取りたいとき:
+make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
+```
+
+中身は `scripts/fetch_isaac_offline_assets.py`、対象一覧は同ファイルの `DEFAULT_SEEDS`。
+詳細は [`usd/isaac_offline/README.md`](./usd/isaac_offline/README.md)。
+
+### ⚠️ 会場へ持ち込む前に（重要）
+別の PC でクローンして使う場合、`usd/isaac_offline/`（約 134MB）が**その PC に存在している
+必要があります**。方法は次のどちらか:
+
+- **(A) リポジトリにコミットしておく**（推奨・確実）: `git add usd/isaac_offline/` してコミット。
+  クローンするだけで会場でも人が出ます。※約 134MB 増えます。
+- **(B) 各 PC で会場前に取得**: その PC で一度 `make ros2 offline-assets` を実行（要ネット）。
+
+### 起動時の確認方法
+起動ログに次が出ていれば、人はローカル（オフライン）から読めています:
+
+```
+[people] 人アセットはローカル同梱を使用します(オフラインOK・ネット不要): /app/usd/isaac_offline/...
+```
+
+代わりに `WARNING: ... オンライン取得にフォールバック` が出たら、`usd/isaac_offline/` が
+その PC に無い状態です（上の (A) または (B) を実施してください）。
+
+---
+
 ## ディレクトリ構成
 
 ```
@@ -237,8 +296,8 @@ ROBOT=hsrc_ex make ros2 up           # 大文字の環境変数でも同じ
 ├── configs/       # 実行時設定 (placement.yaml, dressing.yaml, tasks/ …) ※下のリンク参照
 ├── env_docker/    # Dockerfile.* と docker-compose*.yml
 ├── launch/        # ROS1/ROS2 launch ファイル
-├── scripts/       # 実行スクリプト (hsr.py, ros2_bridge.py, launch_isaacsim.py, sample-*.py 他)
-├── usd/           # USD アセット
+├── scripts/       # 実行スクリプト (hsr.py, ros2_bridge.py, launch_isaacsim.py, fetch_isaac_offline_assets.py 他)
+├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー)
 └── worlds/        # .world ファイル (家具・壁の配置)
 ```
 

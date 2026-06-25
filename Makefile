@@ -82,7 +82,7 @@ else
 endif
 
 # --- Targets ----------------------------------------------------------------
-.PHONY: help ros1 ros2 pc dev build up down logs ps ros isaacsim run list-anims
+.PHONY: help ros1 ros2 pc dev build up down logs ps ros isaacsim run list-anims offline-assets
 .DEFAULT_GOAL := help
 
 help:
@@ -103,6 +103,7 @@ help:
 	@echo "  ros             Open bash in ros container ($(ROS_SERVICE))"
 	@echo "  isaacsim        Open bash in isaacsim container"
 	@echo "  run             (dev) Run launch_isaacsim.py manually in isaacsim"
+	@echo "  offline-assets  人など『アセットサーバ依存』USDをusd/isaac_offline/へ取得(要ネット・会場前に一度だけ)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make ros2 build"
@@ -135,6 +136,21 @@ run:
 #   make ros2 dev list-anims   (先に 'make ros2 dev up' でコンテナ起動が必要)
 list-anims:
 	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh /app/scripts/list_people_anims.py
+
+# 会場(WiFiなし)対策: 人(キャラ+アニメ)など「アセットサーバ依存」の USD を依存ごと
+# usd/isaac_offline/ にミラー(コピー)してくる。★ネットに繋がる環境で会場前に一度だけ実行。
+# 取得後は usd/isaac_offline/ をコミットすれば、以後 people は完全オフラインで動く。
+# 追加で取りたいサーバパスがあれば FETCH_ARGS で渡せる:
+#   make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
+offline-assets:
+	$(COMPOSE) run --rm --no-deps \
+	  -e http_proxy= -e https_proxy= \
+	  -v $(CURDIR)/usd:/out_usd:rw \
+	  -v $(CURDIR)/scripts/fetch_isaac_offline_assets.py:/app/fetch_isaac_offline_assets.py:ro \
+	  --entrypoint bash isaacsim -lc 'L=$$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1); \
+	    PYTHONPATH=$$L LD_LIBRARY_PATH=$$L/bin \
+	    /isaac-sim/kit/python/bin/python3 /app/fetch_isaac_offline_assets.py \
+	      --out /out_usd/isaac_offline $(FETCH_ARGS)'
 
 build:
 	$(ENV_PC) $(COMPOSE) build
