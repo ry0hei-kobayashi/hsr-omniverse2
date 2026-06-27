@@ -875,6 +875,9 @@ class hsr:
         l_camera_prim.GetProjectionAttr().Set('perspective')
         l_camera_prim.GetFocalLengthAttr().Set(968.770306867 * 0.003)
         l_camera_prim.GetFocusDistanceAttr().Set(400)
+        # near=0.07m, far=100m。既定near=1mだと1m以内の近接物体が消えるので小さくする。
+        # 頭部RGBDの自己オクルージョン対策と値を揃え、全カメラ0.07mに統一。far=100mは室内に十分。
+        l_camera_prim.GetClippingRangeAttr().Set(Gf.Vec2f(0.07, 100.0))
 
         r_camera_prim = UsdGeom.Camera(
             omni.usd
@@ -892,6 +895,9 @@ class hsr:
         r_camera_prim.GetProjectionAttr().Set('perspective')
         r_camera_prim.GetFocalLengthAttr().Set(968.770306867 * 0.003)
         r_camera_prim.GetFocusDistanceAttr().Set(400)
+        # near=0.07m, far=100m。既定near=1mだと1m以内の近接物体が消えるので小さくする。
+        # 頭部RGBDの自己オクルージョン対策と値を揃え、全カメラ0.07mに統一。far=100mは室内に十分。
+        r_camera_prim.GetClippingRangeAttr().Set(Gf.Vec2f(0.07, 100.0))
 
         rgbd_camera_prim = UsdGeom.Camera(
             omni.usd
@@ -907,6 +913,11 @@ class hsr:
         rgbd_camera_prim.GetProjectionAttr().Set('perspective')
         rgbd_camera_prim.GetFocalLengthAttr().Set(554.382712823 * 0.003)
         rgbd_camera_prim.GetFocusDistanceAttr().Set(400)
+        # near=0.07m。nearを極小(1cm)にすると、頭部RGBDの広い視野では視界の上側に
+        # ロボット自身の頭/体が映り込み「画像の上半分が黒い帯」になる(自己オクルージョン)。
+        # 一方で既定の1mだと近接物体が消える。0.07mは近接物体を残しつつ自分の体を切る妥協点(実測)。
+        # far=100mは室内に十分(深度精度も問題なし)。
+        rgbd_camera_prim.GetClippingRangeAttr().Set(Gf.Vec2f(0.07, 100.0))
 
         hand_camera_prim = UsdGeom.Camera(
             omni.usd
@@ -922,6 +933,9 @@ class hsr:
         hand_camera_prim.GetProjectionAttr().Set('perspective')
         hand_camera_prim.GetFocalLengthAttr().Set(205.469637099 * 0.003)
         hand_camera_prim.GetFocusDistanceAttr().Set(400)
+        # near=0.07m, far=100m。既定near=1mだと1m以内の近接物体が消えるので小さくする。
+        # 頭部RGBDの自己オクルージョン対策と値を揃え、全カメラ0.07mに統一。far=100mは室内に十分。
+        hand_camera_prim.GetClippingRangeAttr().Set(Gf.Vec2f(0.07, 100.0))
 
         try:
             og.Controller.edit(
