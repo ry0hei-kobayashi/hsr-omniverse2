@@ -58,6 +58,43 @@ class hsr(base.hsr):
             base.stage.add_reference_to_stage = _orig_add
         self.model = 'hsrc_ex'
 
+        # hsrc_ex 専用: 頭部RGBD の光学フレーム TF を補う。
+        # hsrc_ex は画像を head_rgbd_sensor_color_optical_frame(=RGBD_FRAME) で配信するが、
+        # このフレームは robot_state_publisher の URDF にも共有の
+        # hsrb_sensor_frames.launch.xml にも無い(hsrb は別の取り付け向き)。
+        # フレームが無いと知覚(waving_hand)の「カメラ→map」変換が失敗し、
+        # customer_point/nav_point=null になってロボットが客へ行けない。
+        # head_rgbd_sensor_link からの恒等変換でよいことは実機(客検出→移動)で確認済み。
+        # ※ hsr.py(hsrb)には手を入れないので hsrb 側は一切変わらない。
+        self._publish_color_optical_static_tf()
+
+    def _publish_color_optical_static_tf(self) -> None:
+        """head_rgbd_sensor_link -> head_rgbd_sensor_color_optical_frame を静的TFで配信(hsrc_ex専用)。"""
+        if not is_ros2:
+            return
+        try:
+            from geometry_msgs.msg import TransformStamped
+            from tf2_ros import StaticTransformBroadcaster
+
+            # GC されないようインスタンスに保持する(消えると /tf_static の latch も消える)。
+            self._color_optical_tf_broadcaster = StaticTransformBroadcaster(self.ros2node)
+            t = TransformStamped()
+            t.header.stamp = self.ros2node.get_clock().now().to_msg()
+            t.header.frame_id = 'head_rgbd_sensor_link'
+            t.child_frame_id = self.RGBD_FRAME
+            t.transform.translation.x = 0.0
+            t.transform.translation.y = 0.0
+            t.transform.translation.z = 0.0
+            t.transform.rotation.x = 0.0
+            t.transform.rotation.y = 0.0
+            t.transform.rotation.z = 0.0
+            t.transform.rotation.w = 1.0
+            self._color_optical_tf_broadcaster.sendTransform(t)
+            print('[hsrc_ex] static TF head_rgbd_sensor_link -> %s を配信' % self.RGBD_FRAME,
+                  flush=True)
+        except Exception as _e:
+            print('[hsrc_ex] color optical static TF の配信に失敗: %r' % _e, flush=True)
+
     @staticmethod
     def _resolve_hsrc_usd():
         """hsrc の USD ファイルを配置に依らず見つける (hsr.py の探索と同じ流儀)。"""

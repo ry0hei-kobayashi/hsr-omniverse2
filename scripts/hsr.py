@@ -1623,9 +1623,14 @@ class hsr:
             'angular',
         )
 
-        left_wheel_drive.GetDampingAttr().Set(15000)
-        right_wheel_drive.GetDampingAttr().Set(15000)
-        roll_drive.GetDampingAttr().Set(15000)
+        # 駆動輪/ステアの velocity ドライブの damping(効きの強さ)。
+        # 15000 は物理 60Hz に対して強すぎ、毎ステップ行き過ぎ→戻し過ぎを繰り返して
+        # maxForce(664)に張り付くトルクチャタになり、摩擦100の滑らないタイヤ経由で
+        # 重い車体(≈73kg)に伝わって走行中ガタガタ振動する。安定限界の下(≈3000)へ下げて
+        # 振動を抑える。速度追従はこの値でも十分。まだ振動するならさらに下げる(〜1500)。
+        left_wheel_drive.GetDampingAttr().Set(3000)
+        right_wheel_drive.GetDampingAttr().Set(3000)
+        roll_drive.GetDampingAttr().Set(3000)
 
         left_wheel_drive.GetStiffnessAttr().Set(0)
         right_wheel_drive.GetStiffnessAttr().Set(0)
