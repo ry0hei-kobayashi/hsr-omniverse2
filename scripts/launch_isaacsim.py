@@ -109,16 +109,36 @@ create_prim(
 )
 
 
-assets_root_path = get_assets_root_path()
-if assets_root_path is None:
-    # オフライン等でアセットサーバが見つからないとき、既知の公開URLにフォールバックして
-    # 起動クラッシュを防ぐ。家具・床・背景・地面はローカルなので動く。人(people)など
-    # アセットサーバ依存のものは OV キャッシュがあれば効き、無ければスキップされる。
-    # 別サーバ/別バージョンを使うときは環境変数 ISAAC_ASSETS_ROOT で上書きできる。
-    assets_root_path = os.environ.get(
-        'ISAAC_ASSETS_ROOT',
-        'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5')
-    print(f'[assets] get_assets_root_path() が None。フォールバック使用: {assets_root_path}')
+# アセットの「根っこ(root)」の決め方。
+# 注意: get_assets_root_path() は、オフライン(会場=ネットなし)だとアセットサーバへ
+# blocking 接続(omni.client.stat)を試みて起動がそこで固まる。人など必要なアセットは
+# usd/isaac_offline/ に同梱済みなので、ミラーがあるときはこの問い合わせを丸ごとスキップし、
+# assets_root をミラーのローカルパスにして固まりを防ぐ(= 完全オフラインで起動できる)。
+#   - ミラー内の /Isaac/... は people_spawn/furniture_spawn がローカルから読む。
+#   - ミラーに無い /NVIDIA/... 等はローカルに存在せず「見つからない」で安全にスキップされる
+#     (ネットへは行かないので固まらない)。
+#   - どうしてもオンラインのアセットサーバを使いたいときは ISAAC_FORCE_ONLINE_ASSETS=1。
+_OFFLINE_MIRRORS = [
+    '/app/usd/isaac_offline',  # コンテナ内 (usd マウント / イメージ ADD で配備)
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 'usd', 'isaac_offline'),  # ホストで直接実行したとき
+]
+_offline_mirror = next((d for d in _OFFLINE_MIRRORS if os.path.isdir(d)), None)
+if _offline_mirror and os.environ.get('ISAAC_FORCE_ONLINE_ASSETS') != '1':
+    # 同梱ミラーあり -> ネット問い合わせをせずローカルを root にする(オフライン)。
+    assets_root_path = _offline_mirror
+    print(f'[assets] オフライン同梱ミラーを使用 (get_assets_root_path をスキップ・ネット不要): '
+          f'{assets_root_path}')
+else:
+    # ミラーが無い(従来動作): オンラインでアセットサーバの root を探す。
+    assets_root_path = get_assets_root_path()
+    if assets_root_path is None:
+        # サーバが見つからないとき、既知の公開URLにフォールバックして起動クラッシュを防ぐ。
+        # 別サーバ/別バージョンを使うときは環境変数 ISAAC_ASSETS_ROOT で上書きできる。
+        assets_root_path = os.environ.get(
+            'ISAAC_ASSETS_ROOT',
+            'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5')
+        print(f'[assets] get_assets_root_path() が None。フォールバック使用: {assets_root_path}')
 
 
 # ============================================================
