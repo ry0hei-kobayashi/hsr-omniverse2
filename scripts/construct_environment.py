@@ -327,6 +327,9 @@ def apply_lab_dressing(
 
     # 拡張キー (EnvBoxConfig 対象外) を取り出す
     default_lights_intensity = params.pop("default_lights_intensity", None)
+    # wall_color: world の物理壁 (/wall_*) を塗る色。EnvBoxConfig には無いので pop。
+    # 指定しているのは現状 restaurant プリセットのみ (他タスクは None で無変更)。
+    wall_color = params.pop("wall_color", None)
 
     log(f"apply_lab_dressing: preset='{preset}' lighting='{lighting}' "
         f"overrides={list(overrides.keys())}")
@@ -336,6 +339,44 @@ def apply_lab_dressing(
     # 既存ライト (/World/Light_1, /World/Light_2) の強度をプリセットに連動させる
     if default_lights_intensity is not None:
         _set_default_lights_intensity(float(default_lights_intensity))
+
+    # world の物理壁を指定色 (塗り壁) に塗る
+    if wall_color is not None:
+        _recolor_walls(wall_color)
+
+
+def _recolor_walls(color: Any) -> None:
+    """world の物理壁 (/wall_north などトップレベルの wall_* プリム) を単色で塗る。
+
+    壁は launch_isaacsim.py が world の <include name='wall_*'> から作る灰色の
+    Cube。ここに「塗り壁」風の単色マテリアルを貼って見た目を整える。物理 (collider)
+    はそのままなので自己位置推定や当たり判定には影響しない。
+
+    Args:
+        color: 拡散色 [R, G, B] (各 0.0〜1.0)。dressing.yaml の wall_color から来る。
+    """
+    from scene_dressing._common import bind_solid_color_material
+
+    try:
+        rgb = tuple(float(c) for c in color)
+    except (TypeError, ValueError):
+        log(f"wall_color の形式が不正です (期待: [R, G, B]): {color!r}")
+        return
+    if len(rgb) != 3:
+        log(f"wall_color は 3 要素 [R, G, B] で指定してください: {color!r}")
+        return
+
+    _stage = omni.usd.get_context().get_stage()
+    painted = 0
+    for prim in _stage.GetPseudoRoot().GetChildren():
+        name = prim.GetName()
+        if not name.startswith("wall_"):
+            continue
+        bind_solid_color_material(str(prim.GetPath()), rgb)
+        painted += 1
+        log(f"壁を塗装: {prim.GetPath()} color={rgb}")
+    if painted == 0:
+        log("塗る壁 (/wall_*) が見つかりませんでした")
 
 
 def _set_default_lights_intensity(intensity: float) -> None:
