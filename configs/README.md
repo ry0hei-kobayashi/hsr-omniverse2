@@ -261,7 +261,7 @@ make ros2 up
 | 名前 | 強度感 | 用途例 |
 |---|---|---|
 | `default` | 標準 | 一般的な作業 |
-| `bright` | default の 4 倍 | 撮影用 |
+| `bright` | default の 約3倍 | restaurant 専用 (明るめ) |
 | `studio` | default の 10 倍 | スタジオ級・オーバー気味 |
 | `dim` | default の 1/10 | 夜の部屋 |
 | `warm` | default + 電球色 | 暖色系の屋内 |
