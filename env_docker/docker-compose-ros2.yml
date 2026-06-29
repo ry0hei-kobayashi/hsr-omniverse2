@@ -69,6 +69,12 @@ services:
       - ../scripts/object_placement.py:/app/object_placement.py:ro
       - ../scripts/people_spawn.py:/app/people_spawn.py:ro
       - ../scripts/furniture_spawn.py:/app/furniture_spawn.py:ro
+      # 部屋の見た目(dressing)を編集中なので live マウントする。これらは未マウントだと
+      # イメージ内の古い焼き込み版が動き、configs/dressing.yaml の新キー(wall_color 等)と
+      # 食い違ってクラッシュする。マウントしておけばホストの編集が再ビルド無しで反映される。
+      - ../scripts/construct_environment.py:/app/construct_environment.py:ro
+      - ../scripts/dressing_presets.py:/app/dressing_presets.py:ro
+      - ../scene_dressing:/app/scene_dressing:ro
       - ../worlds:/app/worlds:ro
 
       # usd フォルダ全体をホスト側から live マウントする。
