@@ -16,6 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3-colcon-common-extensions \
     python3-numpy \
     python3-opencv \
+    python3-psutil \
     libeigen3-dev \
     libpoco-dev \
     libboost-system-dev \
@@ -162,6 +163,7 @@ ADD launch/teleop.launch.py /teleop.launch.py
 ADD launch/hsrb_relay_topics.launch.xml /hsrb_relay_topics.launch.xml
 ADD launch/hsrb_sensor_frames.launch.xml /hsrb_sensor_frames.launch.xml
 ADD scripts/openmm_rgbd_compression_republisher.py /openmm_rgbd_compression_republisher.py
+ADD scripts/reset_world_matcher_helper.py /reset_world_matcher_helper.py
 ADD assets/hsr-omniverse.rviz /hsr-omniverse.rviz
 
 COPY assets/cyclonedds.xml /cyclonedds.xml

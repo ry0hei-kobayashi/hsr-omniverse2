@@ -56,6 +56,11 @@ RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rm -rf /ws
 
 ADD launch/hsr.launch /hsr.launch
+ADD scripts/reset_world_matcher_helper.py /reset_world_matcher_helper.py
 ADD assets/hsr-omniverse.rviz /hsr-omniverse.rviz
 
-CMD [ "roslaunch", "/hsr.launch" ]
+# reset_world (テレポート) 後に laser_scan_matcher_node を再起動するヘルパーを常駐させる。
+# hsr-omniverse は ROS パッケージではなく roslaunch から絶対パスの node 起動ができないため、
+# roslaunch を前景に保ちつつ helper をバックグラウンドで起動する。helper は rospy.init_node で
+# master の起動を待つので起動順序は問わない。HSR_ROS_VERSION=1 で ROS1 分岐を選ぶ。
+CMD ["/bin/bash", "-c", "HSR_ROS_VERSION=1 python3 /reset_world_matcher_helper.py & exec roslaunch /hsr.launch"]
