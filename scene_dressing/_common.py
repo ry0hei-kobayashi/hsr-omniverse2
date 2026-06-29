@@ -49,6 +49,41 @@ def set_translate(prim_path: str, x: float, y: float, z: float = 0.0) -> None:
     op.Set(Gf.Vec3d(x, y, z))
 
 
+def bind_solid_color_material(
+    prim_path: str,
+    color: Tuple[float, float, float],
+    roughness: float = 0.85,
+) -> None:
+    """単色 (テクスチャ無し) の UsdPreviewSurface を作って prim にバインドする。
+
+    壁などを「塗り壁」っぽい一色で塗りたいときに使う。テクスチャ画像が要らない
+    ぶん bind_uv_texture_material より手軽。UV (st) も不要なので Cube などの
+    プリミティブにもそのまま使える。
+
+    Args:
+        prim_path: バインド先のプリム。
+        color:     拡散色 (R, G, B)。各 0.0〜1.0。
+        roughness: 表面のざらつき (0=鏡面〜1=完全マット)。塗り壁はマット寄り。
+    """
+    _stage = omni.usd.get_context().get_stage()
+    mat_path = f"{prim_path}_mat"
+    material = UsdShade.Material.Define(_stage, mat_path)
+
+    shader = UsdShade.Shader.Define(_stage, mat_path + "/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+    shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+        Gf.Vec3f(*color)
+    )
+    material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+
+    UsdShade.MaterialBindingAPI(_stage.GetPrimAtPath(prim_path)).Bind(
+        material,
+        bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+    )
+
+
 def bind_uv_texture_material(
     prim_path: str,
     texture_path: str,
