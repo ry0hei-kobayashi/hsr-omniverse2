@@ -5,7 +5,7 @@
 # 書き方は configs/tasks/README.md を参照。
 
 # このタスクで使う world (worlds/ 内のファイル名)
-world: rc26_macs.world      # TODO: Pick and Place 用の world があれば変更する
+world: rc26_from_map.world      # TODO: Pick and Place 用の world があれば変更する
 
 # 見た目 (configs/dressing.yaml のプリセットから選ぶ)
 dressing:

@@ -7,7 +7,7 @@
 # このタスクで使う world (worlds/ 内のファイル名)
 # Restaurant 用の最小ワールド (床だけ・壁なしの広い空間)。机・椅子は placement.yaml
 # の furniture: で本物のメッシュ USD として置く。
-world: rc26_restaurant.world
+world: rc26_from_map.world
 
 # 見た目 (configs/dressing.yaml のプリセットから選ぶ)
 # レストラン風: 木目の床テクスチャ + 背景の壁なしの広い空間 (restaurant プリセット)。
