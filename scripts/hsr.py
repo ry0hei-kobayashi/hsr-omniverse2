@@ -140,7 +140,8 @@ def og_ros_node(name):
 
 if is_ros2 is False:
     print('local module import ')
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '3rdparty'))
+    sys.path.insert(0, os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), '..', '3rdparty'))
     from OgnROS1ActionFollowJointTrajectory import \
         InternalState as semuInternalState
     from OgnROS1ActionGripperCommand import \
@@ -354,7 +355,8 @@ class gripper_apply_force_action_server(gripper_command_action_server):
             # (閉じ動作中は ~2e-2/step なので明確に区別できる)。
             if self._action_previous_position_sum == float('inf'):
                 self._action_stall_steps = 0  # 新しいゴールの開始
-            pos_diff = abs(current_position_sum - self._action_previous_position_sum)
+            pos_diff = abs(current_position_sum -
+                           self._action_previous_position_sum)
             if pos_diff < 2e-3:
                 self._action_stall_steps += 1
             else:
@@ -382,8 +384,10 @@ class gripper_apply_force_action_server(gripper_command_action_server):
 
             time_passed = self._get_time() - self._action_start_time
             if time_passed >= self._action_timeout:
-                print('[hsr][gripper] timeout -> abort (stall_steps=%d pos_sum=%.6f time=%.2f)'
-                      % (self._action_stall_steps, current_position_sum, time_passed))
+                print(
+                    '[hsr][gripper] timeout -> abort (stall_steps=%d pos_sum=%.6f time=%.2f)'
+                    % (self._action_stall_steps, current_position_sum, time_passed)
+                )
                 if self._action_goal_handle is not None:
                     if is_ros2 is False:
                         self._action_goal_handle.set_aborted()
@@ -406,10 +410,12 @@ def _q_conj(q):
 def _q_mul(a, b):
     ax, ay, az, aw = a
     bx, by, bz, bw = b
-    return (aw * bx + ax * bw + ay * bz - az * by,
-            aw * by - ax * bz + ay * bw + az * bx,
-            aw * bz + ax * by - ay * bx + az * bw,
-            aw * bw - ax * bx - ay * by - az * bz)
+    return (
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    )
 
 
 def _q_rot(q, v):
@@ -418,9 +424,11 @@ def _q_rot(q, v):
     tx = 2.0 * (qy * vz - qz * vy)
     ty = 2.0 * (qz * vx - qx * vz)
     tz = 2.0 * (qx * vy - qy * vx)
-    return (vx + qw * tx + (qy * tz - qz * ty),
-            vy + qw * ty + (qz * tx - qx * tz),
-            vz + qw * tz + (qx * ty - qy * tx))
+    return (
+        vx + qw * tx + (qy * tz - qz * ty),
+        vy + qw * ty + (qz * tx - qx * tz),
+        vz + qw * tz + (qx * ty - qy * tx),
+    )
 
 
 class hsr_config:
@@ -667,12 +675,14 @@ class hsr:
         # 購読する。BEST_EFFORT で出すと QoS 不一致でメッセージが届かず
         # wait_for_message が永久ブロックする (実測)。
         self.ft_sensor_pub = self.create_publisher_reliable(
-            self.prefix + '/wrist_wrench/raw', WrenchStamped)
+            self.prefix + '/wrist_wrench/raw', WrenchStamped
+        )
         # 重力補正済み wrench。実機は compensated を出すので skill は
         # こちらを優先購読する。EMA で重力(=ゆっくり変化)を差し引き、
         # 接触の過渡だけ残す。
         self.ft_sensor_comp_pub = self.create_publisher_reliable(
-            self.prefix + '/wrist_wrench/compensated', WrenchStamped)
+            self.prefix + '/wrist_wrench/compensated', WrenchStamped
+        )
         self._wrench_bias = [0.0] * 6
         self._wrench_bias_inited = False
 
@@ -1518,7 +1528,9 @@ class hsr:
                     _bound.append(_ps)
                 except Exception as _e:
                     print('[grip-fric] bind fail %s: %r' % (_ps, _e))
-        print('[grip-fric] bound finger material to %d prims: %s' % (len(_bound), _bound), flush=True)
+        print(
+            '[grip-fric] bound finger material to %d prims: %s' % (len(_bound), _bound), flush=True
+        )
 
         # 指コライダーが動的物体(缶)と接触判定を起こさない問題への対策(実測+GUIで確認:
         # 手のひらは衝突するが指リンクだけ缶を貫通する)。指の collider は convexHull だが、
@@ -1527,6 +1539,7 @@ class hsr:
         # 失敗、の非対称で説明可)。cook 不要の boundingCube(箱)に変えて確実に実体を作る。
         try:
             from omni.physx.scripts import utils as _pxutils
+
             _finger_col_prims = [
                 self.stage_path + self.prefix + '/hand_l_spring_proximal_link/collisions',
                 self.stage_path + self.prefix + '/hand_l_distal_link/collisions',
@@ -1539,7 +1552,8 @@ class hsr:
                     print('[grip-col] missing %s' % _cp, flush=True)
                     continue
                 _pxutils.setCollider(_cpr, approximationShape='convexHull')
-                print('[grip-col] convexHull collider (薄いまま) %s' % _cp, flush=True)
+                print('[grip-col] convexHull collider (薄いまま) %s' %
+                      _cp, flush=True)
         except Exception as _e:
             print('[grip-col] error: %r' % _e, flush=True)
 
@@ -1563,16 +1577,18 @@ class hsr:
         ]
         for _fp in finger_joint_paths:
             _fd = UsdPhysics.DriveAPI.Get(
-                stage.get_current_stage().GetPrimAtPath(_fp), 'angular'
-            )
+                stage.get_current_stage().GetPrimAtPath(_fp), 'angular')
             if not _fd:
                 print('[grip-drive] DriveAPI not found: %s' % _fp, flush=True)
                 continue
             _fd.GetStiffnessAttr().Set(FINGER_STIFFNESS)
             _fd.GetDampingAttr().Set(FINGER_DAMPING)
             _fd.GetMaxForceAttr().Set(FINGER_MAX_FORCE)
-            print('[grip-drive] tuned %s (k=%.1f d=%.1f maxF=%.1f)'
-                  % (_fp, FINGER_STIFFNESS, FINGER_DAMPING, FINGER_MAX_FORCE), flush=True)
+            print(
+                '[grip-drive] tuned %s (k=%.1f d=%.1f maxF=%.1f)'
+                % (_fp, FINGER_STIFFNESS, FINGER_DAMPING, FINGER_MAX_FORCE),
+                flush=True,
+            )
 
         left_passive1_drive = UsdPhysics.DriveAPI.Get(
             stage.get_current_stage().GetPrimAtPath(
@@ -1778,6 +1794,7 @@ class hsr:
         try:
             import omni.usd
             from pxr import Usd, UsdPhysics
+
             _st = omni.usd.get_context().get_stage()
             _root = _st.GetPrimAtPath(body_path)
             if not _root or not _root.IsValid():
@@ -1786,7 +1803,8 @@ class hsr:
                 if _p.HasAPI(UsdPhysics.CollisionAPI):
                     _a = _p.GetAttribute('physics:collisionEnabled')
                     if not _a:
-                        _a = UsdPhysics.CollisionAPI(_p).CreateCollisionEnabledAttr()
+                        _a = UsdPhysics.CollisionAPI(
+                            _p).CreateCollisionEnabledAttr()
                     _a.Set(bool(enabled))
         except Exception as _e:
             print('[graspA] collision toggle err %r' % _e, flush=True)
@@ -1799,17 +1817,21 @@ class hsr:
             return
         try:
             _hm = self.dc.get_dof_state(
-                self._joints['hand_motor_joint'][0], _dynamic_control.STATE_POS).pos
+                self._joints['hand_motor_joint'][0], _dynamic_control.STATE_POS
+            ).pos
         except Exception:
             return
         if self._palm_body is None:
             self._palm_body = self.dc.get_rigid_body(
-                self.stage_path + self.prefix + '/hand_palm_link')
+                self.stage_path + self.prefix + '/hand_palm_link'
+            )
         if getattr(self, '_lfinger_body', None) is None:
             self._lfinger_body = self.dc.get_rigid_body(
-                self.stage_path + self.prefix + '/hand_l_distal_link')
+                self.stage_path + self.prefix + '/hand_l_distal_link'
+            )
             self._rfinger_body = self.dc.get_rigid_body(
-                self.stage_path + self.prefix + '/hand_r_distal_link')
+                self.stage_path + self.prefix + '/hand_r_distal_link'
+            )
         if not self._palm_body or not self._lfinger_body or not self._rfinger_body:
             return
         _palm = self.dc.get_rigid_body_pose(self._palm_body)
@@ -1818,7 +1840,8 @@ class hsr:
         # 把持中心 = 左右の指先(distal)の中点。物体が来るべき場所そのもの。
         _lf = self.dc.get_rigid_body_pose(self._lfinger_body).p
         _rf = self.dc.get_rigid_body_pose(self._rfinger_body).p
-        _gc = ((_lf.x + _rf.x) / 2.0, (_lf.y + _rf.y) / 2.0, (_lf.z + _rf.z) / 2.0)
+        _gc = ((_lf.x + _rf.x) / 2.0, (_lf.y + _rf.y) /
+               2.0, (_lf.z + _rf.z) / 2.0)
 
         CLOSE_T, OPEN_T, GRASP_DIST = 0.5, 0.6, 0.15
         if self._grasp_obj is None:
@@ -1831,30 +1854,42 @@ class hsr:
                     if not _h:
                         continue
                     _op = self.dc.get_rigid_body_pose(_h)
-                    _d = math.sqrt((_gc[0] - _op.p.x) ** 2 + (_gc[1] - _op.p.y) ** 2
-                                   + (_gc[2] - _op.p.z) ** 2)
+                    _d = math.sqrt(
+                        (_gc[0] - _op.p.x) ** 2 + (_gc[1] -
+                                                   _op.p.y) ** 2 + (_gc[2] - _op.p.z) ** 2
+                    )
                     _mind = min(_mind, _d)
                     if _d < _bestd:
                         _bestd = _d
                         _best = (_bp, _h, _op)
                 if _mind < 0.4 and not getattr(self, '_grasp_dbg_done', False):
-                    print('[graspA] try: gc=(%.3f,%.3f,%.3f) nearest_obj_dist=%.3f (閾値%.2f)'
-                          % (_gc[0], _gc[1], _gc[2], _mind, GRASP_DIST), flush=True)
+                    print(
+                        '[graspA] try: gc=(%.3f,%.3f,%.3f) nearest_obj_dist=%.3f (閾値%.2f)'
+                        % (_gc[0], _gc[1], _gc[2], _mind, GRASP_DIST),
+                        flush=True,
+                    )
                     self._grasp_dbg_done = True
                 if _best is not None:
                     _bp, _h, _op = _best
-                    _rel_p = _q_rot(_q_conj(_pq),
-                                    (_op.p.x - _pp[0], _op.p.y - _pp[1], _op.p.z - _pp[2]))
-                    _rel_q = _q_mul(_q_conj(_pq), (_op.r.x, _op.r.y, _op.r.z, _op.r.w))
-                    self._grasp_obj = {'h': _h, 'rel_p': _rel_p, 'rel_q': _rel_q, 'path': _bp}
+                    _rel_p = _q_rot(
+                        _q_conj(_pq), (_op.p.x -
+                                       _pp[0], _op.p.y - _pp[1], _op.p.z - _pp[2])
+                    )
+                    _rel_q = _q_mul(
+                        _q_conj(_pq), (_op.r.x, _op.r.y, _op.r.z, _op.r.w))
+                    self._grasp_obj = {
+                        'h': _h, 'rel_p': _rel_p, 'rel_q': _rel_q, 'path': _bp}
                     # 把持中はテレポート保持なので衝突を切る(指との押し合いで発散しない)。
                     self._set_grasp_object_collision(_bp, False)
-                    print('[graspA] 掴んだ: %s (dist=%.3f)' % (_bp, _bestd), flush=True)
+                    print('[graspA] 掴んだ: %s (dist=%.3f)' %
+                          (_bp, _bestd), flush=True)
         else:
             if _hm > OPEN_T:  # 開いた → 離す
                 try:
-                    self.dc.set_rigid_body_linear_velocity(self._grasp_obj['h'], (0.0, 0.0, 0.0))
-                    self.dc.set_rigid_body_angular_velocity(self._grasp_obj['h'], (0.0, 0.0, 0.0))
+                    self.dc.set_rigid_body_linear_velocity(
+                        self._grasp_obj['h'], (0.0, 0.0, 0.0))
+                    self.dc.set_rigid_body_angular_velocity(
+                        self._grasp_obj['h'], (0.0, 0.0, 0.0))
                 except Exception:
                     pass
                 # 離したら衝突を戻す(机に乗る/他物体と当たる)。
@@ -1871,16 +1906,73 @@ class hsr:
                 _t.p = _wp
                 _t.r = _wq
                 self.dc.set_rigid_body_pose(_g['h'], _t)
-                self.dc.set_rigid_body_linear_velocity(_g['h'], (0.0, 0.0, 0.0))
-                self.dc.set_rigid_body_angular_velocity(_g['h'], (0.0, 0.0, 0.0))
+                self.dc.set_rigid_body_linear_velocity(
+                    _g['h'], (0.0, 0.0, 0.0))
+                self.dc.set_rigid_body_angular_velocity(
+                    _g['h'], (0.0, 0.0, 0.0))
 
     def onsimulationstart(self, simulation_context):
         self.simulation_context = simulation_context
         self.prev_time = self.simulation_context.current_time
         # 案A(アタッチ把持)用の状態
-        self._grasp_obj = None        # 掴んでいる物体 {h, rel_p, rel_q, path}
-        self._palm_body = None        # hand_palm_link の剛体ハンドル(キャッシュ)
+        self._grasp_obj = None  # 掴んでいる物体 {h, rel_p, rel_q, path}
+        self._palm_body = None  # hand_palm_link の剛体ハンドル(キャッシュ)
         self._obj_paths_cache = None  # 物体(剛体)プリムのパス一覧(キャッシュ)
+
+    def reset_to_spawn(self, x, y, yaw):
+        """ロボットを spawn 姿勢 (x, y, yaw) + ホーム関節へ戻し,速度をゼロに"""
+        if not getattr(self, 'art', None):
+            return
+
+        # --- base (articulation root) をテレポートして速度ゼロ ---
+        root = self.dc.get_articulation_root_body(self.art)
+        t = _dynamic_control.Transform()
+        t.p = (float(x), float(y), 0.0)
+        _half = 0.5 * float(yaw)
+        # dc の Transform.r は (x, y, z, w)。yaw (Z 軸) のみの回転。
+        t.r = (0.0, 0.0, math.sin(_half), math.cos(_half))
+        self.dc.set_rigid_body_pose(root, t)
+        self.dc.set_rigid_body_linear_velocity(root, (0.0, 0.0, 0.0))
+        self.dc.set_rigid_body_angular_velocity(root, (0.0, 0.0, 0.0))
+
+        # --- 全関節をホーム姿勢へ・速度ゼロ・目標も合わせる ---
+        home = getattr(self, '_home_dof_pos', {})
+        for _name, (_ptr, _jt, _inv) in self._joints.items():
+            _pos = home.get(_name, 0.0)
+            self.dc.set_dof_position(_ptr, _pos)
+            self.dc.set_dof_velocity(_ptr, 0.0)
+            self.dc.set_dof_position_target(_ptr, _pos)
+            self.dc.set_dof_velocity_target(_ptr, 0.0)
+
+        # --- brake (stiffness=1e6 ラッチ) を必ず解除する ---
+        for _bptr in (
+            getattr(self, 'left_wheel_ptr', None),
+            getattr(self, 'right_wheel_ptr', None),
+            getattr(self, 'roll_ptr', None),
+        ):
+            if _bptr is None:
+                continue
+            try:
+                _pr = self.dc.get_dof_properties(_bptr)
+                _pr.stiffness = 0.0
+                self.dc.set_dof_properties(_bptr, _pr)
+            except Exception:
+                pass
+        self._base_braked = False
+
+        self.dc.wake_up_articulation(self.art)
+
+        # --- オドメトリ・速度指令をリセット ---
+        self.odometry_estimator.set_pose(x, y, yaw)
+        self.cmd_vel_msg = None
+
+        # --- 把持中の物体があれば離す (衝突を戻し、追従を解除) ---
+        if getattr(self, '_grasp_obj', None) is not None:
+            try:
+                self._set_grasp_object_collision(self._grasp_obj['path'], True)
+            except Exception:
+                pass
+            self._grasp_obj = None
 
     def step(self):
         og.Controller.set(
@@ -1921,6 +2013,13 @@ class hsr:
             self.roll_ptr = self.dc.find_articulation_dof(
                 self.art, 'base_roll_joint')
             self.robots.initialize()
+
+            # for reset world
+            self._home_dof_pos = {
+                _n: self.dc.get_dof_state(
+                    _p[0], _dynamic_control.STATE_POS).pos
+                for _n, _p in self._joints.items()
+            }
 
         self.dc.wake_up_articulation(self.art)
 
@@ -2050,10 +2149,8 @@ class hsr:
             srv._odometry = self.odometry_estimator.pose
             # 軌道の全点を消化し終えたか(= もう動かす目標が無い)を判定。
             try:
-                traj_done = (
-                    srv._action_point_index
-                    >= len(srv._action_goal.trajectory.points)
-                )
+                traj_done = srv._action_point_index >= len(
+                    srv._action_goal.trajectory.points)
             except Exception:
                 traj_done = True
             if traj_done:
@@ -2068,7 +2165,8 @@ class hsr:
                 srv._joints['odom_t'] = self.odometry_estimator.pose.ang
             cmd.dot_x = srv._joints['odom_x'] - self.odometry_estimator.pose.x
             cmd.dot_y = srv._joints['odom_y'] - self.odometry_estimator.pose.y
-            cmd.dot_r = srv._joints['odom_t'] - self.odometry_estimator.pose.ang
+            cmd.dot_r = srv._joints['odom_t'] - \
+                self.odometry_estimator.pose.ang
             # 残留P誤差(オドメトリ残差や物理ノイズ)で台車がじわじわ動く/回るのを
             # 防ぐ最終デッドバンド。目標にほぼ到達している軸は 0 にする(軸独立)。
             # 走行(cmd_vel)分岐には影響しない。
@@ -2142,9 +2240,8 @@ class hsr:
         # 微小に動き続ける(≈0.0018rad/s の自転 creep)。指令ヨー/並進が厳密に0
         # (=静止すべき)のときだけ、現在の関節角をラッチして stiffness を上げ位置保持し、
         # creep を物理的に止める。動作指令時は stiffness=0 の velocity ドライブに戻す。
-        _base_idle = (abs(cmd.dot_x) < 1e-6
-                      and abs(cmd.dot_y) < 1e-6
-                      and abs(cmd.dot_r) < 1e-6)
+        _base_idle = abs(
+            cmd.dot_x) < 1e-6 and abs(cmd.dot_y) < 1e-6 and abs(cmd.dot_r) < 1e-6
         _BRAKE_STIFFNESS = 1.0e6
         _base_ptrs = (self.left_wheel_ptr, self.right_wheel_ptr, self.roll_ptr)
         if not getattr(self, '_base_brake_failed', False):
@@ -2168,9 +2265,12 @@ class hsr:
                             _pr.stiffness = 0.0
                             self.dc.set_dof_properties(_ptr, _pr)
                         self._base_braked = False
-                    self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
-                    self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
-                    self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
+                    self.dc.set_dof_velocity_target(
+                        self.left_wheel_ptr, jcmd.vel_wheel_l)
+                    self.dc.set_dof_velocity_target(
+                        self.right_wheel_ptr, jcmd.vel_wheel_r)
+                    self.dc.set_dof_velocity_target(
+                        self.roll_ptr, jcmd.vel_steer)
             except Exception as _e:
                 # API が想定と違う等で失敗したら一度だけ警告し、従来動作へ戻す(落とさない)
                 self._base_brake_failed = True
@@ -2178,12 +2278,16 @@ class hsr:
                     print('[base brake] disabled:', _e)
                 except Exception:
                     pass
-                self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
-                self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
+                self.dc.set_dof_velocity_target(
+                    self.left_wheel_ptr, jcmd.vel_wheel_l)
+                self.dc.set_dof_velocity_target(
+                    self.right_wheel_ptr, jcmd.vel_wheel_r)
                 self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
         else:
-            self.dc.set_dof_velocity_target(self.left_wheel_ptr, jcmd.vel_wheel_l)
-            self.dc.set_dof_velocity_target(self.right_wheel_ptr, jcmd.vel_wheel_r)
+            self.dc.set_dof_velocity_target(
+                self.left_wheel_ptr, jcmd.vel_wheel_l)
+            self.dc.set_dof_velocity_target(
+                self.right_wheel_ptr, jcmd.vel_wheel_r)
             self.dc.set_dof_velocity_target(self.roll_ptr, jcmd.vel_steer)
 
         force_readings = self.robots.get_measured_joint_forces(

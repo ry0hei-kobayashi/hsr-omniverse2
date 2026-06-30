@@ -4,14 +4,15 @@ import os
 
 import xacro
 from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import Node, SetParameter
+from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
+
 from launch import LaunchContext, LaunchDescription
 from launch.actions import (DeclareLaunchArgument, ExecuteProcess, GroupAction,
                             IncludeLaunchDescription, OpaqueFunction)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node, SetParameter
-from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 
 
 def declare_arguments():
@@ -218,8 +219,8 @@ def generate_launch_description():
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
-                    os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'teleop.launch.py')
+                    os.path.join(os.path.dirname(
+                        os.path.abspath(__file__)), 'teleop.launch.py')
                 ]),
                 launch_arguments={'use_sim_time': 'true'}.items(),
             )
@@ -243,14 +244,19 @@ def generate_launch_description():
             'python3',
             image_republisher_script,
             '--ros-args',
-            '-p', 'use_sim_time:=true',
+            '-p',
+            'use_sim_time:=true',
             # hsrc_ex 実機と同じ命名で /compressed を作り、openmm/mmpose に渡す。
             # (hsr_hsrc_ex.py が color/image_raw・depth/image_raw で RAW を publish する)
             # ※ HSR-B 知覚で使う場合は rgb/image_rect_color 等に上書きすること。
-            '-p', 'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
-            '-p', 'rgb_output_topic:=/head_rgbd_sensor/color/image_raw/compressed',
-            '-p', 'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
-            '-p', 'depth_output_topic:=/head_rgbd_sensor/depth/image_raw/compressedDepth',
+            '-p',
+            'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
+            '-p',
+            'rgb_output_topic:=/head_rgbd_sensor/color/image_raw/compressed',
+            '-p',
+            'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
+            '-p',
+            'depth_output_topic:=/head_rgbd_sensor/depth/image_raw/compressedDepth',
         ],
         output='screen',
         condition=IfCondition(args['openmm_rgbd_compression']),
@@ -266,13 +272,19 @@ def generate_launch_description():
             'python3',
             image_republisher_script,
             '--ros-args',
-            '-p', 'use_sim_time:=true',
+            '-p',
+            'use_sim_time:=true',
             # 同じスクリプトを2つ起動するのでノード名を変えて衝突を避ける
-            '-r', '__node:=hsrb_reconst_compression_republisher',
-            '-p', 'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
-            '-p', 'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
-            '-p', 'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
-            '-p', 'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
+            '-r',
+            '__node:=hsrb_reconst_compression_republisher',
+            '-p',
+            'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
+            '-p',
+            'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
+            '-p',
+            'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
+            '-p',
+            'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
         ],
         output='screen',
         condition=IfCondition(args['hsrb_reconst_topics']),
@@ -293,8 +305,52 @@ def generate_launch_description():
         condition=IfCondition(args['hsrb_reconst_topics']),
     )
 
+    laser_scan_matcher = Node(
+        package='ros2_laser_scan_matcher',
+        executable='laser_scan_matcher',
+        name='laser_scan_matcher',
+        output='screen',
+        respawn=True,
+        respawn_delay=1.0,
+        remappings=[
+            ('odom', 'laser_odom'),
+            ('scan', 'scan'),
+        ],
+        parameters=[
+            {
+                'laser_frame': 'base_range_sensor_link',
+                'publish_odom': 'laser_odom',
+                'use_sim_time': True,
+            }
+        ],
+    )
+
+    local_matcher_helper = os.path.join(
+        os.path.dirname(launch_dir),
+        'scripts',
+        'reset_world_matcher_helper.py',
+    )
+    matcher_helper_script = (
+        local_matcher_helper
+        if os.path.exists(local_matcher_helper)
+        else '/reset_world_matcher_helper.py'
+    )
+    reset_world_matcher_helper = ExecuteProcess(
+        cmd=[
+            'python3',
+            matcher_helper_script,
+            '--ros-args',
+            '-p',
+            'use_sim_time:=true',
+        ],
+        output='screen',
+        additional_env={'HSR_ROS_VERSION': '2'},
+    )
+
     nodes = [
         relay_node,
+        laser_scan_matcher,
+        reset_world_matcher_helper,
         openmm_rgbd_compression,
         hsrb_reconst_compression,
         hsrb_reconst_camera_info_relay,

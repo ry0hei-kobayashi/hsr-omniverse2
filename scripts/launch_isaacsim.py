@@ -7,13 +7,25 @@
 # kit = SimulationApp({"renderer": "RayTracedLighting", "headless": False})
 # kit.set_setting("/app/extensions/installUntrustedExtensions", True)
 
+# NOTE: Import ordering here is load-bearing. In an Isaac Sim standalone
+# script, omni.*/isaacsim.* extension modules (omni.kit.commands, omni.isaac.*,
+# omni.physx, isaacsim.core.*, pxr, ...) only become importable AFTER
+# SimulationApp({...}) is instantiated -- that call boots Kit and puts the
+# extension modules on sys.path. The only Isaac module safe to import before is
+# the SimulationApp bootstrap itself. Do NOT let an auto-formatter (isort) hoist
+# the post-SimulationApp imports above the kit = SimulationApp(...) call below;
+# doing so reintroduces "ModuleNotFoundError: No module named 'omni.kit.commands'".
+
 import math
 import os
+import threading
 import xml.etree.ElementTree as ET
 
 import numpy as np
 import yaml
 from isaacsim.simulation_app import SimulationApp
+
+import object_placement  # no omni dependency; safe before Kit boots
 
 kit = SimulationApp({
     'renderer': 'RayTracedLighting',
@@ -25,6 +37,8 @@ kit = SimulationApp({
 })
 kit.set_setting('/app/extensions/installUntrustedExtensions', True)
 
+# isort: off
+# --- The imports below require Kit to be running (SimulationApp booted above). ---
 import omni.kit.commands
 from isaacsim.core.api.materials.physics_material import PhysicsMaterial
 from isaacsim.core.version import get_version
@@ -35,17 +49,21 @@ from omni.isaac.core.prims import GeometryPrim
 from omni.isaac.core.utils import nucleus, stage, viewports
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
+from omni.isaac.dynamic_control import _dynamic_control
 from omni.physx import get_physx_simulation_interface
 from omni.physx.scripts import utils as physx_utils
 from pxr import (Gf, PhysicsSchemaTools, PhysxSchema, Sdf, Usd, UsdGeom,
                  UsdPhysics)
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from std_msgs.msg import Empty as EmptyMsg
 from tmc_wrs_gazebo_worlds import randomizer
 
-import hsr
+# Local modules that import omni at module top -> must come after Kit boots.
 import construct_environment
-import object_placement
-import people_spawn
 import furniture_spawn
+import hsr
+import people_spawn
+# isort: on
 
 
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
@@ -72,6 +90,7 @@ is_ros2 = False
 try:
     import rclpy
     from gazebo_msgs.srv import GetModelState, GetWorldProperties
+    from std_srvs.srv import Empty as EmptySrv
 
     is_ros2 = True
 except ImportError:
@@ -79,6 +98,8 @@ except ImportError:
     from gazebo_msgs.srv import (GetModelState, GetModelStateResponse,
                                  GetWorldProperties,
                                  GetWorldPropertiesResponse)
+    from std_srvs.srv import Empty as EmptySrv
+    from std_srvs.srv import EmptyResponse
 
 try:
     import rosgraph
@@ -89,6 +110,8 @@ try:
         exit()
 except ImportError:
     pass
+
+# reset_world 後の localization 復帰用メッセージ。import パスは ROS1/ROS2 共通。
 
 viewports.set_camera_view(eye=np.array(
     [3.7, 1.7, 5.0]), target=np.array([0, 0, 0]))
@@ -120,15 +143,19 @@ create_prim(
 #   - どうしてもオンラインのアセットサーバを使いたいときは ISAAC_FORCE_ONLINE_ASSETS=1。
 _OFFLINE_MIRRORS = [
     '/app/usd/isaac_offline',  # コンテナ内 (usd マウント / イメージ ADD で配備)
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                 'usd', 'isaac_offline'),  # ホストで直接実行したとき
+    os.path.join(
+        os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), 'usd', 'isaac_offline'
+    ),  # ホストで直接実行したとき
 ]
 _offline_mirror = next((d for d in _OFFLINE_MIRRORS if os.path.isdir(d)), None)
 if _offline_mirror and os.environ.get('ISAAC_FORCE_ONLINE_ASSETS') != '1':
     # 同梱ミラーあり -> ネット問い合わせをせずローカルを root にする(オフライン)。
     assets_root_path = _offline_mirror
-    print(f'[assets] オフライン同梱ミラーを使用 (get_assets_root_path をスキップ・ネット不要): '
-          f'{assets_root_path}')
+    print(
+        f'[assets] オフライン同梱ミラーを使用 (get_assets_root_path をスキップ・ネット不要): '
+        f'{assets_root_path}'
+    )
 else:
     # ミラーが無い(従来動作): オンラインでアセットサーバの root を探す。
     assets_root_path = get_assets_root_path()
@@ -137,8 +164,10 @@ else:
         # 別サーバ/別バージョンを使うときは環境変数 ISAAC_ASSETS_ROOT で上書きできる。
         assets_root_path = os.environ.get(
             'ISAAC_ASSETS_ROOT',
-            'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5')
-        print(f'[assets] get_assets_root_path() が None。フォールバック使用: {assets_root_path}')
+            'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5',
+        )
+        print(
+            f'[assets] get_assets_root_path() が None。フォールバック使用: {assets_root_path}')
 
 
 # ============================================================
@@ -166,8 +195,8 @@ _GROUND_PATH = '/World/GroundPlane'
 _ground_prim = create_prim(
     prim_path=_GROUND_PATH,
     prim_type='Cube',
-    translation=[0.0, 0.0, -1.0],   # サイズ2の Cube を z 方向 1 倍 → 上面が z=0
-    scale=[50.0, 50.0, 1.0],        # 約 100m x 100m の床 (場所を選ばず乗れる)
+    translation=[0.0, 0.0, -1.0],  # サイズ2の Cube を z 方向 1 倍 → 上面が z=0
+    scale=[50.0, 50.0, 1.0],  # 約 100m x 100m の床 (場所を選ばず乗れる)
 )
 physx_utils.setCollider(_ground_prim, approximationShape='none')
 
@@ -178,7 +207,8 @@ floor_material = PhysicsMaterial(
     dynamic_friction=60.0,
 )
 GeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
-    floor_material, weaker_than_descendants=True)
+    floor_material, weaker_than_descendants=True
+)
 
 model_names = []
 # 生オブジェクト(物理を持たない自作モデル)に drop_object で剛体を付けた prim パス。
@@ -187,6 +217,27 @@ model_names = []
 # 適用してロボットがすり抜けないようにする。
 _runtime_rigid_object_paths = []
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# ============================================================
+# reset_world
+# ============================================================
+_spawn_initial_states = []
+
+# サービスコールバック (rclpy executor スレッド) から物理ステップ中に prim を
+# 書き換えるのは危険なので、フラグを立ててメインループ側で物理ステップ間に実行する。
+_reset_requested = False
+_reset_done = threading.Event()
+
+
+def _request_reset_and_wait():
+    """reset_world を要求し、メインループが適用し終えるまでブロックする。"""
+    global _reset_requested
+    _reset_done.clear()
+    _reset_requested = True
+    # メインループが適用 → _reset_done.set() するまで待つ (適用保証)。
+    _reset_done.wait(timeout=5.0)
+
+
 model_root = os.path.join(repo_root, 'usd', 'wrs_models')
 if not os.path.exists(model_root):
     model_root = '/app/usd/wrs_models'
@@ -206,20 +257,26 @@ DEFAULT_OBJECT_MASS_KG = 0.2
 #   - task.yaml ... world のファイル名 と dressing の選択 (preset/lighting)
 #   - placement.yaml (任意) ... robot/objects/people。無ければ共通の既定。
 _task = os.environ.get('TASK', '').strip()
-_task_world_name = None        # task.yaml の world: (worlds/ 内のファイル名)
-_task_placement_path = None    # None なら configs/placement.yaml (各ローダーの既定)
-_task_dressing_preset = None   # None なら dressing.yaml の defaults
+_task_world_name = None  # task.yaml の world: (worlds/ 内のファイル名)
+_task_placement_path = None  # None なら configs/placement.yaml (各ローダーの既定)
+_task_dressing_preset = None  # None なら dressing.yaml の defaults
 _task_dressing_lighting = None
 if _task:
     _task_dir = next(
-        (d for d in (os.path.join('/app/configs/tasks', _task),
-                     os.path.join(repo_root, 'configs', 'tasks', _task))
-         if os.path.isdir(d)),
-        None)
+        (
+            d
+            for d in (
+                os.path.join('/app/configs/tasks', _task),
+                os.path.join(repo_root, 'configs', 'tasks', _task),
+            )
+            if os.path.isdir(d)
+        ),
+        None,
+    )
     if _task_dir is None:
         raise FileNotFoundError(
-            f"TASK='{_task}' のフォルダが見つかりません。"
-            f"configs/tasks/{_task}/ を作ってください。")
+            f"TASK='{_task}' のフォルダが見つかりません。configs/tasks/{_task}/ を作ってください。"
+        )
     print(f"[task] selected TASK='{_task}' dir={_task_dir}")
 
     # task.yaml (world と dressing の選択) を読む。
@@ -232,15 +289,15 @@ if _task:
         _task_dressing_preset = _dsel.get('preset')
         _task_dressing_lighting = _dsel.get('lighting')
     else:
-        print(f"[task] WARNING: {_task_yaml} が無いので world/dressing は既定を使います。")
+        print(f'[task] WARNING: {_task_yaml} が無いので world/dressing は既定を使います。')
 
     # placement.yaml はタスクフォルダにあればそれを優先 (無ければ共通の既定)。
     _p = os.path.join(_task_dir, 'placement.yaml')
     if os.path.isfile(_p):
         _task_placement_path = _p
-        print(f"[task] placement: {_p}")
+        print(f'[task] placement: {_p}')
     else:
-        print("[task] placement: タスク個別が無いので共通の configs/placement.yaml を使用")
+        print('[task] placement: タスク個別が無いので共通の configs/placement.yaml を使用')
 
 # Extract poses of objects from the world file
 # タスクで world が指定されていれば、それを候補の先頭に置く。
@@ -256,8 +313,9 @@ if _task_world_name:
     if world_file is None:
         raise FileNotFoundError(
             f"TASK='{_task}' の world '{_task_world_name}' が worlds/ に見つかりません。"
-            f"task.yaml の world: を worlds/ 内の正しいファイル名にしてください "
-            f"(探した場所: {_task_world_candidates})。")
+            f'task.yaml の world: を worlds/ 内の正しいファイル名にしてください '
+            f'(探した場所: {_task_world_candidates})。'
+        )
 else:
     # タスク未指定 (または task.yaml に world: なし) のときは従来の候補から探す。
     world_candidates = [
@@ -269,13 +327,10 @@ else:
         os.path.join(repo_root, 'worlds', 'rcj26_pre2.world'),
         os.path.join(repo_root, 'rcj26_pre2.world'),
     ]
-    world_file = next(
-        (p for p in world_candidates if os.path.exists(p)), None)
+    world_file = next((p for p in world_candidates if os.path.exists(p)), None)
     if world_file is None:
         if is_ros2:
-            world_file = (
-                '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
-            )
+            world_file = '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
         else:
             world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
 print(f'Loading world file: {world_file}')
@@ -289,8 +344,7 @@ for i in root.findall('world/include'):
     (x, y, z, er, ep, ey) = [float(n) for n in i.find('pose').text.split(' ')]
     stage_path = f'/{model_name}'
     model_path = os.path.join(
-        model_root, model_uri.replace('model://', ''), 'model.usd'
-    )
+        model_root, model_uri.replace('model://', ''), 'model.usd')
     if model_uri == 'model://unit_box' and not os.path.exists(model_path):
         scale_tag = i.find('scale')
         if scale_tag is None:
@@ -365,7 +419,7 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     # USD の prim パスは "/" が階層区切りになるため、name に相対パス
     # (rc26_practice_day_1/drink/led 等) が含まれると壊れる。"-" と "/" を
     # まとめて "_" に置換し、1 階層の安全な prim 名にする。
-    safe_name = gazebo_name.replace("-", "_").replace("/", "_")
+    safe_name = gazebo_name.replace('-', '_').replace('/', '_')
     stage_path = f'/{safe_name}'
     # name は次の 2 通りの書き方を許す:
     #   (A) usd/ からの相対パス  例: 'rc26_practice_day_1/drink/led'
@@ -374,10 +428,10 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     #   (B) 物体フォルダ名だけ    例: 'ycb_011_banana', 'led'
     #       -> 従来どおり my_models / wrs_models を探す (後方互換)。
     model_candidates = [
-        os.path.join(repo_root, 'usd', name, 'model.usd'),          # (A)
+        os.path.join(repo_root, 'usd', name, 'model.usd'),  # (A)
         os.path.join(repo_root, 'usd', 'my_models', name, 'model.usd'),
         os.path.join(model_root, name, 'model.usd'),
-        '/app/usd/' + name + '/model.usd',                          # (A)
+        '/app/usd/' + name + '/model.usd',  # (A)
         '/app/usd/my_models/' + name + '/model.usd',
         '/app/usd/wrs_models/' + name + '/model.usd',
     ]
@@ -433,24 +487,52 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     # 物体を単なる剛体に戻す。これでロボットの指/腕が物体に当たるようになる。
     try:
         from pxr import PhysxSchema as _PXS
+
         for _op in Usd.PrimRange(dropped_prim):
             if _op.HasAPI(UsdPhysics.ArticulationRootAPI):
                 _op.RemoveAPI(UsdPhysics.ArticulationRootAPI)
-                print('[obj-fix] removed ArticulationRootAPI from %s' % _op.GetPath(), flush=True)
+                print('[obj-fix] removed ArticulationRootAPI from %s' %
+                      _op.GetPath(), flush=True)
             if _op.HasAPI(_PXS.PhysxArticulationAPI):
                 _op.RemoveAPI(_PXS.PhysxArticulationAPI)
     except Exception as _e:
         print('[obj-fix] err %r' % _e, flush=True)
 
     model_names.append(gazebo_name)
+
+    # reset_world 用: この物体の初期姿勢を記録する。剛体 (RigidBodyAPI) が付いた
+    # prim を subtree から探し、その「合成済みワールド変換」を保存する。ワールド変換で
+    # 持つことで Y-up の rotateX(90) 補正や YCB の /body 内部オフセットが自動で正しく
+    # 反映され、reset 時に dc.get_rigid_body(body_path) でそのまま戻せる。
+    try:
+        _rb_prim = next(
+            (p for p in Usd.PrimRange(dropped_prim)
+             if p.HasAPI(UsdPhysics.RigidBodyAPI)),
+            None,
+        )
+        if _rb_prim is not None:
+            _m = UsdGeom.Xformable(_rb_prim).ComputeLocalToWorldTransform(
+                Usd.TimeCode.Default())
+            _t = _m.ExtractTranslation()
+            _q = _m.GetOrthonormalized().ExtractRotationQuat()
+            _qi = _q.GetImaginary()
+            _spawn_initial_states.append({
+                'body_path': str(_rb_prim.GetPath()),
+                'p': (_t[0], _t[1], _t[2]),
+                'q': (_q.GetReal(), _qi[0], _qi[1], _qi[2]),  # (w, x, y, z)
+            })
+    except Exception as _e:
+        print('[reset_world] spawn pose capture failed for %s: %r' %
+              (gazebo_name, _e), flush=True)
+
     return model_path
 
 
 # ランダム配置 (WRS 競技の出題) は使わず、configs/placement.yaml の指定に
 # 従って家具の上に物体を配置する。ランダムに戻したいときは下を有効化:
 #   randomizer.generate_wrs_task(drop_func=drop_object)
-object_placement.apply_placements(world_file, drop_object,
-                                  config_path=_task_placement_path)
+object_placement.apply_placements(
+    world_file, drop_object, config_path=_task_placement_path)
 
 # placement.yaml の people: セクションに従って「人」を配置する。
 # people が空 (デフォルト) のときは何も置かず、既存の動作は変わらない。
@@ -459,7 +541,8 @@ object_placement.apply_placements(world_file, drop_object,
 # タイムラインの再生区間 (start_time / end_time) に使う。
 # config_path=None のときは各ローダーが共通の configs/placement.yaml を読む。
 _num_people, _people_loop_start, _people_loop_end = people_spawn.spawn_people(
-    assets_root_path, kit, config_path=_task_placement_path)
+    assets_root_path, kit, config_path=_task_placement_path
+)
 
 # placement.yaml の furniture: セクションに従って「本物のメッシュの家具(机/椅子)」を
 # 配置する。人 (people) と同じく Isaac 公式アセットサーバから取得する。furniture: が
@@ -507,16 +590,18 @@ _spawn_path = next((p for p in _spawn_candidates if os.path.exists(p)), None)
 if _spawn_path is not None:
     with open(_spawn_path) as _f:
         _cfg = yaml.safe_load(_f) or {}
-    _robot_cfg = _cfg.get('robot') or {}   # robot: セクション (位置 x/y/yaw のみ使う)
+    _robot_cfg = _cfg.get('robot') or {}  # robot: セクション (位置 x/y/yaw のみ使う)
     for _k in ('x', 'y', 'yaw'):
         if _robot_cfg.get(_k) is not None:
             try:
                 _robot_spawn[_k] = float(_robot_cfg[_k])
             except (TypeError, ValueError):
                 # 数値でない (例: 小数点を ',' で書いた) 場合でも sim を落とさず継続。
-                print(f"[hsr] WARNING: placement.yaml の robot.{_k}={_robot_cfg[_k]!r} は"
-                      f"数値として読めません。フォールバック {_robot_spawn[_k]} を使用 "
-                      f"(小数点は '.' で書いてください)。")
+                print(
+                    f'[hsr] WARNING: placement.yaml の robot.{_k}={_robot_cfg[_k]!r} は'
+                    f'数値として読めません。フォールバック {_robot_spawn[_k]} を使用 '
+                    f"(小数点は '.' で書いてください)。"
+                )
     print(f'[hsr] spawn from {_spawn_path} (robot:): {_robot_spawn}')
 else:
     print(f'[hsr] placement.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
@@ -541,6 +626,7 @@ create_prim(
 #   - それ以外(既定): 従来の hsr.hsr (HSR-B)
 if _robot_model == 'hsrc_ex':
     import hsr_hsrc_ex
+
     print('[hsr] model=hsrc_ex を使用 (usd/hsrc/hsrc1s.usd)')
     _hsr = hsr_hsrc_ex.hsr(stage_path=hsr_stage_path)
 else:
@@ -645,8 +731,10 @@ if _num_people > 0:
         # 再生ヘッドを区間の先頭に置いてから始める (区間外から始まらないように)。
         _timeline.set_current_time(_people_loop_start)
     _timeline.set_looping(True)
-    print(f'[people] timeline looping on for {_num_people} character(s), '
-          f'window={_people_loop_start:.2f}s..{_people_loop_end:.2f}s')
+    print(
+        f'[people] timeline looping on for {_num_people} character(s), '
+        f'window={_people_loop_start:.2f}s..{_people_loop_end:.2f}s'
+    )
 
 # ラボ環境テクスチャ (床 + 周囲背景 + 照明) を適用。
 # timeline.play() の "後" でないと PhysX セットアップを壊すので注意。
@@ -666,8 +754,10 @@ if _bounds is not None:
     _room_size = max(_max_x - _min_x, _max_y - _min_y) + 2.0 * _margin
     _center_x = (_min_x + _max_x) / 2.0
     _center_y = (_min_y + _max_y) / 2.0
-    print(f'[dressing] world bounds -> room_size={_room_size:.2f} '
-          f'center=({_center_x:.2f}, {_center_y:.2f})')
+    print(
+        f'[dressing] world bounds -> room_size={_room_size:.2f} '
+        f'center=({_center_x:.2f}, {_center_y:.2f})'
+    )
     construct_environment.apply_lab_dressing(
         room_size=_room_size,
         center_x=_center_x,
@@ -737,6 +827,17 @@ if is_ros2:
         handle_get_model_state_ros2,
         qos_profile=rclpy.qos.qos_profile_services_default,
     )
+
+    def handle_reset_world_ros2(req, ret):
+        _request_reset_and_wait()
+        return ret
+
+    _hsr.ros2node.create_service(
+        EmptySrv,
+        '/isaac/reset_world',
+        handle_reset_world_ros2,
+        qos_profile=rclpy.qos.qos_profile_services_default,
+    )
 else:
 
     def handle_get_world_properties(req):
@@ -771,6 +872,77 @@ else:
     rospy.Service('/gazebo/get_model_state',
                   GetModelState, handle_get_model_state)
 
+    def handle_reset_world(req):
+        _request_reset_and_wait()
+        return EmptyResponse()
+
+    rospy.Service('/isaac/reset_world', EmptySrv, handle_reset_world)
+
+# reset_world (テレポート) 後に localization スタックを spawn 位置へ復帰させる publisher。
+#   /isaac/reset_world_event : laser_scan_matcher 再起動ヘルパー (別コンテナの ROS ノード)
+#                              への通知。matcher はテレポートで参照 scan が古い位置に固定され
+#                              "Error in scan matching" で詰まるため、再起動して取り直させる。
+#   /initialpose             : lama (iris_lama_loc2d) を spawn 位置で再ローカライズさせる。
+# latch/transient_local は使わない (helper 再起動時に古いイベントが再配送されて
+# 不要な matcher 再起動を誘発するのを避けるため)。
+_reset_event_pub = _hsr.create_publisher_reliable(
+    '/isaac/reset_world_event', EmptyMsg)
+_initialpose_pub = _hsr.create_publisher_reliable(
+    '/initialpose', PoseWithCovarianceStamped)
+
+
+def _publish_localization_reset():
+    """reset (テレポート) 後に localization を spawn 位置へ復帰させる。
+
+    時刻はリセットしない (sim time は単調増加のまま)。stamp は現在 sim time を使う。
+    巻き戻すと matcher の dt<=0 や TF extrapolation を招くため。
+    """
+    # spawn 姿勢を /initialpose で lama に通知 (map フレーム)。
+    _q = euler_angles_to_quat(
+        [0.0, 0.0, float(_robot_spawn['yaw'])])  # (w, x, y, z)
+    _ip = PoseWithCovarianceStamped()
+    _ip.header.frame_id = 'map'
+    _ip.header.stamp = _hsr.get_ros_time(simulation_context.current_time)
+    _ip.pose.pose.position.x = float(_robot_spawn['x'])
+    _ip.pose.pose.position.y = float(_robot_spawn['y'])
+    _ip.pose.pose.position.z = 0.0
+    _ip.pose.pose.orientation.w = float(_q[0])
+    _ip.pose.pose.orientation.x = float(_q[1])
+    _ip.pose.pose.orientation.y = float(_q[2])
+    _ip.pose.pose.orientation.z = float(_q[3])
+    # 対角のみ小さめの分散 (要素 0,7,35 が x,y,yaw)。
+    _cov = [0.0] * 36
+    _cov[0] = 0.01
+    _cov[7] = 0.01
+    _cov[35] = 0.02
+    _ip.pose.covariance = _cov
+    _initialpose_pub.publish(_ip)
+
+    # matcher 再起動ヘルパーへ通知。
+    _reset_event_pub.publish(EmptyMsg())
+
+
+def _reset_objects():
+    """spawn した全動的物体を初期姿勢へ戻し、速度をゼロにする。
+
+    把持コード (hsr.py の attach-grasp) と同じく dc.set_rigid_body_pose +
+    速度ゼロを使う。眠っている body はテレポートを無視するので、pose 設定の後に
+    wake_up_rigid_body で起こす。
+    """
+    for s in _spawn_initial_states:
+        h = _hsr.dc.get_rigid_body(s['body_path'])
+        if not h:
+            continue
+        t = _dynamic_control.Transform()
+        t.p = s['p']
+        # DC の Transform.r は (x, y, z, w) 順。保存は (w, x, y, z)。
+        t.r = (s['q'][1], s['q'][2], s['q'][3], s['q'][0])
+        _hsr.dc.set_rigid_body_pose(h, t)
+        _hsr.dc.set_rigid_body_linear_velocity(h, (0.0, 0.0, 0.0))
+        _hsr.dc.set_rigid_body_angular_velocity(h, (0.0, 0.0, 0.0))
+        _hsr.dc.wake_up_rigid_body(h)
+
+
 # disable showing lidar beam
 _lidar_path = '/hsrb/hsrb/base_range_sensor_link/Lidar'
 _lidar_prim = omni.usd.get_context().get_stage().GetPrimAtPath(_lidar_path)
@@ -800,7 +972,26 @@ while kit.is_running():
         # (全アクション/サービス) が永久に沈黙してロボットが未制御のまま
         # 漂流する (実際に発生)。1 ステップ分の制御エラーはログして続行する。
         import traceback
+
         traceback.print_exc()
+
+    # --- reset_world: サービス要求があれば物理ステップ間でここで適用する ---
+    if _reset_requested:
+        try:
+            _reset_objects()
+            _hsr.reset_to_spawn(
+                _robot_spawn['x'], _robot_spawn['y'], _robot_spawn['yaw'])
+            print('[reset_world] world + robot restored to spawn', flush=True)
+            # テレポートで詰まる localization (matcher / lama) を spawn 位置で復帰。
+            _publish_localization_reset()
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            _reset_requested = False
+            _reset_done.set()
+
     # --- [recol] 物体の collider を実行時に再登録(GUIの "Set Dynamic Collider (Convex Hull)"
     #     相当)。spawn時の body(YCBの ArticulationRoot 由来)はロボット(別アーティキュレーション)
     #     と衝突しないが、起動後に setRigidBody を再適用すると body が作り直されてロボットと
@@ -813,6 +1004,7 @@ while kit.is_running():
             globals()['_recol_done'] = True
             import omni.usd as _ou3
             from pxr import UsdPhysics as _UP3
+
             _st4 = _ou3.get_context().get_stage()
             for _p in list(_st4.Traverse()):
                 _ps = str(_p.GetPath())
@@ -821,9 +1013,11 @@ while kit.is_running():
                 # /body (YCB/焼き込み) と、生オブジェクトの spawn root
                 # (_runtime_rigid_object_paths に記録) の両方を再登録対象にする。
                 if _p.HasAPI(_UP3.RigidBodyAPI) and (
-                        _ps.endswith('/body') or _ps in _runtime_rigid_object_paths):
+                    _ps.endswith('/body') or _ps in _runtime_rigid_object_paths
+                ):
                     try:
                         from pxr import PhysxSchema as _PX3
+
                         # 再登録前の質量を読む(再登録で 0 にリセットされ浮くのを防ぐため)
                         _m0 = None
                         if _p.HasAPI(_UP3.MassAPI):
@@ -837,8 +1031,11 @@ while kit.is_running():
                         _m1 = _mapi.GetMassAttr().Get()
                         _mset = _m0 if (_m0 and _m0 > 0.0) else 0.3
                         _mapi.CreateMassAttr(float(_mset))
-                        print('[recol] re-applied: %s mass(before=%s afterRB=%s set=%.3f)'
-                              % (_ps, _m0, _m1, _mset), flush=True)
+                        print(
+                            '[recol] re-applied: %s mass(before=%s afterRB=%s set=%.3f)'
+                            % (_ps, _m0, _m1, _mset),
+                            flush=True,
+                        )
                     except Exception as _e:
                         print('[recol] err %s %r' % (_ps, _e), flush=True)
     except Exception as _e:
@@ -855,13 +1052,17 @@ while kit.is_running():
             if _opaths is None:
                 import omni.usd as _ou5
                 from pxr import UsdPhysics as _UP5
+
                 _st5 = _ou5.get_context().get_stage()
                 _opaths = []
                 for _p in _st5.Traverse():
                     _pp = str(_p.GetPath())
                     # /body (YCB/焼き込み) と生オブジェクトの spawn root の両方を wake 対象に。
-                    if (not _pp.startswith('/hsrb')) and _p.HasAPI(_UP5.RigidBodyAPI) and (
-                            _pp.endswith('/body') or _pp in _runtime_rigid_object_paths):
+                    if (
+                        (not _pp.startswith('/hsrb'))
+                        and _p.HasAPI(_UP5.RigidBodyAPI)
+                        and (_pp.endswith('/body') or _pp in _runtime_rigid_object_paths)
+                    ):
                         _opaths.append(_pp)
                 globals()['_obj_body_paths'] = _opaths
             for _op in _opaths:
