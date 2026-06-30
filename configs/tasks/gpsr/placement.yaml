@@ -86,32 +86,40 @@ objects:
 
   placements:
     dining_table:
-      - object: rc26_practice_day_1/drink/banana_shake
+      - object: rc26/food/cornflakes_1
         dx: 0.0
         dy: -0.2
 
-      - object: rc26_practice_day_1/drink/milk
+      - object: rc26/food/cornflakes_2
         dx: 0.0
         dy: 0.0
 
 
     side_table:
-      - object: rc26_practice_day_1/food/tuna_can
+      - object: rc26/snack/pringles
         dx: -0.2
         dy: 0.0
-      - object: rc26_practice_day_1/misc/hikonyan
+      - object: rc26/cleaning_supply/toothpaste
+        dx: 0.2
+        dy: 0.0
 
  
     # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
     cabinet:
-      - object: rc26_practice_day_1/misc/camera_box
+      - object: rc26/drink/milk
         tier: 0
+      - object: rc26/seaweed
+        tier: 2
 
 
     # shelf は 2 段 (tier 0=下の段, 1=上の板)
     shelf:
-      - object: rc26_practice_day_1/snack/stroop_wafels
+      - object: rc26/food/instant_noodles
         tier: 0
+      - object: rc26/fruit/mangostane
+        tier: 1
+      - object: rc26/fruit/yellow_bellpepper
+        tier: 1
 
 
   # ============================================================
