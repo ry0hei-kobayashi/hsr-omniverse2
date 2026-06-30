@@ -31,22 +31,24 @@ def declare_arguments():
             description='URDF/XACRO description file with the robot.',
         )
     )
+    # compressed RGB-D 中継ノード(1本)全体の ON/OFF スイッチ。既定 true。
+    # 1ノードで openmm/mmpose・pcl_reconst 両方が要求する compressed/compressedDepth を出す
+    # (マッピングは scripts/openmm_rgbd_compression_republisher.py の DEFAULT_MAPPINGS)。
     declared_arguments.append(
         DeclareLaunchArgument(
             'openmm_rgbd_compression',
             default_value='true',
-            description='Publish OpenMM-compatible compressed RGB-D topics.',
+            description='Publish compressed RGB-D topics (openmm/mmpose & pcl_reconst) via one republisher.',
         )
     )
-    # hma_env2 の HSR-B 知覚(pcl_reconst)向けに、実機HSR-Bと同じ名前の
-    # compressed RGB-D と rgb/camera_info を「追加で」publish するか。
-    # 既定 true。hsrc_ex シーンが出す color/・depth/ の RAW を入力にし、
-    # 既存トピックはそのまま残す(= openmm/mmpose や hsrc_ex 消費側に影響しない)。
+    # hsrc_ex シーンが color/camera_info で出す camera_info を rgb/camera_info に名前替え中継するか。
+    # 既定 true。圧縮トピックの統合後、この引数は camera_info 中継(relay)専用に縮小した
+    # (hsrb シーンは rgb/camera_info をネイティブに出すので relay は入力が無く無害)。
     declared_arguments.append(
         DeclareLaunchArgument(
             'hsrb_reconst_topics',
             default_value='true',
-            description='Also publish HSR-B-named compressed RGB-D and rgb/camera_info for hma_env2 pcl_reconst.',
+            description='Relay color/camera_info -> rgb/camera_info for hsrc_ex scene (camera_info only).',
         )
     )
     # Isaac Sim 側 (この ros2 コンテナ) の MoveIt 付属 RViz2 を起動するか。
@@ -239,86 +241,21 @@ def generate_launch_description():
         if os.path.exists(local_republisher)
         else '/openmm_rgbd_compression_republisher.py'
     )
-    openmm_rgbd_compression = ExecuteProcess(
+    # RGB-D の compressed/compressedDepth を作る中継ノード(1本に統合)。
+    # 入力(生Image)→出力(CompressedImage)のマッピングはスクリプト側 DEFAULT_MAPPINGS に集約。
+    # hsrc_ex 名(color/image_raw)と HSR-B 名(rgb/image_rect_color)の両方を入力に取り、実在する
+    # 入力だけが流れる(無い入力は無出力)。omniverse robot=hsrb は タスク側 hsrc として扱い、
+    # hsrc スタック(VLM/openmm/pcl_reconst)が要求する compressed を全部出す。
+    rgbd_compression = ExecuteProcess(
         cmd=[
             'python3',
             image_republisher_script,
             '--ros-args',
             '-p',
             'use_sim_time:=true',
-            # hsrc_ex 実機と同じ命名で /compressed を作り、openmm/mmpose に渡す。
-            # (hsr_hsrc_ex.py が color/image_raw・depth/image_raw で RAW を publish する)
-            # ※ HSR-B 知覚で使う場合は rgb/image_rect_color 等に上書きすること。
-            '-p',
-            'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
-            '-p',
-            'rgb_output_topic:=/head_rgbd_sensor/color/image_raw/compressed',
-            '-p',
-            'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
-            '-p',
-            'depth_output_topic:=/head_rgbd_sensor/depth/image_raw/compressedDepth',
         ],
         output='screen',
         condition=IfCondition(args['openmm_rgbd_compression']),
-    )
-
-    # hma_env2 の HSR-B 知覚(pcl_reconst)向けに、実機HSR-Bと同じ名前の
-    # compressed RGB-D を「追加で」publish する。入力は hsrc_ex シーンが出す
-    # color/image_raw・depth/image_raw（既存topicはそのまま）。
-    # pcl_reconst は use_compressed=True で rgb/image_rect_color/compressed と
-    # depth_registered/image_rect_raw/compressedDepth を subscribe する。
-    hsrb_reconst_compression = ExecuteProcess(
-        cmd=[
-            'python3',
-            image_republisher_script,
-            '--ros-args',
-            '-p',
-            'use_sim_time:=true',
-            # 同じスクリプトを2つ起動するのでノード名を変えて衝突を避ける
-            '-r',
-            '__node:=hsrb_reconst_compression_republisher',
-            '-p',
-            'rgb_input_topic:=/head_rgbd_sensor/color/image_raw',
-            '-p',
-            'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
-            '-p',
-            'depth_input_topic:=/head_rgbd_sensor/depth/image_raw',
-            '-p',
-            'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
-        ],
-        output='screen',
-        condition=IfCondition(args['hsrb_reconst_topics']),
-    )
-
-    # robot=hsrb で起動した場合、シーン(hsr.py)は RGB/深度を HSR-B 名
-    # (rgb/image_rect_color, depth_registered/image_rect_raw) で RAW publish する。
-    # 上の hsrb_reconst_compression は入力が color/image_raw (hsrc_ex 名) のため
-    # hsrb シーンでは何も拾えず /compressed を出せない。そこで hsrb の生 topic を
-    # そのまま圧縮し、pcl_reconst が要求する .../compressed を出すノードを追加する。
-    # (hsrc_ex シーンでは rgb/image_rect_color 等が無いので、このノードは無出力で無害。
-    #  逆に hsrb シーンでは上の color/image_raw 入力の2ノードが無出力になる。
-    #  → rgb/image_rect_color/compressed を実際に出すのは常にどちらか一方だけ。)
-    hsrb_native_compression = ExecuteProcess(
-        cmd=[
-            'python3',
-            image_republisher_script,
-            '--ros-args',
-            '-p',
-            'use_sim_time:=true',
-            # 上のノードと名前が衝突しないよう別名にする
-            '-r',
-            '__node:=hsrb_native_compression_republisher',
-            '-p',
-            'rgb_input_topic:=/head_rgbd_sensor/rgb/image_rect_color',
-            '-p',
-            'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
-            '-p',
-            'depth_input_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw',
-            '-p',
-            'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
-        ],
-        output='screen',
-        condition=IfCondition(args['hsrb_reconst_topics']),
     )
 
     # pcl_reconst は rgb/camera_info を要求するが、hsrc_ex シーンは
@@ -382,9 +319,7 @@ def generate_launch_description():
         relay_node,
         laser_scan_matcher,
         reset_world_matcher_helper,
-        openmm_rgbd_compression,
-        hsrb_reconst_compression,
-        hsrb_native_compression,
+        rgbd_compression,
         hsrb_reconst_camera_info_relay,
         sensor_frames,
         joint_state_publisher,

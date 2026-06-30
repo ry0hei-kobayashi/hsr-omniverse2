@@ -23,6 +23,9 @@ services:
     volumes:
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       - ../launch/hsr.launch.py:/hsr.launch.py:ro
+      # 圧縮中継スクリプトもライブマウント(編集を再ビルド無しで反映)。
+      # マウント先は Dockerfile.ros2 の焼き込み先・hsr.launch.py の参照先と同じ root パス。
+      - ../scripts/openmm_rgbd_compression_republisher.py:/openmm_rgbd_compression_republisher.py:ro
     security_opt:
       - seccomp:unconfined
   cacheproxy:
