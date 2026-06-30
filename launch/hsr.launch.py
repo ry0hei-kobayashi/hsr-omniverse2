@@ -290,6 +290,37 @@ def generate_launch_description():
         condition=IfCondition(args['hsrb_reconst_topics']),
     )
 
+    # robot=hsrb で起動した場合、シーン(hsr.py)は RGB/深度を HSR-B 名
+    # (rgb/image_rect_color, depth_registered/image_rect_raw) で RAW publish する。
+    # 上の hsrb_reconst_compression は入力が color/image_raw (hsrc_ex 名) のため
+    # hsrb シーンでは何も拾えず /compressed を出せない。そこで hsrb の生 topic を
+    # そのまま圧縮し、pcl_reconst が要求する .../compressed を出すノードを追加する。
+    # (hsrc_ex シーンでは rgb/image_rect_color 等が無いので、このノードは無出力で無害。
+    #  逆に hsrb シーンでは上の color/image_raw 入力の2ノードが無出力になる。
+    #  → rgb/image_rect_color/compressed を実際に出すのは常にどちらか一方だけ。)
+    hsrb_native_compression = ExecuteProcess(
+        cmd=[
+            'python3',
+            image_republisher_script,
+            '--ros-args',
+            '-p',
+            'use_sim_time:=true',
+            # 上のノードと名前が衝突しないよう別名にする
+            '-r',
+            '__node:=hsrb_native_compression_republisher',
+            '-p',
+            'rgb_input_topic:=/head_rgbd_sensor/rgb/image_rect_color',
+            '-p',
+            'rgb_output_topic:=/head_rgbd_sensor/rgb/image_rect_color/compressed',
+            '-p',
+            'depth_input_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw',
+            '-p',
+            'depth_output_topic:=/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth',
+        ],
+        output='screen',
+        condition=IfCondition(args['hsrb_reconst_topics']),
+    )
+
     # pcl_reconst は rgb/camera_info を要求するが、hsrc_ex シーンは
     # color/camera_info で出すため、名前替えして中継する
     # (中身は同じ 640x480・同一フレームのカメラ内部パラメータ)。
@@ -353,6 +384,7 @@ def generate_launch_description():
         reset_world_matcher_helper,
         openmm_rgbd_compression,
         hsrb_reconst_compression,
+        hsrb_native_compression,
         hsrb_reconst_camera_info_relay,
         sensor_frames,
         joint_state_publisher,
