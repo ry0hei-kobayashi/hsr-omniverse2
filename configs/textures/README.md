@@ -17,9 +17,14 @@
 | `wall_3.jpg` | 東壁 (+X) |
 | `wall_4.jpg` | 西壁 (-X) |
 | `restaurant_floor.jpg` | レストラン風の木製フローリング床 (`restaurant` プリセット用)。出典: [Polyhaven](https://polyhaven.com/a/wood_floor) **CC0** (パブリックドメイン) |
+| `rc26_venue_floor.jpg` | RoboCup 2026 会場の床 (`rc26_venue` プリセット用)。**出典: Hibikino-Musashi@Home が会場で撮影した実写写真** (`IMG_0331.jpg`, 2026-06 撮影)。会場の床部分を切り出し → 木目を水平化 → 影/明暗ムラ除去 → 継ぎ目なしタイル化して生成。**ライセンス: 未確定。撮影は Hibikino-Musashi@Home のメンバーによるもの。テクスチャ化に使ったのは床の無地サーフェス領域のみ (人物・ロゴは写り込んでいない)。同梱・再配布の可否はメンテナが確認・決定すること (TODO)。** |
 
 `floor.jpg` / `wall_*.jpg` は [`../dressing.yaml`](../dressing.yaml) の `lab` プリセット (デフォルト) が、
-`restaurant_floor.jpg` は `restaurant` プリセット (restaurant タスク) が参照する。
+`restaurant_floor.jpg` は `restaurant` プリセットが参照する。
+`rc26_venue_floor.jpg` (床) は `rc26_venue` プリセットが参照し、これは restaurant 以外のタスク
+(gpsr / hri / laundry / pick_and_place) が使用する。
+※ `rc26_venue` の壁は画像テクスチャではなく、world (`rc26_from_map.world`) の占有地図由来の壁
+(`/map_box_*`) を `map_box_color` で白く塗ることで表現している (周囲に壁画像は足さない)。
 
 ## コンテナ内マッピング
 

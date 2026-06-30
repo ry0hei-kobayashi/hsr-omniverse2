@@ -8,8 +8,9 @@
 world: rc26_from_map.world # TODO: HRI 用の world があれば変更する
 
 # 見た目 (configs/dressing.yaml のプリセットから選ぶ)
+# RoboCup 2026 会場の床 + 白壁テクスチャ (rc26_venue)。元に戻すときは floor_only。
 dressing:
-  preset: floor_only
+  preset: rc26_venue
   lighting: default
 
 # robot/objects/people を変えたいときは、このフォルダに placement.yaml を置く。

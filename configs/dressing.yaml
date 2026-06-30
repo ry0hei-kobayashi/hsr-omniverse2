@@ -31,6 +31,8 @@ defaults:
 #   - backdrop_textures: 周囲 4 画像 [北, 南, 東, 西] (null で背景なし)
 #   - floor_tile:        床テクスチャのタイル繰り返し数 (省略時 4.0)
 #   - wall_color:        world の物理壁 (/wall_*) を塗る色 [R, G, B] 各0〜1 (省略で塗らない)
+#   - map_box_color:     占有地図由来の壁/障害物 (/map_box_*) を塗る色 [R, G, B] 各0〜1
+#                        (省略で既定の灰色のまま)。rc26_from_map.world の壁を白くする等
 #   - room_size:         部屋の一辺 (m, 省略時 15.0)
 #   - room_height:       壁の高さ (m, 省略時 4.0)
 #   - floor_z:           床の z 座標 (m, 省略時 0.002)
@@ -68,6 +70,18 @@ dressing_presets:
     floor_tile: 5.33   # 約15m四方の床に対し ~2.8m/タイル (テクスチャを縦横1.5倍に拡大)
     # 物理壁 (world の /wall_*) を暖色の塗り壁色に。暖かいベージュ (R,G,B 各0〜1)。
     wall_color: [0.85, 0.73, 0.55]
+
+  # RoboCup 2026 会場の実写写真から抽出した床 + 白壁。restaurant タスクで使用。
+  #   floor_texture: 会場の木目フローリングを抽出 → 木目を水平化 → 継ぎ目なしタイル化。
+  #   wall_color:    会場の白壁色 (実写は照明で暗めに写るが白寄りに補正した値)。
+  rc26_venue:
+    floor_texture: /data/textures/rc26_venue_floor.jpg
+    backdrop_textures: null   # 周囲に壁は足さない (壁は world の map_box_* がそのまま)
+    floor_tile: 5.33   # restaurant と同じ縮尺から開始 (板が大き/小さすぎれば調整)
+    # rc26_from_map.world の占有地図由来の壁/障害物 (/map_box_*) は既定で灰色。
+    # それを会場の白壁色 (実写から抽出) に塗る。restaurant など他プリセットは
+    # このキーを持たないので灰色のまま (影響しない)。
+    map_box_color: [0.90, 0.89, 0.85]
 
   # 背景のみ (床なし)
   backdrop_only:

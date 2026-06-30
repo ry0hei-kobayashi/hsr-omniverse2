@@ -10,7 +10,7 @@ import omni.usd
 from omni.isaac.core.utils import stage, viewports
 from omni.isaac.core.utils.prims import create_prim
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
-from pxr import Sdf, Usd
+from pxr import Gf, Sdf, Usd, UsdShade
 
 import scene_dressing
 from dressing_presets import (
@@ -330,6 +330,9 @@ def apply_lab_dressing(
     # wall_color: world の物理壁 (/wall_*) を塗る色。EnvBoxConfig には無いので pop。
     # 指定しているのは現状 restaurant プリセットのみ (他タスクは None で無変更)。
     wall_color = params.pop("wall_color", None)
+    # map_box_color: 占有地図由来の壁/障害物 (/map_box_*) を塗る色。rc26_from_map.world
+    # の灰色の壁を白くするために rc26_venue プリセットで使う。EnvBoxConfig 対象外なので pop。
+    map_box_color = params.pop("map_box_color", None)
 
     log(f"apply_lab_dressing: preset='{preset}' lighting='{lighting}' "
         f"overrides={list(overrides.keys())}")
@@ -340,43 +343,63 @@ def apply_lab_dressing(
     if default_lights_intensity is not None:
         _set_default_lights_intensity(float(default_lights_intensity))
 
-    # world の物理壁を指定色 (塗り壁) に塗る
+    # world の物理壁 (/wall_*) を指定色 (塗り壁) に塗る
     if wall_color is not None:
         _recolor_walls(wall_color)
+    # 占有地図由来の壁/障害物 (/map_box_*) を指定色に塗る (灰色→白 など)
+    if map_box_color is not None:
+        _recolor_walls(map_box_color, prefix="map_box_")
 
 
-def _recolor_walls(color: Any) -> None:
-    """world の物理壁 (/wall_north などトップレベルの wall_* プリム) を単色で塗る。
+def _recolor_walls(color: Any, prefix: str = "wall_") -> None:
+    """world のトップレベル prim (名前が prefix で始まるもの) を単色で塗る。
 
-    壁は launch_isaacsim.py が world の <include name='wall_*'> から作る灰色の
-    Cube。ここに「塗り壁」風の単色マテリアルを貼って見た目を整える。物理 (collider)
-    はそのままなので自己位置推定や当たり判定には影響しない。
+    launch_isaacsim.py が world の <include> から作る灰色の Cube に「塗り壁」風の
+    単色マテリアルを貼って見た目を整える。物理 (collider) はそのままなので自己位置
+    推定や当たり判定には影響しない。
+      - prefix="wall_"    : 物理壁 (/wall_*)          … dressing.yaml の wall_color
+      - prefix="map_box_" : 占有地図由来の壁/障害物 (/map_box_*) … map_box_color
 
     Args:
-        color: 拡散色 [R, G, B] (各 0.0〜1.0)。dressing.yaml の wall_color から来る。
+        color: 拡散色 [R, G, B] (各 0.0〜1.0)。
+        prefix: 塗装対象とするトップレベル prim 名の接頭辞。
     """
-    from scene_dressing._common import bind_solid_color_material
-
     try:
         rgb = tuple(float(c) for c in color)
     except (TypeError, ValueError):
-        log(f"wall_color の形式が不正です (期待: [R, G, B]): {color!r}")
+        log(f"色の形式が不正です (期待: [R, G, B]): {color!r}")
         return
     if len(rgb) != 3:
-        log(f"wall_color は 3 要素 [R, G, B] で指定してください: {color!r}")
+        log(f"色は 3 要素 [R, G, B] で指定してください: {color!r}")
         return
 
     _stage = omni.usd.get_context().get_stage()
+
+    # 共有マテリアルを 1 つだけ作り、対象 prim 全部に貼る。map_box_* は数百個
+    # あるため、prim ごとにマテリアルを作ると重い。接頭辞ごとに固定パスで1個。
+    _safe = prefix.rstrip("_") or "wall"
+    mat_path = f"/World/Looks/recolor_{_safe}"
+    material = UsdShade.Material.Define(_stage, mat_path)
+    shader = UsdShade.Shader.Define(_stage, mat_path + "/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.85)
+    shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+        Gf.Vec3f(*rgb))
+    material.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(), "surface")
+
     painted = 0
     for prim in _stage.GetPseudoRoot().GetChildren():
         name = prim.GetName()
-        if not name.startswith("wall_"):
+        if not name.startswith(prefix):
             continue
-        bind_solid_color_material(str(prim.GetPath()), rgb)
+        UsdShade.MaterialBindingAPI(prim).Bind(
+            material, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
         painted += 1
-        log(f"壁を塗装: {prim.GetPath()} color={rgb}")
+    log(f"塗装 (/{prefix}*): {painted} 個を共有マテリアル color={rgb} で塗りました")
     if painted == 0:
-        log("塗る壁 (/wall_*) が見つかりませんでした")
+        log(f"塗る対象 (/{prefix}*) が見つかりませんでした")
 
 
 def _set_default_lights_intensity(intensity: float) -> None:
