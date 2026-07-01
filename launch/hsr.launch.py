@@ -315,6 +315,23 @@ def generate_launch_description():
         additional_env={'HSR_ROS_VERSION': '2'},
     )
 
+    # Isaac の真値odom(hsr.py で wheel_odom を物理真値で上書き済み)を TF/計画に使うため、
+    # 起動後に odometry_switcher を wheel_odom へ切り替える。既定の laser_odom は壁の少ない
+    # 疎な環境でスキャンマッチングが破綻し odom が飛ぶため、真値の wheel を使う。
+    # サービスが上がるまでリトライ。※ sim 専用(hsr.launch.py=Isaac用)。実機の odoms は laser のまま。
+    switch_odom_to_wheel = ExecuteProcess(
+        cmd=['bash', '-c',
+             'for i in $(seq 1 60); do '
+             'if ros2 service call /odometry_switch '
+             'tmc_navigation_msgs/srv/OdometrySwitch '
+             '"{odom_type: {data: wheel_odom}}" 2>/dev/null '
+             '| grep -q "is_success=True"; then '
+             'echo "[odom] switched to wheel_odom (=Isaac gt odom)"; exit 0; fi; '
+             'sleep 2; done; '
+             'echo "[odom] WARN: failed to switch odometry to wheel_odom"'],
+        output='screen',
+    )
+
     nodes = [
         relay_node,
         laser_scan_matcher,
@@ -327,6 +344,7 @@ def generate_launch_description():
         common,
         moveit,
         odom,
+        switch_odom_to_wheel,
         teleop,
         # task_evaluators
     ]

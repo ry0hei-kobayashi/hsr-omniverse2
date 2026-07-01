@@ -202,6 +202,42 @@ class odom_trajectory_action_server(semuInternalState):
                 self._remaining_start_time = None
         super().step(dt)
 
+    def sample_desired_velocity(self):
+        """現在の軌道セグメントの「目標速度」(odom_x/y/t, odom系) を時刻補間で取り出す。
+
+        本物の OmniBaseController と同じく、軌道の各点が持つ velocities を
+        フィードフォワード(FF)として使うための источник。位置の差分から速度を
+        自作するとセグメント境界でスパイク暴発するため、ここでは軌道が運んでいる
+        速度をそのまま読む。velocities が無い軌道なら (0,0,0) を返す(=FFなし)。
+        """
+        g = self._action_goal
+        if g is None:
+            return (0.0, 0.0, 0.0)
+        pts = g.trajectory.points
+        idx = self._action_point_index
+        if idx <= 0 or idx >= len(pts):
+            return (0.0, 0.0, 0.0)
+        prev_p = pts[idx - 1]
+        cur_p = pts[idx]
+        if not cur_p.velocities or not prev_p.velocities:
+            return (0.0, 0.0, 0.0)
+        try:
+            t0 = self._duration_to_seconds(prev_p.time_from_start)
+            t1 = self._duration_to_seconds(cur_p.time_from_start)
+            tp = self._get_time() - (self._action_start_time
+                                     if self._action_start_time is not None
+                                     else self._get_time())
+            ratio = 0.0 if t1 <= t0 else max(0.0, min(1.0, (tp - t0) / (t1 - t0)))
+        except Exception:
+            ratio = 0.0
+        out = {'odom_x': 0.0, 'odom_y': 0.0, 'odom_t': 0.0}
+        names = g.trajectory.joint_names
+        for i, nm in enumerate(names):
+            if nm in out and i < len(cur_p.velocities) and i < len(prev_p.velocities):
+                out[nm] = (prev_p.velocities[i]
+                           + ratio * (cur_p.velocities[i] - prev_p.velocities[i]))
+        return (out['odom_x'], out['odom_y'], out['odom_t'])
+
 
 class arm_trajectory_action_server(semuInternalState):
     controlled_joints = [
@@ -401,6 +437,12 @@ class gripper_apply_force_action_server(gripper_command_action_server):
 # 案A(アタッチ把持)を使うか。recol(衝突)と併用して確実な保持・綺麗なリリースにする。
 _ATTACH_GRASP_ENABLED = True
 
+# 真値odom: 台車の odom を Isaac 物理の真値(base_footprint 姿勢)で上書きし、計画・制御・TF を
+# すべて真値で一致させる。車輪スリップや疎な環境でのレーザ破綻を避けられる(Simだから使える手)。
+# 起動時に odometry_switcher を wheel_odom(=この真値) に向ける処理は hsr.launch.py 側。
+# False にすると従来の車輪積分 odom に戻る。
+_GT_ODOM = True
+
 
 # --- 案A(アタッチ把持)用クォータニオン補助 (x,y,z,w) ---
 def _q_conj(q):
@@ -436,9 +478,13 @@ class hsr_config:
         self.use_ros = True
 
 
-wheel_separation = 0.266
-wheel_radius = 0.04
-wheel_offset = 0.11
+# 台車の駆動系寸法 [m] の既定値(= HSR-B base_v2 の URDF 実寸)。VehicleDynamics
+# (速度↔車輪/操舵)と車輪オドメトリが使う。robot ごとに実寸が違うので、実際には
+# hsr クラスのクラス属性 WHEEL_* を使い、hsrc_ex は hsr_hsrc_ex 側で上書きする
+# (共有コードに片方の robot の値を直書きしない)。
+wheel_separation = 0.266   # HSR-B = 2 x drive_wheel_offset_y(0.133)
+wheel_radius = 0.04        # HSR-B drive_wheel_radius
+wheel_offset = 0.11        # HSR-B drive_wheel_offset_x
 
 
 class BaseOdometry:
@@ -557,6 +603,12 @@ class WheelOdometry:
 
 
 class hsr:
+    # 台車の駆動系寸法 [m]。既定は HSR-B(base_v2)。hsrc_ex は hsr_hsrc_ex.hsr が
+    # これらを上書きする(URDF base_v0 の実寸)。VehicleDynamics と車輪オドメトリが使う。
+    WHEEL_RADIUS = wheel_radius
+    WHEEL_SEPARATION = wheel_separation
+    WHEEL_OFFSET = wheel_offset
+
     def __init__(self, prefix='/hsrb', stage_path='/World', config=None) -> None:
         global is_ros2
 
@@ -696,7 +748,7 @@ class hsr:
             self.on_cmd_vel,
         )
         self.vehicle_dynamics = VehicleDynamics(
-            wheel_radius, wheel_separation, wheel_offset)
+            self.WHEEL_RADIUS, self.WHEEL_SEPARATION, self.WHEEL_OFFSET)
         self.odometry_estimator = WheelOdometry()
         self.vel_limit_steer_ = 8.0
         self.vel_limit_wheel_ = 8.0
@@ -1965,6 +2017,7 @@ class hsr:
         # --- オドメトリ・速度指令をリセット ---
         self.odometry_estimator.set_pose(x, y, yaw)
         self.cmd_vel_msg = None
+        self._gt_ref = None   # 真値odomの基準を再取得(テレポート後に対応づけ直す)
 
         # --- 把持中の物体があれば離す (衝突を戻し、追従を解除) ---
         if getattr(self, '_grasp_obj', None) is not None:
@@ -2047,6 +2100,42 @@ class hsr:
         cartesian_param_ = self.vehicle_dynamics.forward(joint_param_, state_)
         abs_dot_x, abs_dot_y = self.odometry_estimator.integrate(
             cartesian_param_, dt)
+
+        # === Phase2: odometry_estimator.pose を物理の真値で上書き ===
+        # これ以降の wheel_odom発行(2195)・/omni_base_controller/state・odom_x/y/t(→計画)・
+        # 軌道追従制御 が全て真値の台車位置を使う(車輪スリップ/レーザ破綻を回避)。
+        # twist(abs_dot_x/y)は integrate 値のまま。回転中心 base_footprint を読む。
+        # odom≠world のオフセットは初回に一度だけ 真world↔現在odom を記録して吸収。
+        if _GT_ODOM:
+            try:
+                if getattr(self, '_gt_body', None) is None:
+                    _bf = self.dc.get_rigid_body(
+                        self.stage_path + self.prefix + '/base_footprint')
+                    self._gt_body = _bf if _bf else \
+                        self.dc.get_articulation_root_body(self.art)
+                _gp = self.dc.get_rigid_body_pose(self._gt_body)
+                _wx, _wy = float(_gp.p.x), float(_gp.p.y)
+                _wyaw = euler_from_quaternion(
+                    _gp.r.x, _gp.r.y, _gp.r.z, _gp.r.w)[2]
+                if getattr(self, '_gt_ref', None) is None:
+                    self._gt_ref = (_wx, _wy, _wyaw,
+                                    self.odometry_estimator.pose.x,
+                                    self.odometry_estimator.pose.y,
+                                    self.odometry_estimator.pose.ang)
+                _rwx, _rwy, _rwyaw, _rox, _roy, _royaw = self._gt_ref
+                _ddx, _ddy = _wx - _rwx, _wy - _rwy
+                _rc, _rs = math.cos(_rwyaw), math.sin(_rwyaw)
+                _relx = _ddx * _rc + _ddy * _rs
+                _rely = -_ddx * _rs + _ddy * _rc
+                _relyaw = math.atan2(
+                    math.sin(_wyaw - _rwyaw), math.cos(_wyaw - _rwyaw))
+                _oc, _os = math.cos(_royaw), math.sin(_royaw)
+                self.odometry_estimator.pose.x = _rox + _relx * _oc - _rely * _os
+                self.odometry_estimator.pose.y = _roy + _relx * _os + _rely * _oc
+                self.odometry_estimator.pose.ang = math.atan2(
+                    math.sin(_royaw + _relyaw), math.cos(_royaw + _relyaw))
+            except Exception:
+                pass
 
         odom = Odometry()
         odom.header.stamp = self.get_ros_time(
@@ -2163,13 +2252,18 @@ class hsr:
                 srv._joints['odom_x'] = self.odometry_estimator.pose.x
                 srv._joints['odom_y'] = self.odometry_estimator.pose.y
                 srv._joints['odom_t'] = self.odometry_estimator.pose.ang
-            cmd.dot_x = srv._joints['odom_x'] - self.odometry_estimator.pose.x
-            cmd.dot_y = srv._joints['odom_y'] - self.odometry_estimator.pose.y
-            cmd.dot_r = srv._joints['odom_t'] - \
-                self.odometry_estimator.pose.ang
+            # === 本物の OmniBaseController と同じ制御則 ===
+            #   出力速度 = 目標速度(FF) + p_gain(1.0) × 姿勢誤差(FB)   (odom 系)
+            # FF: 軌道点が運ぶ「速度」をサンプリング(差分自作はスパイク暴発するので不可)。
+            # FB: 目標位置 - 現在位置。向き誤差は必ず -pi..pi に wrap(π跨ぎ/角累積で
+            #     ~2pi になり遠回りスピンするのを防ぐ)。p_gain は本物の既定 1.0。
+            _ffx, _ffy, _ffr = srv.sample_desired_velocity()
+            cmd.dot_x = _ffx + (srv._joints['odom_x'] - self.odometry_estimator.pose.x)
+            cmd.dot_y = _ffy + (srv._joints['odom_y'] - self.odometry_estimator.pose.y)
+            _dr = srv._joints['odom_t'] - self.odometry_estimator.pose.ang
+            cmd.dot_r = _ffr + math.atan2(math.sin(_dr), math.cos(_dr))
             # 残留P誤差(オドメトリ残差や物理ノイズ)で台車がじわじわ動く/回るのを
             # 防ぐ最終デッドバンド。目標にほぼ到達している軸は 0 にする(軸独立)。
-            # 走行(cmd_vel)分岐には影響しない。
             if abs(cmd.dot_x) < 0.01:
                 cmd.dot_x = 0.0
             if abs(cmd.dot_y) < 0.01:
@@ -2211,6 +2305,15 @@ class hsr:
             # cmd.dot_r = math.atan2(
             #     math.sin(ht - self.odometry_estimator.pose.ang),
             #     math.cos(ht - self.odometry_estimator.pose.ang))
+
+        # 軌道追従していない間(cmd_vel/静止)は /omni_base_controller/state の actual(=_joints)を
+        # 現在の真値odomで更新し続ける。これをしないと計画が読む台車位置が古い(0)ままで、
+        # 台車が cmd_vel(nav)で動いた後の whole_body 計画が間違った位置から立ち、台車が暴れる。
+        if self.odom_trajectory_action_server._action_goal is None:
+            _sj = self.odom_trajectory_action_server._joints
+            _sj['odom_x'] = self.odometry_estimator.pose.x
+            _sj['odom_y'] = self.odometry_estimator.pose.y
+            _sj['odom_t'] = self.odometry_estimator.pose.ang
 
         relcmd = CartSpace()
         diff_r = cmd.dot_r * dt
@@ -2294,6 +2397,18 @@ class hsr:
             joint_indices=[
                 self.robots._metadata.joint_indices['wrist_ft_sensor_frame_joint'] + 1]
         )
+        # 物理ビュー/FTセンサが未準備のフレームでは None が返ることがある(特に world
+        # 差し替え/reset 直後)。そのまま force_readings[0]... を実行すると毎フレーム
+        # TypeError で step() 全体が落ち、以降の action server(腕/台車/グリッパの軌道実行)が
+        # 一切動かず把持が進まない。ゼロ読みでフォールバックして step() を継続させる
+        # (センサ復帰後は実値に戻る)。
+        ft_valid = force_readings is not None
+        if not ft_valid:
+            force_readings = [[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
+            if not getattr(self, '_ft_none_warned', False):
+                self._ft_none_warned = True
+                print('[hsr] get_measured_joint_forces returned None; FT/wrench をゼロで代用',
+                      flush=True)
         wrench = WrenchStamped()
         wrench.header.stamp = self.get_ros_time(
             self.simulation_context.current_time)
@@ -2307,25 +2422,29 @@ class hsr:
         self.ft_sensor_pub.publish(wrench)
 
         # gravity-compensated wrench: EMA ベースライン(重力)を差し引く。
-        raw6 = [float(force_readings[0][0][i]) for i in range(6)]
-        if not self._wrench_bias_inited:
-            self._wrench_bias = list(raw6)
-            self._wrench_bias_inited = True
-        else:
-            # alpha 小さめ: ゆっくりの重力変化は追従、接触の急変は残す。
-            a = 0.02
-            for i in range(6):
-                self._wrench_bias[i] += a * (raw6[i] - self._wrench_bias[i])
-        comp = WrenchStamped()
-        comp.header.stamp = wrench.header.stamp
-        comp.header.frame_id = 'wrist_ft_sensor_frame'
-        comp.wrench.force.x = raw6[0] - self._wrench_bias[0]
-        comp.wrench.force.y = raw6[1] - self._wrench_bias[1]
-        comp.wrench.force.z = raw6[2] - self._wrench_bias[2]
-        comp.wrench.torque.x = raw6[3] - self._wrench_bias[3]
-        comp.wrench.torque.y = raw6[4] - self._wrench_bias[4]
-        comp.wrench.torque.z = raw6[5] - self._wrench_bias[5]
-        self.ft_sensor_comp_pub.publish(comp)
+        # 注意: None フォールバックの偽ゼロを baseline に取り込むと、ベースラインが0に
+        # 初期化/引き寄せられ、実センサ復帰後しばらく補償後 wrench に重力ぶんが誤って残る
+        # (接触検知を汚染する)。そのため初期化・EMA更新・comp配信は実FT読みのときだけ行う。
+        if ft_valid:
+            raw6 = [float(force_readings[0][0][i]) for i in range(6)]
+            if not self._wrench_bias_inited:
+                self._wrench_bias = list(raw6)
+                self._wrench_bias_inited = True
+            else:
+                # alpha 小さめ: ゆっくりの重力変化は追従、接触の急変は残す。
+                a = 0.02
+                for i in range(6):
+                    self._wrench_bias[i] += a * (raw6[i] - self._wrench_bias[i])
+            comp = WrenchStamped()
+            comp.header.stamp = wrench.header.stamp
+            comp.header.frame_id = 'wrist_ft_sensor_frame'
+            comp.wrench.force.x = raw6[0] - self._wrench_bias[0]
+            comp.wrench.force.y = raw6[1] - self._wrench_bias[1]
+            comp.wrench.force.z = raw6[2] - self._wrench_bias[2]
+            comp.wrench.torque.x = raw6[3] - self._wrench_bias[3]
+            comp.wrench.torque.y = raw6[4] - self._wrench_bias[4]
+            comp.wrench.torque.z = raw6[5] - self._wrench_bias[5]
+            self.ft_sensor_comp_pub.publish(comp)
 
         self.arm_trajectory_action_server.step(dt=dt)
         self.head_trajectory_action_server.step(dt=dt)

@@ -38,6 +38,14 @@ class hsr(base.hsr):
     IMU_PRIM = "base_link"  # IMU 取付先 (hsrc_ex に base_imu_frame リンクが無いため)
     IMU_FRAME = "base_imu_frame"  # IMU の frameId (名前だけ従来どおり維持)
 
+    # 台車の駆動系寸法 [m]。hsrc_ex_description の URDF(base_v0)の実寸に合わせる。
+    # HSR-B(base.hsr の既定 0.04/0.266/0.11)とは違うため上書きが必須。これがズレると
+    # 「速度→車輪」変換と車輪オドメトリが物理と食い違い、指令より速く動く＋odom が少なく
+    # 報告され、台車がオーバーシュート/ドリフトする。VehicleDynamics 構築前に効かせる。
+    WHEEL_RADIUS = 0.04725       # drive_wheel_radius
+    WHEEL_SEPARATION = 0.249     # = 2 x drive_wheel_offset_y(0.1245)
+    WHEEL_OFFSET = 0.114         # drive_wheel_offset_x (キャスタオフセット)
+
     def __init__(self, prefix="/hsrb", stage_path="/World", config=None):
         # base.hsr.__init__ は HSR-B の USD を読み込む実装になっている。
         # hsr.py は変更しない方針なので、__init__ の実行中だけ
@@ -66,7 +74,14 @@ class hsr(base.hsr):
         # hsrb_sensor_frames.launch.xml にも無い(hsrb は別の取り付け向き)。
         # フレームが無いと知覚(waving_hand)の「カメラ→map」変換が失敗し、
         # customer_point/nav_point=null になってロボットが客へ行けない。
-        # head_rgbd_sensor_link からの恒等変換でよいことは実機(客検出→移動)で確認済み。
+        # このTFは恒等(回転なし)で配信する。理由(2026-06-30 深度逆投影で実測確認):
+        # 本Simは深度/カラーを frame_id=head_rgbd_sensor_color_optical_frame で出すが、
+        # 光学規約(右=X/下=Y/前=Z)で3D化した点は、そのまま head_rgbd_sensor_link 座標に
+        # 一致する。レンダリング用カメラprimを SetRotate((90,0,-90)) で向き付けした結果、
+        # 光学フレームの向きが実質リンクと揃っているため。ここで標準ROS光学回転 rpy(-90,0,-90)
+        # を重ねて入れると二重回転になり、前方Zが上zに化けて3D位置が崩れる(床が z≈1.16m に
+        # 飛ぶのを実測)。客検出など数m先を指す粗い用途では破綻が目立たないが、把持のcm精度では
+        # 致命的にズレる。→ 恒等が正しい。
         # ※ hsr.py(hsrb)には手を入れないので hsrb 側は一切変わらない。
         self._publish_color_optical_static_tf()
 
@@ -89,6 +104,10 @@ class hsr(base.hsr):
             t.transform.translation.x = 0.0
             t.transform.translation.y = 0.0
             t.transform.translation.z = 0.0
+            # 恒等(回転なし)。このSimの光学フレームは SetRotate((90,0,-90)) で向きを
+            # 焼き込み済みのため、深度を光学規約で逆投影した点はそのまま head_rgbd_sensor_link
+            # 座標に一致する。標準 rpy(-90,0,-90) を入れると二重回転で前方が真上に化け、3D位置が
+            # 崩れる(床が z≈1.16m に飛ぶのを深度逆投影で実測, 2026-06-30)。
             t.transform.rotation.x = 0.0
             t.transform.rotation.y = 0.0
             t.transform.rotation.z = 0.0
