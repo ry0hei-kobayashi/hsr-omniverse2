@@ -51,8 +51,8 @@ robot:
 # generate_wrs_task のランダム配置の代わりに使われる。
 #
 # 家具の名前: worlds/*.world の <include><name> と一致させること。
-#   例: sink, sofa, living_table, cabinet, shelf,
-#       dining_table, laundry_table, washing_machine
+#   例: sink, sofa, coffee_table, cabinet, shelf,
+#       dinner_table, laundry_table, washing_machine
 #
 # 物体の名前: usd/wrs_models または usd/my_models のフォルダ名。
 #   例: ycb_011_banana, ycb_002_master_chef_can, my_object
@@ -79,13 +79,13 @@ robot:
 #   同じ位置に高さ違いの箱が積み重なっている家具 (cabinet, shelf など) は
 #   複数の段を持つ。tier で何段目に置くかを選べる。0 が一番下、上ほど大きい数字。
 #     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
-#   1 段だけの家具 (dining_table など) は tier を省略 (=0) すればよい。
+#   1 段だけの家具 (dinner_table など) は tier を省略 (=0) すればよい。
 
 objects:
   drop_clearance: 0.1
 
   placements:
-    dining_table:
+    dinner_table:
       - object: rc26/food/cornflakes_1
         dx: 0.0
         dy: -0.2
@@ -95,7 +95,7 @@ objects:
         dy: 0.0
 
 
-    side_table:
+    bedside_table:
       - object: rc26/snack/pringles
         dx: -0.2
         dy: 0.0
@@ -108,7 +108,7 @@ objects:
     cabinet:
       - object: rc26/drink/milk
         tier: 0
-      - object: rc26/seaweed
+      - object: rc26/snack/seaweed
         tier: 2
 
 
@@ -142,7 +142,8 @@ objects:
   #   - object: rc26_practice_day_1/drink/led
   #     x: 4.4
   #     y: 2.5
-  #     yaw: 1.57
+  #     yaw: 1.57ed.world      # TODO: GPSR 用の world があれば変更する
+
 
 
 # ============================================================
