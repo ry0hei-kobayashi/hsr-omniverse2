@@ -78,7 +78,7 @@ robot:
 # 段 (tier) について:
 #   同じ位置に高さ違いの箱が積み重なっている家具 (cabinet, shelf など) は
 #   複数の段を持つ。tier で何段目に置くかを選べる。0 が一番下、上ほど大きい数字。
-#     例) cabinet は 4 段 → tier: 0,1,2,3  /  shelf は 2 段 → tier: 0,1
+#     例) rc26.world の cabinet/shelf は 7 段 → tier: 0..6
 #   1 段だけの家具 (dinner_table など) は tier を省略 (=0) すればよい。
 
 objects:
@@ -87,62 +87,234 @@ objects:
   placements:
     dinner_table:
       - object: rc26/food/cornflakes_1
-        dx: 0.0
-        dy: -0.2
-
+        dx: -0.14
+        dy: -0.14
+        yaw: 0.2
       - object: rc26/food/cornflakes_2
-        dx: 0.0
-        dy: 0.0
-
+        dx: 0.00
+        dy: -0.14
+        yaw: -0.2
+      - object: rc26/food/instant_noodles
+        dx: 0.14
+        dy: -0.14
+        yaw: 0.6
+      - object: rc26/snack/pringles
+        dx: -0.14
+        dy: 0.12
+        yaw: -0.8
+      - object: rc26/drink/red_bull
+        dx: 0.00
+        dy: 0.12
+        yaw: 0.4
+      - object: rc26/fruit/apple
+        dx: 0.14
+        dy: 0.12
+        yaw: 1.0
 
     bedside_table:
       - object: rc26/snack/pringles
-        dx: -0.2
-        dy: 0.0
+        dx: -0.10
+        dy: -0.08
       - object: rc26/cleaning_supply/toothpaste
-        dx: 0.2
+        dx: 0.10
+        dy: -0.08
+        yaw: 1.2
+      - object: rc26/toy/rubiks_cube
+        dx: -0.10
+        dy: 0.08
+        yaw: 0.5
+      - object: rc26/drink/coke_can
+        dx: 0.10
+        dy: 0.08
+        yaw: -0.4
+      - object: rc26/fruit/lemon
+        dx: 0.0
         dy: 0.0
+        yaw: 0.9
 
- 
-    # cabinet は 4 段 (tier 0=一番下 〜 3=一番上)
+    coffee_table:
+      - object: rc26/snack/seaweed
+        dx: -0.13
+        dy: -0.10
+        yaw: -0.4
+      - object: rc26/toy/rubiks_cube
+        dx: 0.00
+        dy: -0.10
+        yaw: 0.3
+      - object: rc26/cleaning_supply/toothpaste
+        dx: 0.13
+        dy: -0.10
+        yaw: 1.1
+      - object: rc26/drink/pepsi
+        dx: -0.13
+        dy: 0.10
+        yaw: -0.6
+      - object: rc26/fruit/mangostane
+        dx: 0.00
+        dy: 0.10
+        yaw: 0.7
+      - object: rc26/food/instant_noodles
+        dx: 0.13
+        dy: 0.10
+        yaw: -1.0
+
+    counter:
+      - object: rc26/drink/coke_can
+        dx: -0.13
+        dy: -0.08
+      - object: rc26/drink/coke_zero_can
+        dx: 0.00
+        dy: -0.08
+      - object: rc26/drink/milk
+        dx: 0.13
+        dy: -0.08
+        yaw: 0.5
+      - object: rc26/drink/soju
+        dx: -0.08
+        dy: 0.08
+        yaw: -0.5
+      - object: rc26/food/cornflakes_1
+        dx: 0.08
+        dy: 0.08
+        yaw: 1.0
+
+    sink:
+      - object: rc26/drink/pepsi
+        dx: -0.18
+        dy: -0.08
+        yaw: 0.5
+      - object: rc26/drink/red_bull
+        dx: 0.00
+        dy: -0.08
+        yaw: -0.5
+      - object: rc26/drink/coke_zero_can
+        dx: 0.18
+        dy: -0.08
+        yaw: 0.8
+      - object: rc26/fruit/peach
+        dx: -0.10
+        dy: 0.08
+        yaw: -0.9
+      - object: rc26/fruit/yellow_bellpepper
+        dx: 0.10
+        dy: 0.08
+        yaw: 0.2
+
+    cooking_table:
+      - object: rc26/drink/soju
+        dx: -0.10
+        dy: -0.10
+        yaw: 0.9
+      - object: rc26/food/cornflakes_2
+        dx: 0.10
+        dy: -0.10
+        yaw: -0.9
+      - object: rc26/food/instant_noodles
+        dx: -0.10
+        dy: 0.10
+        yaw: 0.4
+      - object: rc26/snack/seaweed
+        dx: 0.10
+        dy: 0.10
+        yaw: -0.4
+      - object: rc26/drink/milk
+        dx: 0.0
+        dy: 0.0
+        yaw: 1.3
+
+    laundry_table:
+      - object: rc26/fruit/apple
+        dx: -0.28
+        dy: -0.10
+      - object: rc26/fruit/lemon
+        dx: -0.14
+        dy: 0.10
+        yaw: 0.7
+      - object: rc26/fruit/mangostane
+        dx: 0.0
+        dy: -0.10
+        yaw: -0.4
+      - object: rc26/fruit/peach
+        dx: 0.14
+        dy: 0.10
+        yaw: 0.5
+      - object: rc26/fruit/yellow_bellpepper
+        dx: 0.28
+        dy: -0.10
+        yaw: -0.7
+      - object: rc26/snack/pringles
+        dx: 0.0
+        dy: 0.10
+        yaw: 1.2
+
+    # rc26.world では cabinet/shelf はどちらも 7 段 (tier 0..6) として読まれる。
     cabinet:
       - object: rc26/drink/milk
         tier: 0
-      - object: rc26/snack/seaweed
-        tier: 2
-
-
-    # shelf は 2 段 (tier 0=下の段, 1=上の板)
-    shelf:
-      - object: rc26/food/instant_noodles
-        tier: 0
+        dx: -0.16
+        dy: 0.0
+      - object: rc26/drink/pepsi
+        tier: 1
+        dx: 0.16
+        dy: 0.0
+        yaw: -0.5
       - object: rc26/fruit/mangostane
-        tier: 1
+        tier: 2
+        dx: -0.10
+        dy: 0.0
+        yaw: 0.5
+      - object: rc26/food/cornflakes_1
+        tier: 3
+        dx: 0.10
+        dy: 0.0
+        yaw: -0.8
+      - object: rc26/fruit/peach
+        tier: 4
+        dx: -0.06
+        dy: 0.0
+      - object: rc26/snack/seaweed
+        tier: 5
+        dx: 0.06
+        dy: 0.0
+        yaw: 0.8
+      - object: rc26/toy/rubiks_cube
+        tier: 6
+        dx: 0.0
+        dy: 0.0
+
+    shelf:
       - object: rc26/fruit/yellow_bellpepper
+        tier: 0
+        dx: -0.16
+        dy: 0.0
+      - object: rc26/drink/red_bull
         tier: 1
-
-
-  # ============================================================
-  # floor: 床に直接置く物体 (家具の上ではなく床へ)
-  # ============================================================
-  #
-  # placements は「家具名 + 家具中心からのズレ (dx, dy)」だったが、
-  # floor は「部屋の絶対座標 (x, y)」で床 (z=0) に直接置く。
-  #
-  #   x, y : world 座標 = map 座標 (m)。家具や人と重ならない床の上を選ぶこと。
-  #          このアパートの範囲は X:0.40〜8.37, Y:-1.48〜5.15。
-  #   yaw / roll / pitch : 向き (rad, 省略可)。
-  #   高さ z は床 (0) + drop_clearance で自動。tier は無い (床は 1 面だけ)。
-  #
-  # ※ 下の座標は暫定。実際に開いている床の場所に合わせて調整してください。
-  # floor:
-  #   - object: ycb_011_banana
-  #     x: 4.0
-  #     y: 2.5
-  #   - object: rc26_practice_day_1/drink/led
-  #     x: 4.4
-  #     y: 2.5
-  #     yaw: 1.57ed.world      # TODO: GPSR 用の world があれば変更する
+        dx: 0.16
+        dy: 0.0
+        yaw: 0.3
+      - object: rc26/snack/pringles
+        tier: 2
+        dx: -0.10
+        dy: 0.0
+        yaw: -0.3
+      - object: rc26/cleaning_supply/toothpaste
+        tier: 3
+        dx: 0.10
+        dy: 0.0
+        yaw: 1.1
+      - object: rc26/food/cornflakes_2
+        tier: 4
+        dx: -0.06
+        dy: 0.0
+        yaw: -0.8
+      - object: rc26/drink/coke_can
+        tier: 5
+        dx: 0.06
+        dy: 0.0
+      - object: rc26/fruit/lemon
+        tier: 6
+        dx: 0.0
+        dy: 0.0
 
 
 
