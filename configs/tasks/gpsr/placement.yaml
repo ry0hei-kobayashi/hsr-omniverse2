@@ -205,13 +205,13 @@ people:
   list:
     # Instruction point に立っている人
     - name: person_idle
-      x: 2.728          # アパート中央付近 (床の上・家具と重ならない想定)
-      y: 3.484
-      yaw: 93         # +Y 方向を向く (度)
+      x: 2.28          # アパート中央付近 (床の上・家具と重ならない想定)
+      y: -2.6
+      yaw: 165         # +Y 方向を向く (度)
       motion: stand_idle_loop   # その場で立つ
 
     - name: person_wave
-      x: 3.5
-      y: -0.5
-      yaw: 180
+      x: 6.20
+      y: 3.0
+      yaw: 135
       motion: stand_idle_wave_loop   # 手を振る (手を上げっぱなしは loop_window で)
