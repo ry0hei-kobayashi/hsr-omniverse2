@@ -25,120 +25,35 @@ from pxr import Gf, PhysxSchema, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade
 
 # from omni.isaac.sensor import _sensor
 
-# add by r.kobayashi version selector
-ROS_VERSION = os.environ.get('HSR_ROS_VERSION', '2').strip()
-if ROS_VERSION not in ('1', '2'):
-    raise ValueError(
-        f"Unsupported HSR_ROS_VERSION={ROS_VERSION}. Use '1' or '2'.")
-is_ros2 = ROS_VERSION == '2'
+import rclpy
+import rclpy.node
+import rclpy.qos
+import rclpy.time
+import tf_transformations
+from control_msgs.action import FollowJointTrajectory, GripperCommand
+from geometry_msgs.msg import (PoseStamped, Quaternion, TransformStamped,
+                               Twist, WrenchStamped)
+from nav_msgs.msg import Odometry
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterType, ParameterValue
+from rcl_interfaces.srv import GetParameters
+from rosgraph_msgs.msg import Clock
+from sensor_msgs.msg import Imu, JointState
+from tf2_ros import TransformBroadcaster
+from tmc_control_msgs.action import GripperApplyEffort
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
-# is_ros2 = False
-if is_ros2:
-    import rclpy
-    import rclpy.node
-    import rclpy.qos
-    import rclpy.time
-    import tf_transformations
-    from control_msgs.action import FollowJointTrajectory, GripperCommand
-    from geometry_msgs.msg import (PoseStamped, Quaternion, TransformStamped,
-                                   Twist, WrenchStamped)
-    from nav_msgs.msg import Odometry
-    from rclpy.parameter import Parameter
-    from rcl_interfaces.msg import ParameterType, ParameterValue
-    from rcl_interfaces.srv import GetParameters
-    from rosgraph_msgs.msg import Clock
-    from sensor_msgs.msg import Imu, JointState
-    from tf2_ros import TransformBroadcaster
-    from tmc_control_msgs.action import GripperApplyEffort
-    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+def quaternion_from_euler(r, p, y):
+    return tf_transformations.quaternion_from_euler(r, p, y)
 
-    def quaternion_from_euler(r, p, y):
-        return tf_transformations.quaternion_from_euler(r, p, y)
+def euler_from_quaternion(x, y, z, w):
+    return tf_transformations.euler_from_quaternion((x, y, z, w))
 
-    def euler_from_quaternion(x, y, z, w):
-        return tf_transformations.euler_from_quaternion((x, y, z, w))
-
-    extensions.enable_extension('isaacsim.ros2.bridge')
-
-else:
-    import actionlib
-    import rospy
-    import tf.transformations
-    from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
-    from control_msgs.msg import (FollowJointTrajectoryAction,
-                                  FollowJointTrajectoryActionGoal,
-                                  FollowJointTrajectoryGoal,
-                                  GripperCommandAction,
-                                  GripperCommandActionGoal)
-    from geometry_msgs.msg import (PoseStamped, Quaternion, TransformStamped,
-                                   Twist, WrenchStamped)
-    from nav_msgs.msg import Odometry
-    from sensor_msgs.msg import Imu, JointState
-    from tmc_control_msgs.msg import (GripperApplyEffortAction,
-                                      GripperApplyEffortFeedback,
-                                      GripperApplyEffortResult)
-    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-
-    def quaternion_from_euler(r, p, y):
-        return tf.transformations.quaternion_from_euler(r, p, y)
-
-    def euler_from_quaternion(x, y, z, w):
-        return tf.transformations.euler_from_quaternion((x, y, z, w))
-
-    extensions.enable_extension('isaacsim.ros1.bridge')
-# try:
-#    import rospy
-#    import tf.transformations
-#    import actionlib
-#    from geometry_msgs.msg import Twist, PoseStamped, Quaternion, WrenchStamped, TransformStamped
-#    from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryActionGoal, FollowJointTrajectoryGoal, GripperCommandAction, GripperCommandActionGoal
-#    from actionlib_msgs.msg import GoalStatusArray, GoalStatus, GoalID
-#    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-#    from sensor_msgs.msg import JointState, Imu
-#    from nav_msgs.msg import Odometry
-#    from tmc_control_msgs.msg import GripperApplyEffortAction, GripperApplyEffortResult, GripperApplyEffortFeedback
-#
-#    def quaternion_from_euler(r, p, y):
-#        return tf.transformations.quaternion_from_euler(r, p, y)
-#
-#    def euler_from_quaternion(x, y, z, w):
-#        return tf.transformations.euler_from_quaternion((x, y, z, w))
-#
-#    extensions.enable_extension("isaacsim.ros1.bridge")
-# except ImportError:
-#
-#    is_ros2 = True
-#    import rclpy
-#    import rclpy.node
-#    import rclpy.qos
-#    import rclpy.time
-#    from geometry_msgs.msg import Twist, PoseStamped, Quaternion, WrenchStamped, TransformStamped
-#    from control_msgs.action import FollowJointTrajectory, GripperCommand
-#    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-#    from sensor_msgs.msg import JointState, Imu
-#    from nav_msgs.msg import Odometry
-#    from tf2_ros import TransformBroadcaster
-#    from tmc_control_msgs.action import GripperApplyEffort
-#    from rcl_interfaces.srv import GetParameters
-#    from rcl_interfaces.msg import ParameterValue, ParameterType
-#    import tf_transformations
-#
-#    def quaternion_from_euler(r, p, y):
-#        return tf_transformations.quaternion_from_euler(r, p, y)
-#
-#    def euler_from_quaternion(x, y, z, w):
-#        return tf_transformations.euler_from_quaternion((x, y, z, w))
-#
-#    extensions.enable_extension("isaacsim.ros2.bridge")
+extensions.enable_extension('isaacsim.ros2.bridge')
 
 extensions.enable_extension('isaacsim.sensors.physx')
 extensions.enable_extension('isaacsim.util.debug_draw')
 
-
-def og_ros_node(name):
-    if is_ros2:
-        return name.replace('.ros1.bridge.', '.ros2.bridge.').replace('.ROS1', '.ROS2')
-    return name
 
 
 def og_ros_camera_info_node():
@@ -149,42 +64,22 @@ def og_ros_camera_info_node():
     ROS2CameraInfoHelper で出す。rgb/depth 用の cameraHelper* と同じ renderProductPath
     を繋ぐだけでよく、``inputs:type`` は設定しない。
     """
-    if is_ros2:
-        return 'isaacsim.ros2.bridge.ROS2CameraInfoHelper'
-    return 'isaacsim.ros1.bridge.ROS1CameraHelper'
+    return 'isaacsim.ros2.bridge.ROS2CameraInfoHelper'
 
 
-if is_ros2 is False:
-    print('local module import ')
-    sys.path.insert(0, os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), '..', '3rdparty'))
-    from OgnROS1ActionFollowJointTrajectory import \
-        InternalState as semuInternalState
-    from OgnROS1ActionGripperCommand import \
-        InternalState as semuGripperInternalState
-
-    # extensions.enable_extension("semu.robotics.ros_bridge")
-    # from semu.robotics.ros_bridge.ogn.nodes.OgnROS1ActionFollowJointTrajectory import InternalState as semuInternalState
-    # from semu.robotics.ros_bridge.ogn.nodes.OgnROS1ActionGripperCommand import InternalState as semuGripperInternalState
-else:  # ROS2
-    # semu.robotics.ros2_bridge (MIT, Toni-SM) is a git submodule under
-    # 3rdparty/. Resolve it relative to this file so the same code works on the
-    # host (scripts/hsr.py -> ../3rdparty), in the dev container
-    # (/app/scripts/hsr.py -> /app/3rdparty) and in the image (/app/hsr.py ->
-    # /app/3rdparty).
-    _here = os.path.dirname(os.path.abspath(__file__))
-    for _cand in (os.path.join(_here, '..', '3rdparty'), os.path.join(_here, '3rdparty')):
-        _semu_src = os.path.join(_cand, 'semu.robotics.ros2_bridge', 'src', 'semu.robotics.ros2_bridge')
-        if os.path.isdir(_semu_src):
-            sys.path.insert(0, os.path.abspath(_semu_src))
-            break
-    else:
-        raise ImportError(
-            '3rdparty/semu.robotics.ros2_bridge is missing. Run: git submodule update --init --recursive')
-    from semu.robotics.ros2_bridge.ros2_bridge import \
-        RosControlFollowJointTrajectory as semuInternalState
-    from semu.robotics.ros2_bridge.ros2_bridge import \
-        RosControllerGripperCommand as semuGripperInternalState
+_here = os.path.dirname(os.path.abspath(__file__))
+for _cand in (os.path.join(_here, '..', '3rdparty'), os.path.join(_here, '3rdparty')):
+    _semu_src = os.path.join(_cand, 'semu.robotics.ros2_bridge', 'src', 'semu.robotics.ros2_bridge')
+    if os.path.isdir(_semu_src):
+        sys.path.insert(0, os.path.abspath(_semu_src))
+        break
+else:
+    raise ImportError(
+        '3rdparty/semu.robotics.ros2_bridge is missing. Run: git submodule update --init --recursive')
+from semu.robotics.ros2_bridge.ros2_bridge import \
+    RosControlFollowJointTrajectory as semuInternalState
+from semu.robotics.ros2_bridge.ros2_bridge import \
+    RosControllerGripperCommand as semuGripperInternalState
 
 
 class odom_trajectory_action_server(semuInternalState):
@@ -216,9 +111,7 @@ class odom_trajectory_action_server(semuInternalState):
         return self._joints[name]
 
     def _get_time(self) -> float:
-        if is_ros2:
-            return self._node.get_clock().now().nanoseconds / 1e9
-        return rospy.get_time()
+        return self._node.get_clock().now().nanoseconds / 1e9
 
     def step(self, dt: float) -> None:
         if self._action_goal is not None and self._action_goal_handle is not None:
@@ -275,7 +168,7 @@ class odom_trajectory_action_server(semuInternalState):
                     self._settle_start_time = None
                 if not converged and time_passed < _BASE_GOAL_TIMEOUT:
                     return
-                if not converged and is_ros2:
+                if not converged:
                     result = FollowJointTrajectory.Result()
                     result.error_code = result.GOAL_TOLERANCE_VIOLATED
                     result.error_string = (
@@ -398,10 +291,7 @@ class gripper_trajectory_action_server(semuInternalState):
 
 class gripper_command_action_server(semuGripperInternalState):
     def __init__(self, hsr, node=None, _dci=None):
-        if is_ros2 is False:
-            super().__init__()
-        else:
-            super().__init__(node, _dci)
+        super().__init__(node, _dci)
         self.gripper_joints_paths = [
             hsr.stage_path + '/hsrb/hand_palm_link/hand_l_proximal_joint',
             hsr.stage_path + '/hsrb/hand_l_mimic_distal_link/hand_l_distal_joint',
@@ -419,18 +309,13 @@ class gripper_command_action_server(semuGripperInternalState):
 
 class gripper_apply_force_action_server(gripper_command_action_server):
     def __init__(self, hsr, node=None, _dci=None):
-        if is_ros2 is False:
-            super().__init__(hsr)
-            self._action_result_message = GripperApplyEffortResult()
-            self._action_feedback_message = GripperApplyEffortFeedback()
-        else:
-            super().__init__(hsr, node, _dci)
-            self._action_result_message = GripperApplyEffort.Result()
-            self._action_feedback_message = GripperApplyEffort.Feedback()
-            # 実機の gripper_controller/grasp, apply_force と同じアクション型で
-            # ActionServer を立てる (既定の GripperCommand のままだと型不一致で
-            # hsrb_interface クライアントのゴールに応答できず把持が失敗する)。
-            self._action_type = GripperApplyEffort
+        super().__init__(hsr, node, _dci)
+        self._action_result_message = GripperApplyEffort.Result()
+        self._action_feedback_message = GripperApplyEffort.Feedback()
+        # 実機の gripper_controller/grasp, apply_force と同じアクション型で
+        # ActionServer を立てる (既定の GripperCommand のままだと型不一致で
+        # hsrb_interface クライアントのゴールに応答できず把持が失敗する)。
+        self._action_type = GripperApplyEffort
         self._inverse_direction = False
         # 「指が止まった」(stalled) 判定用の連続静止ステップ数カウンタ。
         self._action_stall_steps = 0
@@ -442,9 +327,7 @@ class gripper_apply_force_action_server(gripper_command_action_server):
         return effort
 
     def _get_time(self) -> float:
-        if is_ros2:
-            return self._node.get_clock().now().nanoseconds / 1e9
-        return rospy.get_time()
+        return self._node.get_clock().now().nanoseconds / 1e9
 
     def step(self, dt: float) -> None:
         if not self._joints:
@@ -457,10 +340,7 @@ class gripper_apply_force_action_server(gripper_command_action_server):
             # return してしまい、rclpy が "Goal state not set, assuming aborted" と
             # して ABORTED を返すレース条件になる (gripper_close が常に失敗する)。
             # 同じ理由で self._action_goal = None も公開より後にする。
-            if is_ros2 is False:
-                result_message = GripperApplyEffortResult()
-            else:
-                result_message = GripperApplyEffort.Result()
+            result_message = GripperApplyEffort.Result()
             target_effort = self._action_goal.effort
             if self._inverse_direction:
                 target_effort = -target_effort
@@ -489,10 +369,7 @@ class gripper_apply_force_action_server(gripper_command_action_server):
                 result_message.effort = effort
                 result_message.stalled = False
                 if self._action_goal_handle is not None:
-                    if is_ros2 is False:
-                        self._action_goal_handle.set_succeeded(result_message)
-                    else:
-                        self._action_goal_handle.succeed()
+                    self._action_goal_handle.succeed()
                     self._action_goal_handle = None
                 self._action_result_message = result_message
                 self._action_goal = None
@@ -520,16 +397,7 @@ class gripper_apply_force_action_server(gripper_command_action_server):
                 result_message.effort = effort
                 result_message.stalled = True
                 if self._action_goal_handle is not None:
-                    if is_ros2 is False:
-                        self._action_goal_handle.set_aborted(result_message)
-                    else:
-                        # stalled = 指が止まった状態。物を掴んで止まるのは正常な把持
-                        # 完了なので、実機の gripper controller と同様 succeed を返す
-                        # (結果の stalled=True で状態は伝わる)。abort のままだと
-                        # hsrb_interface の apply_force が
-                        # "Failed to apply force state 6" 例外を投げ、空把持でも
-                        # 物を掴んだときでも gripper_close が常に失敗扱いになる。
-                        self._action_goal_handle.succeed()
+                    self._action_goal_handle.succeed()
                     self._action_goal_handle = None
                 self._action_result_message = result_message
                 self._action_goal = None
@@ -543,10 +411,7 @@ class gripper_apply_force_action_server(gripper_command_action_server):
                     % (self._action_stall_steps, current_position_sum, time_passed)
                 )
                 if self._action_goal_handle is not None:
-                    if is_ros2 is False:
-                        self._action_goal_handle.set_aborted()
-                    else:
-                        self._action_goal_handle.abort()
+                    self._action_goal_handle.abort()
                     self._action_goal_handle = None
                 self._action_result_message = result_message
                 self._action_goal = None
@@ -925,80 +790,41 @@ class hsr:
     WHEEL_OFFSET = wheel_offset
 
     def __init__(self, prefix='/hsrb', stage_path='/World', config=None) -> None:
-        global is_ros2
-
         if config is None:
             config = hsr_config()
 
-        # if is_ros2:
-        #    rclpy.init()
-        #    self.ros2node = rclpy.node.Node("isaac_sim_hsr")
-        #    self.create_subscriber = lambda t, d, c: self.ros2node.create_subscription(d, t, c, qos_profile=rclpy.qos.qos_profile_sensor_data)
-        #    self.create_publisher = lambda t, d: self.ros2node.create_publisher(d, t, qos_profile=rclpy.qos.qos_profile_sensor_data)
-        #    self.create_publisher_reliable = lambda t, d: self.ros2node.create_publisher(d, t, qos_profile=rclpy.qos.qos_profile_system_default)
-        #    self.get_ros_time = lambda t: rclpy.time.Time(seconds=t).to_msg()
-        #    self.tf_broadcaster = TransformBroadcaster(self.ros2node)
-        #    self._create_controller_parameter_services()
-        #    executor = rclpy.executors.MultiThreadedExecutor()
-        #    executor.add_node(self.ros2node)
-        #    threading.Thread(target=executor.spin).start()
-        # else:
-        #    # add by r.kobayashi
-        #    try:
-        #        rospy.init_node("isaac_sim_hsr", anonymous=True, disable_signals=True, log_level=rospy.ERROR)
-        #    except rospy.exception.ROSException:
-        #        pass
 
-        #    self.create_subscriber = lambda t, d, c: rospy.Subscriber(t, d, c)
-        #    self.create_publisher = lambda t, d: rospy.Publisher(t, d, queue_size=5)
-        #    self.create_publisher_reliable = lambda t, d: rospy.Publisher(t, d, queue_size=5)
-        #    self.get_ros_time = lambda t: rospy.Time(t)
-        if is_ros2:
-            if not rclpy.ok():
-                rclpy.init()
-            self.ros2node = rclpy.node.Node('isaac_sim_hsr')
-            # Trajectory time_from_start is expressed in simulation time.  The
-            # simulator can run below real time, so a wall-clock controller
-            # advances targets too quickly relative to PhysX and excites the
-            # mobile base.
-            self.ros2node.set_parameters([
-                Parameter('use_sim_time', Parameter.Type.BOOL, True),
-            ])
-            self.create_subscriber = lambda t, d, c: self.ros2node.create_subscription(
-                d, t, c, qos_profile=rclpy.qos.qos_profile_sensor_data
-            )
-            self.create_publisher = lambda t, d: self.ros2node.create_publisher(
-                d, t, qos_profile=rclpy.qos.qos_profile_sensor_data
-            )
-            self.create_publisher_reliable = lambda t, d: self.ros2node.create_publisher(
-                d, t, qos_profile=rclpy.qos.qos_profile_system_default
-            )
-            self.clock_pub = self.ros2node.create_publisher(
-                Clock, '/clock', 1)
-            self.get_ros_time = lambda t: rclpy.time.Time(seconds=t).to_msg()
-            self.tf_broadcaster = TransformBroadcaster(self.ros2node)
-            self._create_controller_parameter_services()
+        if not rclpy.ok():
+            rclpy.init()
+        self.ros2node = rclpy.node.Node('isaac_sim_hsr')
+        # Trajectory time_from_start is expressed in simulation time.  The
+        # simulator can run below real time, so a wall-clock controller
+        # advances targets too quickly relative to PhysX and excites the
+        # mobile base.
+        self.ros2node.set_parameters([
+            Parameter('use_sim_time', Parameter.Type.BOOL, True),
+        ])
+        self.create_subscriber = lambda t, d, c: self.ros2node.create_subscription(
+            d, t, c, qos_profile=rclpy.qos.qos_profile_sensor_data
+        )
+        self.create_publisher = lambda t, d: self.ros2node.create_publisher(
+            d, t, qos_profile=rclpy.qos.qos_profile_sensor_data
+        )
+        self.create_publisher_reliable = lambda t, d: self.ros2node.create_publisher(
+            d, t, qos_profile=rclpy.qos.qos_profile_system_default
+        )
+        self.clock_pub = self.ros2node.create_publisher(
+            Clock, '/clock', 1)
+        self.get_ros_time = lambda t: rclpy.time.Time(seconds=t).to_msg()
+        self.tf_broadcaster = TransformBroadcaster(self.ros2node)
+        self._create_controller_parameter_services()
 
-            executor = rclpy.executors.MultiThreadedExecutor()
-            executor.add_node(self.ros2node)
-            self._executor = executor
-            self._executor_thread = threading.Thread(
-                target=executor.spin, daemon=True)
-            self._executor_thread.start()
-        else:
-            try:
-                rospy.init_node(
-                    'isaac_sim_hsr', anonymous=True, disable_signals=True, log_level=rospy.ERROR
-                )
-            except rospy.exceptions.ROSException:
-                pass
-
-            self.create_subscriber = lambda t, d, c: rospy.Subscriber(t, d, c)
-            self.create_publisher = lambda t, d: rospy.Publisher(
-                t, d, queue_size=5)
-            self.create_publisher_reliable = lambda t, d: rospy.Publisher(
-                t, d, queue_size=5)
-            self.get_ros_time = lambda t: rospy.Time.from_sec(t)
+        executor = rclpy.executors.MultiThreadedExecutor()
+        executor.add_node(self.ros2node)
+        self._executor = executor
+        self._executor_thread = threading.Thread(
+            target=executor.spin, daemon=True)
+        self._executor_thread.start()
 
         self.prefix = prefix
         self.stage_path = stage_path
@@ -1028,20 +854,12 @@ class hsr:
         self.create_lidar()
         self.create_imu()
 
-        if is_ros2:
-            self.laserscan_pose_sub = self.create_subscriber(
-                '/laser_odom', Odometry, self.on_laserscan_odom
-            )
-            self.base_odom_pub = self.create_publisher_reliable(
-                '/omni_base_controller/wheel_odom', Odometry
-            )
-        else:
-            self.laserscan_pose_sub = self.create_subscriber(
-                self.prefix + '/laser_scan_matcher/pose', PoseStamped, self.on_laserscan_pose
-            )
-            self.laser_odom_pub = self.create_publisher(
-                self.prefix + '/laser_odom', Odometry)
-            self.base_odom_pub = self.create_publisher('/odom', Odometry)
+        self.laserscan_pose_sub = self.create_subscriber(
+            '/laser_odom', Odometry, self.on_laserscan_odom
+        )
+        self.base_odom_pub = self.create_publisher_reliable(
+            '/omni_base_controller/wheel_odom', Odometry
+        )
 
         self.robots = ArticulationView(
             prim_paths_expr=self.stage_path + self.prefix, name='hsr_view'
@@ -1067,7 +885,7 @@ class hsr:
         self.cmd_vel_msg = None
         self.last_cmd_vel_time = 0.0
         self.create_subscriber(
-            '/omni_base_controller/cmd_vel' if is_ros2 else self.prefix + '/command_velocity',
+            '/omni_base_controller/cmd_vel',
             Twist,
             self.on_cmd_vel,
         )
@@ -1091,172 +909,68 @@ class hsr:
         self._base_trajectory_was_active = False
 
         self.joint_state_pub = self.create_publisher_reliable(
-            '/joint_states' if is_ros2 else self.prefix + '/joint_states', JointState
+            '/joint_states', JointState
         )
 
-        if is_ros2 is False:
+        def init_action_server(srv, name, msg):
+            articulation_namespace = self.stage_path + self.prefix
+            action_topic_name = '/' + name
+            srv.start(articulation_namespace, action_topic_name)
 
-            def init_action_server(srv, name, msg):
-                srv.articulation_path = self.stage_path + self.prefix
-                srv.usd_context = omni.usd.get_context()
-                srv.dci = self.dc
-                action_topic_name = self.prefix + '/' + name
-                srv.action_server = actionlib.ActionServer(
-                    action_topic_name,
-                    msg,
-                    goal_cb=srv.on_goal,
-                    cancel_cb=srv.on_cancel,
-                    auto_start=False,
-                )
-                srv.action_server.start()
-                if msg == FollowJointTrajectoryAction:
-                    srv.action_client = actionlib.SimpleActionClient(
-                        action_topic_name, msg)
+        self.arm_trajectory_action_server = arm_trajectory_action_server(
+            self.ros2node, self.dc)
+        init_action_server(
+            self.arm_trajectory_action_server,
+            'arm_trajectory_controller/follow_joint_trajectory',
+            FollowJointTrajectory,
+        )
 
-                    def command_topic_callback(msg, args):
-                        srv = args[0]
-                        goal = FollowJointTrajectoryGoal(trajectory=msg)
-                        if srv._action_goal is not None:
-                            for name in goal.trajectory.joint_names:
-                                if name not in self._joints:
-                                    print(
-                                        "[Warning][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: joints don't match ({} not in {})".format(
-                                            name, list(self._joints.keys())
-                                        )
-                                    )
-                                    return
-                            if goal.trajectory.points[0].time_from_start.to_sec():
-                                initial_point = JointTrajectoryPoint(
-                                    positions=[
-                                        srv._get_joint_position(name)
-                                        for name in goal.trajectory.joint_names
-                                    ],
-                                    time_from_start=rospy.Duration(),
-                                )
-                                goal.trajectory.points.insert(0, initial_point)
-                            srv._action_goal = goal
-                            srv._action_point_index = 1
-                            srv._action_start_time = rospy.get_time()
-                            srv._action_feedback_message.joint_names = list(
-                                goal.trajectory.joint_names
-                            )
-                        else:
-                            srv.action_client.send_goal(goal)
+        self.head_trajectory_action_server = head_trajectory_action_server(
+            self.ros2node, self.dc
+        )
+        init_action_server(
+            self.head_trajectory_action_server,
+            'head_trajectory_controller/follow_joint_trajectory',
+            FollowJointTrajectory,
+        )
 
-                    srv.topic_interface = rospy.Subscriber(
-                        action_topic_name.replace(
-                            '/follow_joint_trajectory', '/command'),
-                        JointTrajectory,
-                        command_topic_callback,
-                        (srv,),
-                    )
-                srv.initialized = True
+        self.odom_trajectory_action_server = odom_trajectory_action_server(
+            self.ros2node, self.dc
+        )
+        init_action_server(
+            self.odom_trajectory_action_server,
+            'omni_base_controller/follow_joint_trajectory',
+            FollowJointTrajectory,
+        )
 
-            self.arm_trajectory_action_server = arm_trajectory_action_server()
-            init_action_server(
-                self.arm_trajectory_action_server,
-                'arm_trajectory_controller/follow_joint_trajectory',
-                FollowJointTrajectoryAction,
-            )
+        self.gripper_trajectory_action_server = gripper_trajectory_action_server(
+            self.ros2node, self.dc
+        )
+        init_action_server(
+            self.gripper_trajectory_action_server,
+            'gripper_controller/follow_joint_trajectory',
+            FollowJointTrajectory,
+        )
 
-            self.head_trajectory_action_server = head_trajectory_action_server()
-            init_action_server(
-                self.head_trajectory_action_server,
-                'head_trajectory_controller/follow_joint_trajectory',
-                FollowJointTrajectoryAction,
-            )
+        self.gripper_apply_force_action_server = gripper_apply_force_action_server(
+            self, self.ros2node, self.dc
+        )
+        init_action_server(
+            self.gripper_apply_force_action_server,
+            'gripper_controller/apply_force',
+            GripperApplyEffort,
+        )
 
-            self.odom_trajectory_action_server = odom_trajectory_action_server()
-            init_action_server(
-                self.odom_trajectory_action_server,
-                'omni_base_controller/follow_joint_trajectory',
-                FollowJointTrajectoryAction,
-            )
-
-            self.gripper_trajectory_action_server = gripper_trajectory_action_server()
-            init_action_server(
-                self.gripper_trajectory_action_server,
-                'gripper_controller/follow_joint_trajectory',
-                FollowJointTrajectoryAction,
-            )
-
-            self.gripper_apply_force_action_server = gripper_apply_force_action_server(
-                self)
-            init_action_server(
-                self.gripper_apply_force_action_server,
-                'gripper_controller/apply_force',
-                GripperApplyEffortAction,
-            )
-
-            self.gripper_command_action_server = gripper_apply_force_action_server(
-                self)
-            self.gripper_command_action_server._inverse_direction = True
-            init_action_server(
-                self.gripper_command_action_server,
-                'gripper_controller/grasp',
-                GripperApplyEffortAction,
-            )
-        else:
-
-            def init_action_server(srv, name, msg):
-                articulation_namespace = self.stage_path + self.prefix
-                action_topic_name = '/' + name
-                srv.start(articulation_namespace, action_topic_name)
-
-            self.arm_trajectory_action_server = arm_trajectory_action_server(
-                self.ros2node, self.dc)
-            init_action_server(
-                self.arm_trajectory_action_server,
-                'arm_trajectory_controller/follow_joint_trajectory',
-                FollowJointTrajectory,
-            )
-
-            self.head_trajectory_action_server = head_trajectory_action_server(
-                self.ros2node, self.dc
-            )
-            init_action_server(
-                self.head_trajectory_action_server,
-                'head_trajectory_controller/follow_joint_trajectory',
-                FollowJointTrajectory,
-            )
-
-            self.odom_trajectory_action_server = odom_trajectory_action_server(
-                self.ros2node, self.dc
-            )
-            init_action_server(
-                self.odom_trajectory_action_server,
-                'omni_base_controller/follow_joint_trajectory',
-                FollowJointTrajectory,
-            )
-
-            self.gripper_trajectory_action_server = gripper_trajectory_action_server(
-                self.ros2node, self.dc
-            )
-            init_action_server(
-                self.gripper_trajectory_action_server,
-                'gripper_controller/follow_joint_trajectory',
-                FollowJointTrajectory,
-            )
-
-            self.gripper_apply_force_action_server = gripper_apply_force_action_server(
-                self, self.ros2node, self.dc
-            )
-            init_action_server(
-                self.gripper_apply_force_action_server,
-                'gripper_controller/apply_force',
-                GripperApplyEffort,
-            )
-
-            self.gripper_command_action_server = gripper_apply_force_action_server(
-                self, self.ros2node, self.dc
-            )
-            self.gripper_command_action_server._inverse_direction = True
-            init_action_server(
-                self.gripper_command_action_server, 'gripper_controller/grasp', GripperApplyEffort
-            )
+        self.gripper_command_action_server = gripper_apply_force_action_server(
+            self, self.ros2node, self.dc
+        )
+        self.gripper_command_action_server._inverse_direction = True
+        init_action_server(
+            self.gripper_command_action_server, 'gripper_controller/grasp', GripperApplyEffort
+        )
 
     def create_cameras(self) -> None:
-        topic_prefix = '' if is_ros2 else self.prefix
+        topic_prefix = ''
         print(
             '[hsr-camera] publish every %d rendered frame(s) '
             '(CAMERA_FRAME_SKIP=%d) stereo=%s'
@@ -1360,8 +1074,7 @@ class hsr:
                     og.Controller.Keys.CREATE_NODES: [
                         ('OnImpulseEvent', 'omni.graph.action.OnImpulseEvent'),
                         ('ReadSimTime', 'isaacsim.core.nodes.IsaacReadSimulationTime'),
-                        ('PublishClock', og_ros_node(
-                            'isaacsim.ros1.bridge.ROS1PublishClock')),
+                        ('PublishClock', 'isaacsim.ros2.bridge.ROS2PublishClock'),
                     ],
                     og.Controller.Keys.CONNECT: [
                         ('OnImpulseEvent.outputs:execOut',
@@ -1386,8 +1099,7 @@ class hsr:
                             ('OnTick', 'omni.graph.action.OnTick'),
                             ('createRenderProduct',
                              'isaacsim.core.nodes.IsaacCreateRenderProduct'),
-                            ('cameraHelperRgb', og_ros_node(
-                                'isaacsim.ros1.bridge.ROS1CameraHelper')),
+                            ('cameraHelperRgb', 'isaacsim.ros2.bridge.ROS2CameraHelper'),
                             ('cameraHelperInfo', og_ros_camera_info_node()),
                         ],
                         og.Controller.Keys.CONNECT: [
@@ -1440,8 +1152,7 @@ class hsr:
                             ('OnTick', 'omni.graph.action.OnTick'),
                             ('createRenderProduct',
                              'isaacsim.core.nodes.IsaacCreateRenderProduct'),
-                            ('cameraHelperRgb', og_ros_node(
-                                'isaacsim.ros1.bridge.ROS1CameraHelper')),
+                            ('cameraHelperRgb', 'isaacsim.ros2.bridge.ROS2CameraHelper'),
                             ('cameraHelperInfo', og_ros_camera_info_node()),
                         ],
                         og.Controller.Keys.CONNECT: [
@@ -1494,11 +1205,9 @@ class hsr:
                         ('OnTick', 'omni.graph.action.OnTick'),
                         ('createRenderProduct',
                          'isaacsim.core.nodes.IsaacCreateRenderProduct'),
-                        ('cameraHelperRgb', og_ros_node(
-                            'isaacsim.ros1.bridge.ROS1CameraHelper')),
+                        ('cameraHelperRgb', 'isaacsim.ros2.bridge.ROS2CameraHelper'),
                         ('cameraHelperInfo', og_ros_camera_info_node()),
-                        ('cameraHelperDepth', og_ros_node(
-                            'isaacsim.ros1.bridge.ROS1CameraHelper')),
+                        ('cameraHelperDepth', 'isaacsim.ros2.bridge.ROS2CameraHelper'),
                         ('cameraHelperDepthInfo', og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
@@ -1592,8 +1301,7 @@ class hsr:
                         ('OnTick', 'omni.graph.action.OnTick'),
                         ('createRenderProduct',
                          'isaacsim.core.nodes.IsaacCreateRenderProduct'),
-                        ('cameraHelperRgb', og_ros_node(
-                            'isaacsim.ros1.bridge.ROS1CameraHelper')),
+                        ('cameraHelperRgb', 'isaacsim.ros2.bridge.ROS2CameraHelper'),
                         ('cameraHelperInfo', og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
@@ -1686,7 +1394,7 @@ class hsr:
             [1, 1], sensor.GetPath().pathString)
         writer = rep.writers.get('RtxLidar' + 'DebugDrawPointCloud')
         writer.attach([render_product_path])
-        writer = rep.writers.get('RtxLidar' + 'ROS1PublishPointCloud')
+        writer = rep.writers.get('RtxLidarROS2PublishPointCloud')
         writer.attach([render_product_path])
 
     def create_imu(self) -> None:
@@ -1707,7 +1415,7 @@ class hsr:
                     ('readSimulationTime',
                      'isaacsim.core.nodes.IsaacReadSimulationTime'),
                     ('readImu', 'isaacsim.sensors.physics.IsaacReadIMU'),
-                    ('publishImu', og_ros_node('isaacsim.ros1.bridge.ROS1PublishImu')),
+                    ('publishImu', 'isaacsim.ros2.bridge.ROS2PublishImu'),
                 ],
                 og.Controller.Keys.CONNECT: [
                     ('OnTick.outputs:tick', 'readImu.inputs:execIn'),
@@ -1763,8 +1471,7 @@ class hsr:
                     ('readSimulationTime',
                      'isaacsim.core.nodes.IsaacReadSimulationTime'),
                     ('readLidarBeams', 'isaacsim.sensors.physx.IsaacReadLidarBeams'),
-                    ('publishLaserScan', og_ros_node(
-                        'isaacsim.ros1.bridge.ROS1PublishLaserScan')),
+                    ('publishLaserScan', 'isaacsim.ros2.bridge.ROS2PublishLaserScan'),
                 ],
                 og.Controller.Keys.CONNECT: [
                     ('OnTick.outputs:tick', 'readLidarBeams.inputs:execIn'),
@@ -1805,7 +1512,7 @@ class hsr:
                     ('publishLaserScan.inputs:frameId', 'base_range_sensor_link'),
                     (
                         'publishLaserScan.inputs:topicName',
-                        '/scan' if is_ros2 else self.prefix + '/base_scan',
+                        '/scan',
                     ),
                 ],
             },
@@ -2521,51 +2228,6 @@ class hsr:
         self.on_laserscan_pose(posestamped)
 
     def on_laserscan_pose(self, msg):
-        if not is_ros2:
-            odom = Odometry()
-            odom.header.stamp = msg.header.stamp
-            odom.header.frame_id = 'world'
-            odom.child_frame_id = 'base_footprint'
-            odom.pose.pose = msg.pose
-            odom.pose.covariance = [
-                0.001,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0.001,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                100000.0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                100000.0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                100000.0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1000.0,
-            ]
-            self.laser_odom_pub.publish(odom)
 
         q = msg.pose.orientation
         yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)[2]
@@ -2618,15 +2280,6 @@ class hsr:
             js.effort.append(st.effort * 1000.0)
         self._joint_state_previous_positions = previous_positions
         self._joint_state_filtered_velocities = filtered_velocities
-        if not is_ros2:
-            js.name = js.name + ['odom_x', 'odom_y', 'odom_t']
-            js.position.extend([
-                self.odometry_estimator.pose.x,
-                self.odometry_estimator.pose.y,
-                self.odometry_estimator.pose.ang,
-            ])
-            js.velocity.extend([0, 0, 0])
-            js.effort.extend([0, 0, 0])
         self.joint_state_pub.publish(js)
 
     def _object_body_paths(self):
@@ -3644,19 +3297,10 @@ class hsr:
             self._grasp_obj = None
 
     def step(self):
-        if is_ros2:
-            # Publish simulation time on every physics/control step.  Camera and
-            # viewport rendering can then be decimated without reducing the
-            # clock rate seen by MoveIt trajectory interpolation.
-            clock = Clock()
-            clock.clock = self.get_ros_time(
-                self.simulation_context.current_time)
-            self.clock_pub.publish(clock)
-        else:
-            og.Controller.set(
-                og.Controller.attribute(
-                    '/ros_controllers/OnImpulseEvent.state:enableImpulse'), True
-            )
+        clock = Clock()
+        clock.clock = self.get_ros_time(
+            self.simulation_context.current_time)
+        self.clock_pub.publish(clock)
 
         dt = self.simulation_context.current_time - self.prev_time
 
@@ -3836,7 +3480,7 @@ class hsr:
         odom = Odometry()
         odom.header.stamp = self.get_ros_time(
             self.simulation_context.current_time)
-        odom.header.frame_id = 'odom' if is_ros2 else 'world'
+        odom.header.frame_id = 'odom'
         odom.child_frame_id = 'base_footprint'
         odom.pose.pose.position.x = self.odometry_estimator.pose.x
         odom.pose.pose.position.y = self.odometry_estimator.pose.y

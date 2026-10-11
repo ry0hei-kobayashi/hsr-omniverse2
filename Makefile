@@ -2,15 +2,15 @@
 # HSR-Omniverse Makefile
 #
 # Usage:
-#   make {ros1|ros2} <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]
+#   make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]
 #
-#   ros1, ros2    Select ROS version (default: ros2 when omitted)
+#   ros2          省略可 (ROS1 構成は削除済み。互換のため単語だけ受け付ける)
 #   build         Build images            (make ros2 build nocache でキャッシュ無し)
 #   up            Start the stack
 #   down          Stop and remove containers
 #   logs          Tail logs of all services
 #   ps            Container status
-#   ros           Open bash in ros container (ros-noetic / ros2)
+#   ros           Open bash in ros2 container
 #   isaacsim      Open bash in isaacsim container
 #   exec          Open bash: make ros2 exec ros2 / make ros2 exec isaacsim
 #   run           (dev) Run launch_isaacsim.py manually in isaacsim
@@ -41,7 +41,6 @@
 #   make ros2 up pc                     # PC mode, ROS_DOMAIN_ID=55 default
 #   ROS_DOMAIN_ID=49 make ros2 up pc    # override Domain ID
 #   make ros2 up RVIZ=1                 # MoveIt RViz2 も起動する (既定オフ)
-#   make ros1 build / make ros1 up      # ROS1 Noetic (旧構成)
 # ============================================================================
 
 ROS_DOMAIN_ID_PC ?= 55
@@ -55,22 +54,10 @@ export ROS_DOMAIN_ID
 # ROBOT=hsrb でも渡せる。未指定なら空 → placement.yaml の robot.model に従う。
 ROBOT ?= $(robot)
 
-# --- ROS version selection (from goals) -------------------------------------
-ROS := 2
-ifneq (,$(filter ros1,$(MAKECMDGOALS)))
-  ROS := 1
-endif
-ifneq (,$(filter ros2,$(MAKECMDGOALS)))
-  ROS := 2
-endif
-
-ifeq ($(ROS),1)
-  COMPOSE_FILE := env_docker/docker-compose.yml
-  ROS_SERVICE  := ros-noetic
-else
-  COMPOSE_FILE := env_docker/docker-compose-ros2.yml
-  ROS_SERVICE  := ros2
-endif
+# --- compose file -------------------------------------------------------------
+# ROS1 (noetic) 構成はステップ3 で削除した。'ros2' は互換のため no-op modifier として残す。
+COMPOSE_FILE := env_docker/docker-compose-ros2.yml
+ROS_SERVICE  := ros2
 
 # -p hsr-omniverse: compose のプロジェクト名。付けないとフォルダ名 (env_docker) が
 # プロジェクト名になり、他リポジトリのイメージ (env_docker-isaacsim 等) と衝突・上書きする。
@@ -112,9 +99,6 @@ ifeq ($(PC)$(LOCALHOST),11)
   $(error 'pc' と 'localhost' は同時に指定できません)
 endif
 ifeq ($(PC),1)
-  ifneq ($(ROS),2)
-    $(error 'pc' modifier requires ros2 (got ros$(ROS)). CycloneDDS PC mode is ROS2-only.)
-  endif
   CYCLONEDDS_URI := file:///cyclonedds.pc.xml
   ROS_DOMAIN_ID := $(ROS_DOMAIN_ID_PC)
 else ifeq ($(LOCALHOST),1)
@@ -275,15 +259,14 @@ SIM_ENV_ASSIGNMENTS = TASK_TIME=$(TASK_TIME) USE_RVIZ=$(USE_RVIZ) $(foreach v,$(
 SIM_ENV_EXEC_FLAGS = -e TASK_TIME=$(TASK_TIME) $(foreach v,$(SIM_ENV_NAMES),-e $(v)=$($(v)))
 
 # --- Targets ----------------------------------------------------------------
-.PHONY: help ros1 ros2 pc localhost dev nocache dds-check build up down logs ps ros isaacsim exec run tune tune-apply list-anims offline-assets
+.PHONY: help ros2 pc localhost dev nocache dds-check build up down logs ps ros isaacsim exec run tune tune-apply list-anims offline-assets
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Usage: make {ros1|ros2} <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]"
+	@echo "Usage: make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]"
 	@echo ""
 	@echo "Modifiers:"
-	@echo "  ros1            ROS1 Noetic (compose: env_docker/docker-compose.yml)"
-	@echo "  ros2            ROS2 Humble + Isaac Sim 5.1 (compose: env_docker/docker-compose-ros2.yml) [default]"
+	@echo "  ros2            省略可。ROS2 Humble + Isaac Sim 5.1 (compose: env_docker/docker-compose-ros2.yml)"
 	@echo "  pc              CycloneDDS cross-PC mode, ROS_DOMAIN_ID=$(ROS_DOMAIN_ID_PC) (override via env)"
 	@echo "  localhost       CycloneDDS を loopback に閉じる (LAN へのマルチキャスト漏洩対策)"
 	@echo "  dev             Dev mode: isaacsim stays idle (no auto Python); run it manually"
@@ -319,17 +302,16 @@ help:
 	@echo "  make ros2 up GRASP=1                   # アタッチ把持を有効にする"
 	@echo "  make ros2 up BASE_TRAJ_P_GAIN=1.0      # whole_body 台車 FB を弱める"
 	@echo "  make ros2 up DRAWER_JOINTS=0           # 引き出し化をやめ『置いてあるだけの箱』に戻す"
-	@echo "  make ros1 build / make ros1 up"
 	@echo ""
 	@echo "  # Dev mode (開発用。リリース後は up を使う):"
 	@echo "  make ros2 dev up      # start containers in background (-d), isaacsim idle, prompt returns"
 	@echo "  make ros2 dev run     # same terminal: run the sim, traceback/logs shown here"
 	@echo "  make ros2 dev down    # stop when finished"
 	@echo ""
-	@echo "Resolved: ROS=$(ROS), DDS=$(CYCLONEDDS_URI), ROS_DOMAIN_ID=$(ROS_DOMAIN_ID), compose=$(COMPOSE_FILE)"
+	@echo "Resolved: DDS=$(CYCLONEDDS_URI), ROS_DOMAIN_ID=$(ROS_DOMAIN_ID), compose=$(COMPOSE_FILE)"
 
 # Modifier "targets" — accept as no-ops so they can sit on the command line
-ros1 ros2 pc localhost dev nocache:
+ros2 pc localhost dev nocache:
 	@:
 
 # 起動前に DDS プロファイルの指定と Seed ファイルを検証する。

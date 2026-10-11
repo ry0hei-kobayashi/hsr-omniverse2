@@ -97,32 +97,11 @@ except ImportError as _e:  # pragma: no cover - 実行環境依存
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
 
 
-is_ros2 = False
-try:
-    import rclpy
-    from gazebo_msgs.srv import GetModelState, GetWorldProperties
-    from std_srvs.srv import Empty as EmptySrv
+import rclpy
+from gazebo_msgs.srv import GetModelState, GetWorldProperties
+from std_srvs.srv import Empty as EmptySrv
 
-    is_ros2 = True
-except ImportError:
-    import rospy
-    from gazebo_msgs.srv import (GetModelState, GetModelStateResponse,
-                                 GetWorldProperties,
-                                 GetWorldPropertiesResponse)
-    from std_srvs.srv import Empty as EmptySrv
-    from std_srvs.srv import EmptyResponse
-
-try:
-    import rosgraph
-
-    if not rosgraph.is_master_online():
-        print('Please run roscore before executing this script')
-        kit.close()
-        exit()
-except ImportError:
-    pass
-
-# reset_world 後の localization 復帰用メッセージ。import パスは ROS1/ROS2 共通。
+# reset_world 後の localization 復帰用メッセージ。
 
 # (初期視点と照明の配置は、部屋の中心が分かってからでないと決められないので
 #  ワールドファイルを読んだ後 = 床サイズの計算の直後に行う)
@@ -412,10 +391,7 @@ else:
     ]
     world_file = next((p for p in world_candidates if os.path.exists(p)), None)
     if world_file is None:
-        if is_ros2:
-            world_file = '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
-        else:
-            world_file = '/opt/ros/noetic/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
+        world_file = '/ws/install/tmc_wrs_gazebo_worlds/share/tmc_wrs_gazebo_worlds/worlds/wrs2020_knob.world'
 print(f'Loading world file: {world_file}')
 if not os.path.exists(world_file):
     raise FileNotFoundError(f'World file not found: {world_file}')
@@ -1207,20 +1183,13 @@ else:
     _hsr = hsr.hsr(stage_path=hsr_stage_path)
 model_names.append(_robot_model)
 
-if is_ros2:
-    import std_msgs.msg
+import std_msgs.msg
 
-    collision_detect_pub = _hsr.ros2node.create_publisher(
-        std_msgs.msg.Bool,
-        '/undesired_contact_detector/detect',
-        qos_profile=rclpy.qos.qos_profile_system_default,
-    )
-else:
-    import std_msgs.msg
-
-    collision_detect_pub = rospy.Publisher(
-        '/undesired_contact_detector/detect', std_msgs.msg.Bool, queue_size=10
-    )
+collision_detect_pub = _hsr.ros2node.create_publisher(
+    std_msgs.msg.Bool,
+    '/undesired_contact_detector/detect',
+    qos_profile=rclpy.qos.qos_profile_system_default,
+)
 
 contact_links = [
     '/hsrb/hsrb/base_link/collisions',
@@ -1429,105 +1398,62 @@ def handle_reset_world_topic(_msg):
     _reset_requested = True
 
 
-if is_ros2:
+def handle_get_world_properties_ros2(req, ret):
+    ret.model_names = model_names
+    ret.success = True
+    return ret
 
-    def handle_get_world_properties_ros2(req, ret):
-        ret.model_names = model_names
-        ret.success = True
-        return ret
+def handle_get_model_state_ros2(req, ret):
+    stage = omni.usd.get_context().get_stage()
+    objxform = get_xform(stage, req.model_name)
+    refxform = get_xform(stage, req.relative_entity_name)
+    relpose = objxform * refxform.GetInverse()
+    translation = relpose.ExtractTranslation()
+    rotation = relpose.GetOrthonormalized().ExtractRotationQuat()
+    rotation_imaginary = rotation.GetImaginary()
+    # create response
+    ret.header.frame_id = req.relative_entity_name
+    ret.pose.position.x = translation[0]
+    ret.pose.position.y = translation[1]
+    ret.pose.position.z = translation[2]
+    ret.pose.orientation.x = rotation_imaginary[0]
+    ret.pose.orientation.y = rotation_imaginary[1]
+    ret.pose.orientation.z = rotation_imaginary[2]
+    ret.pose.orientation.w = rotation.GetReal()
+    ret.success = True
+    return ret
 
-    def handle_get_model_state_ros2(req, ret):
-        stage = omni.usd.get_context().get_stage()
-        objxform = get_xform(stage, req.model_name)
-        refxform = get_xform(stage, req.relative_entity_name)
-        relpose = objxform * refxform.GetInverse()
-        translation = relpose.ExtractTranslation()
-        rotation = relpose.GetOrthonormalized().ExtractRotationQuat()
-        rotation_imaginary = rotation.GetImaginary()
-        # create response
-        ret.header.frame_id = req.relative_entity_name
-        ret.pose.position.x = translation[0]
-        ret.pose.position.y = translation[1]
-        ret.pose.position.z = translation[2]
-        ret.pose.orientation.x = rotation_imaginary[0]
-        ret.pose.orientation.y = rotation_imaginary[1]
-        ret.pose.orientation.z = rotation_imaginary[2]
-        ret.pose.orientation.w = rotation.GetReal()
-        ret.success = True
-        return ret
+_hsr.ros2node.create_service(
+    GetWorldProperties,
+    '/gazebo/get_world_properties',
+    handle_get_world_properties_ros2,
+    qos_profile=rclpy.qos.qos_profile_services_default,
+)
+_hsr.ros2node.create_service(
+    GetModelState,
+    '/gazebo/get_model_state',
+    handle_get_model_state_ros2,
+    qos_profile=rclpy.qos.qos_profile_services_default,
+)
 
-    _hsr.ros2node.create_service(
-        GetWorldProperties,
-        '/gazebo/get_world_properties',
-        handle_get_world_properties_ros2,
-        qos_profile=rclpy.qos.qos_profile_services_default,
-    )
-    _hsr.ros2node.create_service(
-        GetModelState,
-        '/gazebo/get_model_state',
-        handle_get_model_state_ros2,
-        qos_profile=rclpy.qos.qos_profile_services_default,
-    )
+def handle_reset_world_ros2(req, ret):
+    _request_reset_and_wait()
+    return ret
 
-    def handle_reset_world_ros2(req, ret):
-        _request_reset_and_wait()
-        return ret
+_hsr.ros2node.create_service(
+    EmptySrv,
+    '/isaac/reset_world',
+    handle_reset_world_ros2,
+    qos_profile=rclpy.qos.qos_profile_services_default,
+)
 
-    _hsr.ros2node.create_service(
-        EmptySrv,
-        '/isaac/reset_world',
-        handle_reset_world_ros2,
-        qos_profile=rclpy.qos.qos_profile_services_default,
-    )
-
-    handle_reset_world_topic_ros2 = handle_reset_world_topic
-    _reset_world_topic_sub = _hsr.ros2node.create_subscription(
-        EmptyMsg,
-        '/isaac/reset_world_request',
-        handle_reset_world_topic_ros2,
-        10,
-    )
-else:
-
-    def handle_get_world_properties(req):
-        ret = GetWorldPropertiesResponse()
-        ret.model_names = model_names
-        ret.success = True
-        return ret
-
-    def handle_get_model_state(req):
-        stage = omni.usd.get_context().get_stage()
-        objxform = get_xform(stage, req.model_name)
-        refxform = get_xform(stage, req.relative_entity_name)
-        relpose = objxform * refxform.GetInverse()
-        translation = relpose.ExtractTranslation()
-        rotation = relpose.GetOrthonormalized().ExtractRotationQuat()
-        rotation_imaginary = rotation.GetImaginary()
-        # create response
-        ret = GetModelStateResponse()
-        ret.header.frame_id = req.relative_entity_name
-        ret.pose.position.x = translation[0]
-        ret.pose.position.y = translation[1]
-        ret.pose.position.z = translation[2]
-        ret.pose.orientation.x = rotation_imaginary[0]
-        ret.pose.orientation.y = rotation_imaginary[1]
-        ret.pose.orientation.z = rotation_imaginary[2]
-        ret.pose.orientation.w = rotation.GetReal()
-        ret.success = True
-        return ret
-
-    rospy.Service('/gazebo/get_world_properties',
-                  GetWorldProperties, handle_get_world_properties)
-    rospy.Service('/gazebo/get_model_state',
-                  GetModelState, handle_get_model_state)
-
-    def handle_reset_world(req):
-        _request_reset_and_wait()
-        return EmptyResponse()
-
-    rospy.Service('/isaac/reset_world', EmptySrv, handle_reset_world)
-    _reset_world_topic_sub = rospy.Subscriber(
-        '/isaac/reset_world_request', EmptyMsg, handle_reset_world_topic)
+handle_reset_world_topic_ros2 = handle_reset_world_topic
+_reset_world_topic_sub = _hsr.ros2node.create_subscription(
+    EmptyMsg,
+    '/isaac/reset_world_request',
+    handle_reset_world_topic_ros2,
+    10,
+)
 
 # reset_world (テレポート) 後に localization スタックを spawn 位置へ復帰させる publisher。
 #   /isaac/reset_world_event : laser_scan_matcher 再起動ヘルパー (別コンテナの ROS ノード)

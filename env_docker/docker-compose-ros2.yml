@@ -74,7 +74,6 @@ services:
       - ACCEPT_EULA=Y
       - http_proxy=http://127.0.0.1:3128
       - NVIDIA_VISIBLE_DEVICES=all
-      - HSR_ROS_VERSION=2
       # 起動するタスク (configs/tasks/<TASK>/)。`make ros2 up TASK=hri` で渡る。
       # 未指定なら空 → launch_isaacsim.py は configs 直下の既定で起動。
       - TASK=${TASK:-}

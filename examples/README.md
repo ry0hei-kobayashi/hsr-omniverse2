@@ -12,7 +12,7 @@ make ros2 exec ros2                            # ros2 コンテナに入る
 python3 /examples/grasp_only.py           # 例: 把持デモ
 ```
 
-コンテナには `/examples` としてマウント済み (docker-compose.yml)。
+コンテナには `/examples` としてマウント済み (env_docker/docker-compose-ros2.yml)。
 
 ## ファイル一覧
 

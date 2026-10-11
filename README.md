@@ -2,7 +2,7 @@
 
 NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 
-> **Note:** **ROS 2 Humble + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。旧 ROS1 noetic 構成 (`make ros1 ...`) は残っているが保守対象外。
+> **Note:** **ROS 2 Humble + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。ROS1 (noetic) 構成は削除済み。
 
 Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble の rclpy を**同梱**している。
 このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
@@ -81,7 +81,7 @@ xhost local:
 
 ### 4. ビルド・起動
 
-操作は `Makefile` 経由で統一しています。コマンドは `make {ros1|ros2} <action> [dev] [pc|localhost] [nocache] [TASK=...]` のかたちで組み合わせます (デフォルト `ros2`、`pc`/`localhost` 修飾子は `ros2` 限定)。
+操作は `Makefile` 経由で統一しています。コマンドは `make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=...]` のかたちで組み合わせます (`ros2` は省略可。ROS1 構成を削除したので単語だけ互換のために受け付けます)。
 
 ```bash
 # ROS2 Humble (デフォルト)
@@ -104,20 +104,13 @@ make ros2 exec ros2           # ros2 コンテナで bash (ROS 環境 source 済
 make ros2 exec isaacsim       # isaacsim コンテナで bash
 make ros2 logs                # ログを tail
 
-# ROS1 Noetic
-make ros1 build
-make ros1 up
-make ros1 ros                 # ros-noetic コンテナで bash
-
 # 単語の順序は問いません: make pc up ros2 でも同じ
-# 不正な組合せはエラー: make ros1 up pc → 'pc' requires ros2
 
 make                          # 引数なし → help (現在の解決状態も表示)
 ```
 
 裏側で参照する compose ファイル:
 - `ros2` → `env_docker/docker-compose-ros2.yml`
-- `ros1` → `env_docker/docker-compose.yml`
 
 Isaac Sim の初回起動は 10〜20 分かかります(シェーダーコンパイル、USD 読み込み)。2 回目以降はマウントしたキャッシュが効くので速くなります。
 
@@ -227,7 +220,7 @@ Apptainer 側は `source scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]`。詳�
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
 別マシンの ROS 2 (例: HSR 実機 / Singularity を入れた操作用ラップトップ) と通信したい場合は
-`make ros2 up pc` を使います (ROS1 と組み合わせるとエラー)。
+`make ros2 up pc` を使います。
 
 **相手 IP を `PEER=` で渡すと `assets/cyclonedds.pc.xml` を自動生成します**(NIC 名は相手と同じ
 サブネットから自動判定。手編集不要):
@@ -385,7 +378,7 @@ make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd
 ├── docs/          # 補足ドキュメント (dds-localhost.md, tmc_wrs_gazebo_worlds-build-note.md)
 ├── env_docker/    # Dockerfile.* (isaacsim-ros2 は Isaac 5.1 + py3.11 メッセージビルドの 2 ステージ) と docker-compose*.yml
 ├── examples/      # 制御指示のサンプル (hsrb_interface / MoveIt)。ros2 コンテナに /examples で live マウント
-├── launch/        # ROS1/ROS2 launch ファイル
+├── launch/        # ROS 2 launch ファイル
 ├── recordings/    # 競技モードの録画・tune の出力先 (git 管理外)
 ├── scripts/       # 実行スクリプト (hsr.py, launch_isaacsim.py, arena_cameras.py, fetch_isaac_offline_assets.py 他)
 ├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー, unknown_objects/ 等)
