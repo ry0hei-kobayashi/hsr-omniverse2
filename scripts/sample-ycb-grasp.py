@@ -7,7 +7,7 @@ import os
 import glob
 from typing import Dict, Iterable, List, Tuple
 
-from omni.isaac.kit import SimulationApp
+from isaacsim.simulation_app import SimulationApp
 
 # The SimulationApp must be created before importing most Isaac/Omni modules.
 kit = SimulationApp({"renderer": "RayTracedLighting", "headless": False})
@@ -16,12 +16,12 @@ kit.set_setting("/app/extensions/installUntrustedExtensions", True)
 import omni.kit.commands  # noqa: E402  (import after SimulationApp creation)
 import omni.timeline  # noqa: E402
 import omni.usd  # noqa: E402
-from omni.isaac.core import SimulationContext  # noqa: E402
-from omni.isaac.core.utils import stage, viewports  # noqa: E402
-from omni.isaac.core.utils.prims import create_prim  # noqa: E402
-from omni.isaac.core.utils.rotations import euler_angles_to_quat  # noqa: E402
+from isaacsim.core.api import SimulationContext  # noqa: E402
+from isaacsim.core.utils import stage, viewports  # noqa: E402
+from isaacsim.core.utils.prims import create_prim  # noqa: E402
+from isaacsim.core.utils.rotations import euler_angles_to_quat  # noqa: E402
 from omni.isaac.dynamic_control import _dynamic_control  # noqa: E402
-from omni.isaac.version import get_version  # noqa: E402
+from isaacsim.core.version import get_version  # noqa: E402
 from pxr import Gf, Sdf, UsdGeom, UsdPhysics  # noqa: E402
 
 import hsr  # noqa: E402, needs SimulationApp

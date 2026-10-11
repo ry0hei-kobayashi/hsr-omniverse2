@@ -74,7 +74,7 @@ RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rm -rf tmc_drivers/tmc_pgr_camera && \
     cd .. && \
     colcon build
-ADD assets/ros_entrypoint.sh.ros2 /ros_entrypoint.sh
+ADD assets/ros_entrypoint.ros2.sh /ros_entrypoint.sh
 
 RUN curl -sSL https://raw.githubusercontent.com/NVIDIA-Omniverse/IsaacSim-ros_workspaces/main/humble_ws/fastdds.xml -o /fastdds.xml
 

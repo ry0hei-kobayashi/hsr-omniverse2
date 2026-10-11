@@ -167,7 +167,7 @@ ADD scripts/reset_world_matcher_helper.py /reset_world_matcher_helper.py
 ADD assets/hsr-omniverse.rviz /hsr-omniverse.rviz
 
 COPY assets/cyclonedds.xml /cyclonedds.xml
-ADD assets/ros_entrypoint.sh.ros2 /ros_entrypoint.sh
+ADD assets/ros_entrypoint.ros2.sh /ros_entrypoint.sh
 
 CMD [ "ros2", "launch", "/hsr.launch.py" ]
 #CMD [ "tail", "-f", "/dev/null" ]

@@ -7,7 +7,7 @@ NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble の rclpy を**同梱**している。
 このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
 (`control_msgs` / `tmc_control_msgs` / `gazebo_msgs` / `tf_transformations`) を Python 3.11 向けに
-建てたもの (`env_docker/Dockerfile.isaacsim-ros2` の msgbuild ステージ) を使う。
+建てたもの (`env_docker/Dockerfile.isaacsim` の msgbuild ステージ) を使う。
 MoveIt など ROS 側のスタックは従来どおり 22.04 + Humble の `ros2` コンテナで動き、ホストネットワーク上の DDS で繋がる。
 
 ---
@@ -85,24 +85,24 @@ xhost local:
 
 ```bash
 # ROS2 Humble (デフォルト)
-make ros2 build               # 全イメージをビルド (初回 30 分〜1 時間。isaacsim は 17GB)
-make ros2 build nocache       # レイヤキャッシュ無しで焼き直す
-make ros2 up                  # 起動 (ROS_DOMAIN_ID=26、DDS はマルチキャスト版 assets/cyclonedds.xml)
-make ros2 up localhost        # DDS を loopback に閉じる (LAN へのマルチキャスト漏洩対策。docs/dds-localhost.md)
-make ros2 up pc               # 別 PC と通信する PC モード (CycloneDDS unicast + ROS_DOMAIN_ID=55)
-ROS_DOMAIN_ID=49 make ros2 up pc  # Domain ID を上書き
-ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
-make ros2 up TASK=gpsr        # configs/tasks/gpsr/ の world/配置/見た目で起動 (後述)
-make ros2 up TASK=tidyup TIME=600 SEED=1  # 競技モード (600 秒で自動終了・観戦カメラ録画・固定 Seed 1)
-make ros2 tune TASK=tidyup    # 観戦カメラの位置調整 → make ros2 tune-apply TASK=tidyup で反映
-make ros2 up robot=hsrc_ex    # スポーンするロボットを切り替え (hsrb/hsrc_ex、後述)
-make ros2 up RVIZ=1           # MoveIt の RViz2 も起動 (既定オフ)
-make ros2 up GRASP=1          # アタッチ把持 (指に吸い付く) を有効化。既定は物理接触のみ
-make ros2 down                # 停止
-make ros2 ps                  # コンテナ状態
-make ros2 exec ros2           # ros2 コンテナで bash (ROS 環境 source 済み)
-make ros2 exec isaacsim       # isaacsim コンテナで bash
-make ros2 logs                # ログを tail
+make build               # 全イメージをビルド (初回 30 分〜1 時間。isaacsim は 17GB)
+make build nocache       # レイヤキャッシュ無しで焼き直す
+make up                  # 起動 (ROS_DOMAIN_ID=26、DDS はマルチキャスト版 assets/cyclonedds.xml)
+make up localhost        # DDS を loopback に閉じる (LAN へのマルチキャスト漏洩対策。docs/dds-localhost.md)
+make up pc               # 別 PC と通信する PC モード (CycloneDDS unicast + ROS_DOMAIN_ID=55)
+ROS_DOMAIN_ID=49 make up pc  # Domain ID を上書き
+ROS_DOMAIN_ID=26 make up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
+make up TASK=gpsr        # configs/tasks/gpsr/ の world/配置/見た目で起動 (後述)
+make up TASK=tidyup TIME=600 SEED=1  # 競技モード (600 秒で自動終了・観戦カメラ録画・固定 Seed 1)
+make tune TASK=tidyup    # 観戦カメラの位置調整 → make tune-apply TASK=tidyup で反映
+make up robot=hsrc_ex    # スポーンするロボットを切り替え (hsrb/hsrc_ex、後述)
+make up RVIZ=1           # MoveIt の RViz2 も起動 (既定オフ)
+make up GRASP=1          # アタッチ把持 (指に吸い付く) を有効化。既定は物理接触のみ
+make down                # 停止
+make ps                  # コンテナ状態
+make exec ros2           # ros2 コンテナで bash (ROS 環境 source 済み)
+make exec isaacsim       # isaacsim コンテナで bash
+make logs                # ログを tail
 
 # 単語の順序は問いません: make pc up ros2 でも同じ
 
@@ -110,7 +110,7 @@ make                          # 引数なし → help (現在の解決状態も�
 ```
 
 裏側で参照する compose ファイル:
-- `ros2` → `env_docker/docker-compose-ros2.yml`
+- `ros2` → `env_docker/docker-compose.yml`
 
 Isaac Sim の初回起動は 10〜20 分かかります(シェーダーコンパイル、USD 読み込み)。2 回目以降はマウントしたキャッシュが効くので速くなります。
 
@@ -119,13 +119,13 @@ Isaac Sim の初回起動は 10〜20 分かかります(シェーダーコンパ
 別ターミナルから:
 
 ```bash
-make ros2 exec ros2
+make exec ros2
 # コンテナ内で (ROS 環境は /ros_entrypoint.sh が source 済み):
 ros2 topic list
 ```
 
 > **ROS_DOMAIN_ID** は既定 26 (学生環境 hma_env2 に合わせている)。別 PC や Apptainer 側と通信するときは
-> 両方で必ず揃えること。ずれると一切つながらない。`make ros2 up ROS_DOMAIN_ID=31` で変更できる。
+> 両方で必ず揃えること。ずれると一切つながらない。`make up ROS_DOMAIN_ID=31` で変更できる。
 
 #### トラブルシューティング: トピックが `/parameter_events` と `/rosout` しか出ない
 
@@ -163,13 +163,13 @@ Isaac Sim の `ROS2CameraHelper` は raw の `sensor_msgs/Image` しか出さな
 publisher は advertise だけされて無言になる。
 
 ```bash
-make ros2 exec ros2
+make exec ros2
 # コンテナ内で:
 ros2 node list | grep rgbd_republisher                          # 起動しているか
 ros2 topic info /head_rgbd_sensor/rgb/image_rect_color/compressed  # Publisher count が 1 か
 ```
 
-`Publisher count: 0` なら republisher が落ちている。`make ros2 logs | grep -i republisher` でエラーを確認する。
+`Publisher count: 0` なら republisher が落ちている。`make logs | grep -i republisher` でエラーを確認する。
 意図的に止めたい場合のみ `ros2 launch /hsr.launch.py use_rgbd_republisher:=false`。
 
 RViz で表示するときは publisher が BEST_EFFORT なので **Reliability を Best Effort** にすること。
@@ -191,10 +191,10 @@ Reliable のままだと QoS 不一致で永久に繋がらない。
 
 既定は `60 / 2 / 1 = 30 Hz` で実機の HSR と同等。物理と whole-body 制御と `/clock` は常に 60 Hz。
 ステレオ 2 本はレンダープロダクトのピクセル予算の 73% を占めるのに購読者が居ないので既定で作らない。
-ステレオ画像が要るタスクのときだけ `make ros2 up ENABLE_STEREO_CAMERAS=1`。
+ステレオ画像が要るタスクのときだけ `make up ENABLE_STEREO_CAMERAS=1`。
 
 **RTF が 1.0 を保てないとき** (`ros2 topic hz /clock` が 60 から大きく落ちるとき) は、軽い順に
-`make ros2 up CAMERA_FRAME_SKIP=1` (15 Hz)、`make ros2 up RENDER_EVERY_N_STEPS=3` (20 Hz) を試す。
+`make up CAMERA_FRAME_SKIP=1` (15 Hz)、`make up RENDER_EVERY_N_STEPS=3` (20 Hz) を試す。
 いずれも環境変数なので再ビルドは不要。
 
 #### トラブルシューティング: 点群のレートが発行元より低い
@@ -210,24 +210,24 @@ sim 側 (docker コンテナ) の DDS 設定は `assets/cyclonedds.xml` にあ�
 そちらが Cyclone 既定 (1344B / 100kB) のままだと 1 断片の欠落でサンプルが丸ごと失われる。
 直すのは **生成スクリプト側** (hma2_ws リポジトリの作業)。
 
-#### DDS を loopback に閉じる (`make ros2 up localhost`)
+#### DDS を loopback に閉じる (`make up localhost`)
 
 既定の `assets/cyclonedds.xml` は物理 NIC にバインドし、点群・画像を LAN へマルチキャストで撒く
 (実測で Wi-Fi が 500 Mbps → 50 Mbps に低下)。同一ホスト内だけで ROS 通信するなら
-`make ros2 up localhost` で `assets/cyclonedds.localhost.xml` (lo 固定・マルチキャスト無効) に切り替える。
+`make up localhost` で `assets/cyclonedds.localhost.xml` (lo 固定・マルチキャスト無効) に切り替える。
 Apptainer 側は `source scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]`。詳細は [docs/dds-localhost.md](./docs/dds-localhost.md)。
 
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
 別マシンの ROS 2 (例: HSR 実機 / Singularity を入れた操作用ラップトップ) と通信したい場合は
-`make ros2 up pc` を使います。
+`make up pc` を使います。
 
 **相手 IP を `PEER=` で渡すと `assets/cyclonedds.pc.xml` を自動生成します**(NIC 名は相手と同じ
 サブネットから自動判定。手編集不要):
 
 ```bash
-ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10        # 相手1台
-ROS_DOMAIN_ID=26 make ros2 up pc PEER="192.168.0.10 192.168.0.11"  # 複数台
+ROS_DOMAIN_ID=26 make up pc PEER=192.168.0.10        # 相手1台
+ROS_DOMAIN_ID=26 make up pc PEER="192.168.0.10 192.168.0.11"  # 複数台
 ```
 
 - `PEER=` を付けると起動前に `scripts/gen_cyclonedds_pc.sh` が走り、自分の NIC を自動判定して
@@ -258,11 +258,11 @@ bringup(joy_node + teleop 並べ替え)を動かして `/joy` を送ります。
 
 > world・物体配置・見た目などの設定変更は`configs/` 側で行います。
 
-初回のみ、上の「クイックスタート」の手順で `make ros2 build` までを済ませておきます。
+初回のみ、上の「クイックスタート」の手順で `make build` までを済ませておきます。
 あとは毎回これ 1 行です。
 
 ```bash
-make ros2 up TASK=hri
+make up TASK=hri
 ```
 
 `TASK=<名前>` で起動するタスクを選びます。使える名前:
@@ -276,9 +276,9 @@ make ros2 up TASK=hri
 | `restaurant` | Restaurant |
 
 ```bash
-make ros2 up                  # TASK を付けないと既定設定で起動
-make ros2 up TASK=restaurant  # 別のタスクに切り替え
-make ros2 down                # 終了 (コンテナ停止)
+make up                  # TASK を付けないと既定設定で起動
+make up TASK=restaurant  # 別のタスクに切り替え
+make down                # 終了 (コンテナ停止)
 ```
 
 ### ロボットを切り替える（hsrb / hsrc_ex）
@@ -291,10 +291,10 @@ make ros2 down                # 終了 (コンテナ停止)
 | `hsrc_ex` | HSR-C 拡張版 | `usd/hsrc/hsrc1s.usd`（`scripts/hsr_hsrc_ex.py` で起動） |
 
 ```bash
-make ros2 up robot=hsrb              # HSR-B で起動（既定なので省略しても同じ）
-make ros2 up robot=hsrc_ex           # HSR-C 拡張版で起動
-make ros2 up TASK=hri robot=hsrc_ex  # TASK と併用も可
-ROBOT=hsrc_ex make ros2 up           # 大文字の環境変数でも同じ
+make up robot=hsrb              # HSR-B で起動（既定なので省略しても同じ）
+make up robot=hsrc_ex           # HSR-C 拡張版で起動
+make up TASK=hri robot=hsrc_ex  # TASK と併用も可
+ROBOT=hsrc_ex make up           # 大文字の環境変数でも同じ
 ```
 
 - 省略時は `hsrb` で起動します。
@@ -340,9 +340,9 @@ usd/isaac_offline/                         ← アセットサーバのローカ
 （依存ファイルを再帰的にたどって漏れなく取得します）。
 
 ```bash
-make ros2 offline-assets
+make offline-assets
 # 追加でサーバ上の家具なども取りたいとき:
-make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
+make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 ```
 
 中身は `scripts/fetch_isaac_offline_assets.py`、対象一覧は同ファイルの `DEFAULT_SEEDS`。
@@ -354,7 +354,7 @@ make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd
 
 - **(A) リポジトリにコミットしておく**（推奨・確実）: `git add usd/isaac_offline/` してコミット。
   クローンするだけで会場でも人が出ます。※約 134MB 増えます。
-- **(B) 各 PC で会場前に取得**: その PC で一度 `make ros2 offline-assets` を実行（要ネット）。
+- **(B) 各 PC で会場前に取得**: その PC で一度 `make offline-assets` を実行（要ネット）。
 
 ### 起動時の確認方法
 起動ログに次が出ていれば、人はローカル（オフライン）から読めています:
@@ -380,12 +380,29 @@ make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd
 ├── examples/      # 制御指示のサンプル (hsrb_interface / MoveIt)。ros2 コンテナに /examples で live マウント
 ├── launch/        # ROS 2 launch ファイル
 ├── recordings/    # 競技モードの録画・tune の出力先 (git 管理外)
-├── scripts/       # 実行スクリプト (hsr.py, launch_isaacsim.py, arena_cameras.py, fetch_isaac_offline_assets.py 他)
+├── scripts/       # 実行スクリプト (launch_isaacsim.py = エントリポイント, hsr.py + hsr_*.py = ロボット, task_config.py, drawers.py, arena_cameras.py 他)
 ├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー, unknown_objects/ 等)
 └── worlds/        # .world ファイル (家具・壁の配置)
 ```
 
 エントリポイント: `scripts/launch_isaacsim.py` (旧 `sample-ros.py`)。Isaac Sim から HSR を起動するメインスクリプト。
+
+`scripts/` の構成 (ステップ4 で分割):
+
+| ファイル | 役割 |
+|---|---|
+| `launch_isaacsim.py` | 起動の流れ本体 (world 読み込み・物体 spawn・リセット・ROS サービス・メインループ) |
+| `task_config.py` | `configs/tasks/<TASK>/` の読み込みと環境変数 (`TASK_TIME` / `CAMERA_TUNE` / `PLACEMENT_SEED` / `RENDER_EVERY_N_STEPS`) の上書き |
+| `drawers.py` | 段違い棚の trofast を PrismaticJoint で引き出し化 |
+| `hsr.py` | `class hsr`: ROS ノード、アクションサーバ生成、joint_states / odom / wrench の publish、`step()` |
+| `hsr_params.py` | `BASE_*` / `ARM_FLEX_MAX_FORCE` / `CAMERA_FRAME_SKIP` 等の環境変数パラメータ |
+| `hsr_sensors.py` | カメラ / IMU / LiDAR の OmniGraph 構築 (`SensorsMixin`) |
+| `hsr_physics.py` | 質量・慣性・ジョイント・ドライブ・摩擦の調整 (`PhysicsTuningMixin`) |
+| `hsr_base_drive.py` | 台車駆動: kinematic anchor、ブレーキ、壁クランプ、`reset_to_spawn` (`BaseDriveMixin`) |
+| `hsr_grasp.py` | アタッチ把持と物体姿勢レポート (`GraspMixin`) |
+| `hsr_action_servers.py` | semu.robotics.ros2_bridge の HSR 向けサブクラス (腕/頭/台車/グリッパ) |
+| `hsr_kinematics.py` / `hsr_math.py` | 台車の運動学・オドメトリ / クォータニオン補助 |
+| `hsr_hsrc_ex.py` | hsrc_ex 用の差分 (`hsr.hsr` を継承) |
 
 設定まわり (タスク別の world/配置/見た目): [configs/README.md](./configs/README.md) → タスク個別は [configs/tasks/README.md](./configs/tasks/README.md)。
 

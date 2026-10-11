@@ -19,7 +19,7 @@ fetch_isaac_offline_assets: 会場(WiFiなし)で完全オフライン動作さ�
 
 使い方 (オンライン環境で一度だけ実行する):
   推奨は Makefile 経由:
-      make ros2 offline-assets        # 既定(人アセット)を usd/isaac_offline/ に取得
+      make offline-assets        # 既定(人アセット)を usd/isaac_offline/ に取得
   直接実行する場合は Isaac コンテナ内(pxr が使える環境)で:
       /isaac-sim/kit/python/bin/python3 scripts/fetch_isaac_offline_assets.py \
           --out /path/to/repo/usd/isaac_offline

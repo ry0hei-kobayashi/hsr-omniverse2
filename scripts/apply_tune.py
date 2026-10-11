@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""make ros2 tune の調整結果をタスクの placement.yaml に反映する (`make ros2 tune-apply TASK=<name>`)。
+"""make tune の調整結果をタスクの placement.yaml に反映する (`make tune-apply TASK=<name>`)。
 
-`make ros2 tune TASK=<name>` は結果を recordings/tune/arena_cameras.yaml に書き出すだけで、
+`make tune TASK=<name>` は結果を recordings/tune/arena_cameras.yaml に書き出すだけで、
 configs/tasks/<name>/placement.yaml は書き換えない (コンテナからは読み取り専用で
 マウントされているため)。このスクリプトはホスト側で動き、調整済みの
 `arena_cameras:` ブロックだけをそのタスクの placement.yaml に差し替える。
@@ -48,7 +48,7 @@ def resolve_target() -> str:
         raise SystemExit(
             "[apply-tune] 環境変数 TASK がありません。\n"
             "[apply-tune] どのタスクの placement.yaml に反映するか指定してください: "
-            "make ros2 tune-apply TASK=<name>")
+            "make tune-apply TASK=<name>")
     task_dir = os.path.join(REPO, "configs", "tasks", task)
     if not os.path.isdir(task_dir):
         raise SystemExit(
@@ -89,7 +89,7 @@ def main() -> int:
     target_rel = os.path.relpath(target, REPO)
     if not os.path.exists(TUNED):
         print(f"[apply-tune] 調整結果がありません: {TUNED}")
-        print("[apply-tune] 先に `make ros2 tune TASK=<name>` で位置を調整してください。")
+        print("[apply-tune] 先に `make tune TASK=<name>` で位置を調整してください。")
         return 1
 
     # placement.yaml のほうが新しいなら、調整結果は前の座標系のものかもしれない。
@@ -102,7 +102,7 @@ def main() -> int:
         print(f"[apply-tune] 調整結果 ({t_tuned}) が "
               f"{target_rel} ({t_target}) より古いので中止します。")
         print("[apply-tune] そのまま貼ると placement.yaml の変更が巻き戻ります。")
-        print("[apply-tune] `make ros2 tune TASK=<name>` で取り直してから実行してください。")
+        print("[apply-tune] `make tune TASK=<name>` で取り直してから実行してください。")
         return 1
 
     tuned_text = open(TUNED).read()

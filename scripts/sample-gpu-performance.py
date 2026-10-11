@@ -2,7 +2,7 @@
 # Copyright (c) 2023, MID Academic Promotions, Inc.
 # All rights reserved.
 
-from omni.isaac.kit import SimulationApp
+from isaacsim.simulation_app import SimulationApp
 import os
 import numpy as np
 
@@ -10,16 +10,17 @@ kit = SimulationApp({"renderer": "RayTracedLighting", "headless": False})
 #kit = SimulationApp({"renderer": "PathTracing", "headless": False})
 
 import omni.ui
-from omni.isaac.core import SimulationContext
-from omni.isaac.core.utils import viewports, stage, nucleus
+from isaacsim.core.api import SimulationContext
+from isaacsim.core.utils import viewports, stage
+from isaacsim.storage.native import get_assets_root_path
 import omni.kit.commands
 from omni.isaac.dynamic_control import _dynamic_control
-from omni.isaac.core.utils.prims import create_prim
+from isaacsim.core.utils.prims import create_prim
 
 viewports.set_camera_view(eye=np.array([1.2, 1.2, 0.8]), target=np.array([0, 0, 0.5]))
 
 # Loading the simple_room environment
-assets_root_path = nucleus.get_assets_root_path()
+assets_root_path = get_assets_root_path()
 BACKGROUND_STAGE_PATH = "/background"
 BACKGROUND_USD_PATH = "/Isaac/Environments/Grid/default_environment.usd"
 stage.add_reference_to_stage(assets_root_path + BACKGROUND_USD_PATH, BACKGROUND_STAGE_PATH)

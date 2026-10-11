@@ -6,7 +6,7 @@
 #   source <hsr-omniverse2>/scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]
 #
 # 既定の ROS_DOMAIN_ID は 26。Isaac 側と必ず同じ値にすること:
-#   Isaac 側:     ROS_DOMAIN_ID=31 make ros2 up localhost ROS_DOMAIN_ID=31
+#   Isaac 側:     ROS_DOMAIN_ID=31 make up localhost ROS_DOMAIN_ID=31
 #   Apptainer側:  source .../isaac_localhost_mode.sh 31
 #
 # なぜ専用スクリプトが要るのか:

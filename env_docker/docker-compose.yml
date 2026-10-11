@@ -21,12 +21,12 @@ services:
       - QT_X11_NO_MITSHM=1
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
       # 学生環境 (Apptainer: hma_env2) が 26 を既定にしているので合わせる。
-      # 揃っていないと ROS 2 は互いを一切見つけられない。make ros2 up ROS_DOMAIN_ID=31 で変更可。
+      # 揃っていないと ROS 2 は互いを一切見つけられない。make up ROS_DOMAIN_ID=31 で変更可。
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-26}
     volumes:
       # DDS 設定を live マウント。既定は /cyclonedds.xml (マルチキャスト版)。
-      #   make ros2 up localhost  -> /cyclonedds.localhost.xml (lo に閉じる。docs/dds-localhost.md)
-      #   make ros2 up pc         -> /cyclonedds.pc.xml (別 PC と unicast。scripts/gen_cyclonedds_pc.sh)
+      #   make up localhost  -> /cyclonedds.localhost.xml (lo に閉じる。docs/dds-localhost.md)
+      #   make up pc         -> /cyclonedds.pc.xml (別 PC と unicast。scripts/gen_cyclonedds_pc.sh)
       # ※ イメージに COPY 済みなのは cyclonedds.xml だけ。他の 2 つはこの bind mount でしか
       #    存在しないので、外すと CYCLONEDDS_URI が解決できなくなる。
       - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
@@ -45,7 +45,7 @@ services:
       # パッケージ本体は改変せず bind mount で差し替える (出自は各ファイル先頭のコメント参照)。
       - ../assets/moveit-no-octomap.rviz:/ws/install/hsrb_moveit_config/share/hsrb_moveit_config/config/moveit.rviz:ro
       - ../assets/joint_limits-smooth.yaml:/ws/install/hsrb_moveit_config/share/hsrb_moveit_config/config/joint_limits.yaml:ro
-    # RViz2 は既定オフ。`make ros2 up RVIZ=1` で USE_RVIZ=true が渡る。
+    # RViz2 は既定オフ。`make up RVIZ=1` で USE_RVIZ=true が渡る。
     command: ["ros2", "launch", "/hsr.launch.py", "use_rviz:=${USE_RVIZ:-false}"]
     security_opt:
       - seccomp:unconfined
@@ -57,7 +57,7 @@ services:
   isaacsim:
     build:
       context: ..
-      dockerfile: env_docker/Dockerfile.isaacsim-ros2
+      dockerfile: env_docker/Dockerfile.isaacsim
     ipc: host
     network_mode: host
     security_opt:
@@ -74,10 +74,10 @@ services:
       - ACCEPT_EULA=Y
       - http_proxy=http://127.0.0.1:3128
       - NVIDIA_VISIBLE_DEVICES=all
-      # 起動するタスク (configs/tasks/<TASK>/)。`make ros2 up TASK=hri` で渡る。
+      # 起動するタスク (configs/tasks/<TASK>/)。`make up TASK=hri` で渡る。
       # 未指定なら空 → launch_isaacsim.py は configs 直下の既定で起動。
       - TASK=${TASK:-}
-      # スポーンするロボット。`make ros2 up robot=hsrb` で渡る。
+      # スポーンするロボット。`make up robot=hsrb` で渡る。
       # 未指定なら空 → launch_isaacsim.py は placement.yaml の robot.model を使う。
       - ROBOT=${ROBOT:-}
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
@@ -85,16 +85,16 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-26}
 
       # ---- タスク設定 (configs/tasks/<TASK>/task.yaml) の上書き ----------------
-      # 競技モード: `make ros2 up TASK=tidyup TIME=600` で競技時間 (秒・シミュ内時間) が渡る。
+      # 競技モード: `make up TASK=tidyup TIME=600` で競技時間 (秒・シミュ内時間) が渡る。
       # 空なら task.yaml の time_limit に従う。
       - TASK_TIME=${TASK_TIME:-}
-      # `make ros2 up TASK=tidyup SEED=1`: タスクフォルダ内の placement.seed<N>.yaml を読む。
+      # `make up TASK=tidyup SEED=1`: タスクフォルダ内の placement.seed<N>.yaml を読む。
       - PLACEMENT_SEED=${PLACEMENT_SEED:-}
-      # カメラ調整モード: `make ros2 tune TASK=<name>` で 1 が渡る。観戦カメラ4台を作るだけで
+      # カメラ調整モード: `make tune TASK=<name>` で 1 が渡る。観戦カメラ4台を作るだけで
       # 録画も自動終了もせず、GUI で動かした位置を recordings/tune/ に書き出す。
       - CAMERA_TUNE=${CAMERA_TUNE:-}
       # アタッチ把持(吸い付き)。既定は無効で、物理接触(摩擦)のみで把持する。
-      # 確実に保持させたいときだけ `make ros2 up GRASP=1` で有効化する。
+      # 確実に保持させたいときだけ `make up GRASP=1` で有効化する。
       - GRASP_ATTACH=${GRASP_ATTACH:-0}
       # reset_world の姿勢キャプチャをスポーン root のサブツリー全体に広げる。
       # 0 にすると root のみの旧挙動 (モデル内部のメッシュを手で動かすと戻らない)。
@@ -163,16 +163,28 @@ services:
       # head_l/head_r ステレオ(1280x960 x2)は描画予算の 73% を食うのに購読者が居ないので既定 off。
       - ENABLE_STEREO_CAMERAS=${ENABLE_STEREO_CAMERAS:-0}
     volumes:
-      # DDS 設定を live マウント (ros2 サービスと同じ。`make ros2 up localhost` / `pc` で切り替わる)
+      # DDS 設定を live マウント (ros2 サービスと同じ。`make up localhost` / `pc` で切り替わる)
       - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
       - ../assets/cyclonedds.localhost.xml:/cyclonedds.localhost.xml:ro
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
       # 競技モードの録画出力先 (ホストの recordings/ にそのまま出る。コンテナは root で動くので root 所有になる)
       - ../recordings:/recordings:rw
       - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
+      # launch_isaacsim.py から分離したモジュール (ステップ4)
+      - ../scripts/task_config.py:/app/task_config.py:ro
+      - ../scripts/drawers.py:/app/drawers.py:ro
       # 観戦カメラ録画 / tune (task.yaml の arena_cameras: true で使う)
       - ../scripts/arena_cameras.py:/app/arena_cameras.py:ro
       - ../scripts/hsr.py:/app/hsr.py:ro
+      # hsr.py から分離したモジュール (ステップ4)。hsr.py と一緒に live マウントする。
+      - ../scripts/hsr_params.py:/app/hsr_params.py:ro
+      - ../scripts/hsr_math.py:/app/hsr_math.py:ro
+      - ../scripts/hsr_kinematics.py:/app/hsr_kinematics.py:ro
+      - ../scripts/hsr_action_servers.py:/app/hsr_action_servers.py:ro
+      - ../scripts/hsr_sensors.py:/app/hsr_sensors.py:ro
+      - ../scripts/hsr_physics.py:/app/hsr_physics.py:ro
+      - ../scripts/hsr_grasp.py:/app/hsr_grasp.py:ro
+      - ../scripts/hsr_base_drive.py:/app/hsr_base_drive.py:ro
       - ../scripts/hsr_hsrc_ex.py:/app/hsr_hsrc_ex.py:ro
       # semu.robotics.ros2_bridge (submodule) も live マウント (再ビルド無しで反映)
       - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro

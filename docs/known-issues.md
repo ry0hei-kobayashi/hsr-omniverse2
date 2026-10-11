@@ -4,14 +4,14 @@
 
 ## 1. この機体では既定の DDS 設定でプロセス間探索が成立しない
 
-- 状況: `make ros2 up`（`assets/cyclonedds.xml`、物理 NIC `enp3s0` に autodetermine + マルチキャスト）だと、
+- 状況: `make up`（`assets/cyclonedds.xml`、物理 NIC `enp3s0` に autodetermine + マルチキャスト）だと、
   同一ホスト上の別プロセスどうしが一切見えない。新規ノードから見える topic は自分の `/rosout` `/parameter_events` の 2 本だけ、
   `joint_state_publisher` が robot_description を待ち続ける、`safe_pose_changer` が
   `Communication with arm_trajectory_controller failed` を出し続ける。
 - 原因 (推定・未確認): ホストで `ufw` が active。enp3s0 を経由してループバックしてくる DDS の UDP
   (SPDP 239.255.0.1 / unicast 139xx 番台 = domain 26) が INPUT で落とされている。
   `ip maddr` では 239.255.0.1 に 96 ソケットが参加しているのに受信できない。
-- 対処: `make ros2 up localhost`（`assets/cyclonedds.localhost.xml`、lo 固定・unicast peer）なら
+- 対処: `make up localhost`（`assets/cyclonedds.localhost.xml`、lo 固定・unicast peer）なら
   107 topics / 59 nodes が即見える。**この機体での起動・検証は常に `localhost` modifier を付ける。**
 - 判断待ち: ufw に UDP 7400-7500 / 13900-14000 と 239.255.0.1 を許可する規則を足せば既定設定でも動くはず。
   別 PC と通信する運用 (`pc` モード) が必要になった時点で試す。
@@ -65,7 +65,7 @@
 - 状況: carrobo 由来の hsr.py (台車 kinematic 駆動・ブレーキ・アーム調整) を全部取り込んだが、
   `robot=hsrc_ex` (hsrc1s.usd) での起動は試していない。camera_info ノードの差し替えと
   `og_ros_camera_info_node` の alias 追加だけ行った。
-- 対処: `make ros2 up localhost robot=hsrc_ex` で一度起動して、カメラ・把持・台車を確認する。
+- 対処: `make up localhost robot=hsrc_ex` で一度起動して、カメラ・把持・台車を確認する。
 
 ## 8. ROS1 依存の削除 (ステップ3、2026-10-12 完了)
 
@@ -75,8 +75,9 @@
 - コードから消したもの: `HSR_ROS_VERSION` セレクタと `is_ros2` 分岐 (hsr.py 22 箇所、hsrc_ex 1、launch_isaacsim 3)、
   rospy / actionlib / `tf.transformations` 経路、`og_ros_node()` (OGN ノード名は `isaacsim.ros2.bridge.ROS2*` を直接記述)、
   `reset_world_matcher_helper.py` の ROS1 分岐、Makefile の `ros1` 選択。
-- 残したもの: Makefile の `ros2` 単語 (互換のための no-op)、`env_docker/docker-compose-ros2.yml` というファイル名、
-  `assets/ros_entrypoint.sh.ros2`。名前の整理はステップ4 (リファクタ) で検討。
+- ステップ4 で名前も整理した: `env_docker/docker-compose.yml` (旧 docker-compose-ros2.yml)、`env_docker/Dockerfile.isaacsim`
+  (旧 Dockerfile.isaacsim-ros2)、`assets/ros_entrypoint.ros2.sh` / `ros_entrypoint.isaacsim.sh`、`make <action>` (ros2 単語不要。
+  `make ros2 up` も互換で通る)、`bkup/` 削除。
 - `env_docker/Dockerfile.ycb-grasp` / `docker-compose-ycb-grasp.yml` は ROS1 ではないので残した (動作未確認)。
 - 検証: `make up localhost TASK=gpsr` で起動し、FJT 移動・`/gripper_controller/grasp` (tmc_control_msgs)・IMU・wheel_odom・カメラ・scan を確認。Python エラーなし。
 
@@ -101,6 +102,12 @@
 
 ## 10. 設定・実装上の判断で、後で見直すかもしれないもの
 
+- ステップ4 の分割 (2026-10-12): `hsr.py` 4,114 行 → `hsr.py` 1,230 行 + 8 モジュール (mixin 方式。`class hsr(SensorsMixin,
+  PhysicsTuningMixin, GraspMixin, BaseDriveMixin)`)。メソッドの移動のみで中身は無変更。`launch_isaacsim.py` からは
+  `task_config.py` と `drawers.py` を切り出した (残りの spawn / reset / サービスはモジュール変数を共有しているので据え置き)。
+  compose は単一ファイル mount なので、新モジュールを増やしたら `env_docker/docker-compose.yml` と `Dockerfile.isaacsim` の両方に足すこと
+  (dev モードは scripts/ ごと mount するので不要)。
+
 - `configs/dressing.yaml` の `rc26_venue` preset に `wall_color` を追加 (tidyup の `/wall_*` を白くするため)。
   他タスクの world に `/wall_*` prim は無いので見た目は変わらないはずだが、未確認。
 - `launch_isaacsim.py` の床: 100 m の厚い立方体 → world 範囲 + `FLOOR_MARGIN=1.5` の 5 cm 板 (carrobo 方式)。
@@ -115,6 +122,6 @@
 
 - GitHub の `ry0hei-kobayashi/hsr-omniverse2` リポジトリ (remote `origin` の URL だけ設定済み)。
 - hsr-omniverse2 の初回 commit (案は `~/hsr-omniverse2-patches/COMMIT_PLAN.md`)。
-- `make ros2 up pc` (別 PC モード) の 5.1 での動作確認。
-- `configs/tasks/{gpsr,hri,laundry,pick_and_place,restaurant}` での `arena_cameras: true` / `make ros2 tune` の動作確認
+- `make up pc` (別 PC モード) の 5.1 での動作確認。
+- `configs/tasks/{gpsr,hri,laundry,pick_and_place,restaurant}` での `arena_cameras: true` / `make tune` の動作確認
   (カメラ位置は床中心から自動配置されるはずだが未確認)。

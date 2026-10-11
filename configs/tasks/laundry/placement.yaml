@@ -10,7 +10,7 @@
 #
 # (部屋の見た目 = 床テクスチャ・背景・照明は別の dressing.yaml が担当する)
 #
-# 編集後の反映: make ros2 dev run
+# 編集後の反映: make dev run
 #   (configs/ は bind mount なのでイメージのリビルドは不要)
 #
 # 読み込み側:

@@ -5,7 +5,7 @@
 # このファイルは、全Seed共通のObject Listとスポーン位置を管理する正本。
 # 実行時は物体名を固定した placement.seed1.yaml 〜 placement.seed4.yaml (同じフォルダ) を読む。
 # このファイル自体はプログラムからは読まれない (人が Seed を作る/確認するための正本)。
-#   make ros2 up TASK=tidyup SEED=1
+#   make up TASK=tidyup SEED=1
 #
 # object_list:
 #   ルール文書の4カテゴリと、実際に読み込むUSDモデル名の対応。

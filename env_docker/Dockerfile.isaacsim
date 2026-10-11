@@ -99,17 +99,27 @@ ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/humble/r
 ENV LD_LIBRARY_PATH=/app/ros_msgs/lib:/isaac-sim/exts/isaacsim.ros2.bridge/humble/lib:${LD_LIBRARY_PATH}
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 COPY assets/cyclonedds.xml /cyclonedds.xml
-ADD assets/ros_entrypoint.sh.isaac /ros_entrypoint.sh
+ADD assets/ros_entrypoint.isaacsim.sh /ros_entrypoint.sh
 RUN chmod +x /ros_entrypoint.sh
 
 # ---- アプリ本体 ---------------------------------------------------------------
 WORKDIR /app
 ADD scripts/hsr.py /app/hsr.py
+ADD scripts/hsr_params.py /app/hsr_params.py
+ADD scripts/hsr_math.py /app/hsr_math.py
+ADD scripts/hsr_kinematics.py /app/hsr_kinematics.py
+ADD scripts/hsr_action_servers.py /app/hsr_action_servers.py
+ADD scripts/hsr_sensors.py /app/hsr_sensors.py
+ADD scripts/hsr_physics.py /app/hsr_physics.py
+ADD scripts/hsr_grasp.py /app/hsr_grasp.py
+ADD scripts/hsr_base_drive.py /app/hsr_base_drive.py
 ADD scripts/hsr_hsrc_ex.py /app/hsr_hsrc_ex.py
 # semu.robotics.ros2_bridge (git submodule, MIT). hsr.py adds its src/ to sys.path.
 ADD 3rdparty/semu.robotics.ros2_bridge/src /app/3rdparty/semu.robotics.ros2_bridge/src
 ADD 3rdparty/semu.robotics.ros2_bridge/LICENSE /app/3rdparty/semu.robotics.ros2_bridge/LICENSE
 ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
+ADD scripts/task_config.py /app/task_config.py
+ADD scripts/drawers.py /app/drawers.py
 ADD scripts/arena_cameras.py /app/arena_cameras.py
 ADD scripts/construct_environment.py /app/construct_environment.py
 ADD scripts/object_placement.py /app/object_placement.py
