@@ -165,7 +165,7 @@ ros2 topic echo /scan --once    # 中身を 1 件だけ見る
 - `/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth`
 
 Isaac Sim の `ROS2CameraHelper` は raw の `sensor_msgs/Image` しか出さないので、これを圧縮して
-配り直す `scripts/openmm_rgbd_compression_republisher.py` (ノード名 `rgbd_republisher`) が必要。
+配り直す `scripts/rgbd_republisher.py` (ノード名 `rgbd_republisher`) が必要。
 `hsr.launch.py` が既定で起動する。これが動いていないと depth/rgb の同期が一度も発火せず、
 publisher は advertise だけされて無言になる。
 

@@ -35,7 +35,7 @@ services:
       - ../launch/hsr.launch.py:/hsr.launch.py:ro
       # 圧縮中継スクリプトもライブマウント(編集を再ビルド無しで反映)。
       # マウント先は Dockerfile.ros2 の焼き込み先・hsr.launch.py の参照先と同じ root パス。
-      - ../scripts/openmm_rgbd_compression_republisher.py:/openmm_rgbd_compression_republisher.py:ro
+      - ../scripts/rgbd_republisher.py:/rgbd_republisher.py:ro
       # 制御指示のサンプルコード (実習用)。hsr.launch.py の use_grasp_tf が
       # /examples/grasp_tf_broadcaster.py を起動する。編集が即反映されるよう live マウント。
       - ../examples:/examples:ro

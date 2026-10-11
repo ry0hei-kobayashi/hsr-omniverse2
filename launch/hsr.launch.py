@@ -38,7 +38,7 @@ def declare_arguments():
     # /compressed・/compressedDepth も出す。消費側 (hma_pcl_reconst2 の use_compressed=true,
     # openmm/mmpose 等) はそちらを購読するので、sim でも同じ topic 構成を再現する。
     # これを false にすると /head_rgbd_sensor/reconsted/points が出なくなる。
-    # (マッピングは scripts/openmm_rgbd_compression_republisher.py の DEFAULT_MAPPINGS)。
+    # (マッピングは scripts/rgbd_republisher.py の DEFAULT_MAPPINGS)。
     declared_arguments.append(
         DeclareLaunchArgument(
             'use_rgbd_republisher',
@@ -332,12 +332,12 @@ def generate_launch_description():
     local_republisher = os.path.join(
         os.path.dirname(launch_dir),
         'scripts',
-        'openmm_rgbd_compression_republisher.py',
+        'rgbd_republisher.py',
     )
     image_republisher_script = (
         local_republisher
         if os.path.exists(local_republisher)
-        else '/openmm_rgbd_compression_republisher.py'
+        else '/rgbd_republisher.py'
     )
     # RGB-D の compressed/compressedDepth を作る中継ノード(1本に統合)。
     # 入力(生Image)→出力(CompressedImage)のマッピングはスクリプト側 DEFAULT_MAPPINGS に集約。

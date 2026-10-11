@@ -90,7 +90,7 @@
   LICENSE はイメージ内 `/app/ros_msgs/licenses/` に同梱。ブランチ名での clone なので再現性は低い (commit で固定したければ Dockerfile に SHA を書く)。
 - `assets/joint_limits-smooth.yaml` / `assets/moveit-no-octomap.rviz`: `hsrb_moveit_config` (hsr-project) の設定を改変したもの。
   bind mount でパッケージ内のファイルを上書きしている (パッケージ本体は無改変)。
-- `scripts/openmm_rgbd_compression_republisher.py` の中身は carrobo の `rgbd_republisher.py` (ノード名 `rgbd_republisher`)。ファイル名だけ旧来のまま。
+- `scripts/rgbd_republisher.py`: carrobo のファイル名・ノード名 (`rgbd_republisher`) をそのまま採用 (旧 `openmm_rgbd_compression_republisher.py` から改名)。`Dockerfile.ros2` の ADD 先も変えたので ros2 イメージは要再ビルド (compose の bind mount があるので再ビルド前でも起動は通る)。
 
 ## 10. 設定・実装上の判断で、後で見直すかもしれないもの
 
