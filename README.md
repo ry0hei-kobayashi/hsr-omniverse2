@@ -2,17 +2,18 @@
 
 NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 
-> **Note:** **ROS 2 Humble + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。ROS1 (noetic) 構成は削除済み。
+> **Note:** **ROS 2 Jazzy + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。`make build ROS_DISTRO=humble` で Humble 構成にも戻せる。ROS1 (noetic) 構成は削除済み。
 
-Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble の rclpy を**同梱**している。
+Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble と Jazzy の rclpy を**同梱**している。
 このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
 (`control_msgs` / `tmc_control_msgs` / `gazebo_msgs` / `tf_transformations`) を Python 3.11 向けに
 建てたもの (`env_docker/Dockerfile.isaacsim` の msgbuild ステージ) を使う。
-MoveIt など ROS 側のスタックは従来どおり 22.04 + Humble の `ros2` コンテナで動き、ホストネットワーク上の DDS で繋がる。
+MoveIt など ROS 側のスタックは `ros2` コンテナ (Jazzy: Ubuntu 24.04 / Humble: 22.04) で動き、ホストネットワーク上の DDS で繋がる。
+distro は Makefile の `ROS_DISTRO` (既定 `jazzy`) で選び、イメージは `hsr-omniverse-{ros2,isaacsim}:<distro>` に分かれる。
 
 ---
 
-## クイックスタート (ROS 2 Humble + Isaac Sim 5.1)
+## クイックスタート (ROS 2 Jazzy + Isaac Sim 5.1)
 
 ### 動作確認済み環境
 
@@ -24,7 +25,7 @@ MoveIt など ROS 側のスタックは従来どおり 22.04 + Humble の `ros2`
 | Docker                   | 29.x                        |
 | NVIDIA Container Toolkit | latest                      |
 | Isaac Sim (コンテナ内)   | 5.1.0 (Ubuntu 24.04 / Python 3.11) |
-| ROS 2 (コンテナ内)       | Humble (Isaac 側は同梱 rclpy、ros2 側は 22.04 + apt) |
+| ROS 2 (コンテナ内)       | Jazzy (Isaac 側は同梱 rclpy、ros2 側は 24.04 + apt)。`ROS_DISTRO=humble` で Humble |
 
 推奨スペック: RTX 30 系以降, VRAM 12GB 以上, RAM 32GB 以上, 空きディスク 100GB 以上。
 

@@ -1,18 +1,28 @@
 # Copyright (c) 2023, Toyota Motor Corporation
 # Copyright (c) 2023, MID Academic Promotions, Inc.
 # All rights reserved.
-
-FROM ros:humble-ros-core-jammy
+#
+# ros2 コンテナ: HSR の ROS 2 スタック (MoveIt / nav2 / hsrb_* / tmc_*) + このリポジトリの launch。
+#
+# ROS_DISTRO (build arg, 既定 jazzy) で Humble / Jazzy を切り替える:
+#   make build                      -> jazzy (Ubuntu 24.04)
+#   make build ROS_DISTRO=humble    -> humble (Ubuntu 22.04、ステップ4 までの構成)
+# ブランチ名が distro と一致しないリポジトリだけ下の case で振り分ける。
+# Jazzy 版の構成は https://github.com/ry0hei-kobayashi/hsr-jazzy-docker を元にしている。
+ARG ROS_DISTRO=jazzy
+FROM ros:${ROS_DISTRO}-ros-core
+ARG ROS_DISTRO
 
 SHELL ["/bin/bash", "-c"]
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=${ROS_DISTRO}
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt update && \
-    apt install -y git python-is-python3 g++ make libgflags-dev \
+    apt install -y git curl python-is-python3 g++ make libgflags-dev \
     python3-colcon-common-extensions \
     python3-numpy \
     python3-opencv \
@@ -21,138 +31,88 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libpoco-dev \
     libboost-system-dev \
     libboost-filesystem-dev \
-    libsdl1.2-dev \
-    libsdl-image1.2-dev \
-    ros-humble-rclpy \
-    ros-humble-rosidl-default-generators \
-    ros-humble-tf-transformations \
-    ros-humble-tf2 \
-    ros-humble-tf2-msgs \
-    ros-humble-tf2-geometry-msgs \
-    ros-humble-actionlib-msgs \
-    ros-humble-geometry-msgs \
-    ros-humble-control-msgs \
-    ros-humble-trajectory-msgs \
-    ros-humble-sensor-msgs \
-    ros-humble-nav-msgs \
-    ros-humble-vision-msgs \
-    ros-humble-gazebo-msgs \
-    ros-humble-topic-tools \
-    ros-humble-joint-state-publisher \
-    ros-humble-moveit \
-    ros-humble-moveit-ros-move-group \
-    ros-humble-moveit-ros-perception \
-    ros-humble-pinocchio \
-    ros-humble-nav2-map-server \
-    ros-humble-nav2-bringup \
-    ros-humble-navigation2 \
-    ros-humble-robot-state-publisher \
-    ros-humble-depth-image-proc \
-    ros-humble-image-transport-plugins \
-    ros-humble-image-proc \
-    ros-humble-depth-image-proc \
-    ros-humble-rviz-imu-plugin \
-    ros-humble-rqt-robot-steering \
-    ros-humble-rqt-tf-tree \
-    ros-humble-controller-interface \
-    ros-humble-realtime-tools \
-    ros-humble-action-tutorials-interfaces \
-    ros-humble-example-interfaces \
-    ros-humble-diagnostic-updater \
-    ros-humble-std-srvs \
-    ros-humble-rmw-cyclonedds-cpp \
-    #ros-humble-pcl \
+    ros-${ROS_DISTRO}-rclpy \
+    ros-${ROS_DISTRO}-rosidl-default-generators \
+    ros-${ROS_DISTRO}-tf-transformations \
+    ros-${ROS_DISTRO}-tf2 \
+    ros-${ROS_DISTRO}-tf2-msgs \
+    ros-${ROS_DISTRO}-tf2-geometry-msgs \
+    ros-${ROS_DISTRO}-actionlib-msgs \
+    ros-${ROS_DISTRO}-geometry-msgs \
+    ros-${ROS_DISTRO}-control-msgs \
+    ros-${ROS_DISTRO}-trajectory-msgs \
+    ros-${ROS_DISTRO}-sensor-msgs \
+    ros-${ROS_DISTRO}-nav-msgs \
+    ros-${ROS_DISTRO}-vision-msgs \
+    ros-${ROS_DISTRO}-gazebo-msgs \
+    ros-${ROS_DISTRO}-topic-tools \
+    ros-${ROS_DISTRO}-joint-state-publisher \
+    ros-${ROS_DISTRO}-moveit \
+    ros-${ROS_DISTRO}-moveit-ros-move-group \
+    ros-${ROS_DISTRO}-moveit-ros-perception \
+    ros-${ROS_DISTRO}-pinocchio \
+    ros-${ROS_DISTRO}-nav2-map-server \
+    ros-${ROS_DISTRO}-nav2-bringup \
+    ros-${ROS_DISTRO}-navigation2 \
+    ros-${ROS_DISTRO}-robot-state-publisher \
+    ros-${ROS_DISTRO}-depth-image-proc \
+    ros-${ROS_DISTRO}-image-transport-plugins \
+    ros-${ROS_DISTRO}-image-proc \
+    ros-${ROS_DISTRO}-rviz-imu-plugin \
+    ros-${ROS_DISTRO}-rqt-robot-steering \
+    ros-${ROS_DISTRO}-rqt-tf-tree \
+    ros-${ROS_DISTRO}-controller-interface \
+    ros-${ROS_DISTRO}-realtime-tools \
+    ros-${ROS_DISTRO}-action-tutorials-interfaces \
+    ros-${ROS_DISTRO}-example-interfaces \
+    ros-${ROS_DISTRO}-diagnostic-updater \
+    ros-${ROS_DISTRO}-std-srvs \
+    ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     libode-dev \
     ipython3 \
     python3-stl \
     python3-rosdep
 
+# HSR のワークスペース。hsr-project は distro 名のブランチを持つ。例外 (fork や distro 固有の
+# ブランチ名) は case で振り分ける。
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     mkdir -p /ws/src && \
     cd /ws/src && \
-        git clone -b humble https://github.com/hsr-project/hsrb_drivers.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_drivers.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_gazebo.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_simulator.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_controllers.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_control.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_moveit.git && \
-        git clone -b humble https://github.com/hsr-project/hsr_common.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_launch.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_interfaces.git && \
-        git clone -b rc26 https://github.com/Hibikino-Musashi-Home/hsrb_common.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_common.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_common_msgs.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_realtime_control.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_manipulation.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_manipulation.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_manipulation_local_planner.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_manipulation_base.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_manipulation_planner.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_voice.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_rosnav.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_navigation.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_teleop.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_teleop.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_database.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_robot_local_planner.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_robot.git && \
-        git clone -b main https://github.com/hsr-project/pick_and_place_example.git && \
-        git clone -b humble https://github.com/hsr-project/instance_segmentation_msgs.git && \
-        git clone -b humble https://github.com/hsr-project/cv_bridge_util.git && \
-        git clone -b main https://github.com/hsr-project/coordinate_transform_util_ros.git && \
-        git clone -b humble https://github.com/hsr-project/compressed_rgbd_msgs.git && \
-        git clone -b humble https://github.com/hsr-project/tmc_point_cloud.git && \
-        git clone -b humble https://github.com/hsr-project/graspnet_ros.git && \
-        git clone -b humble https://github.com/hsr-project/hsrb_system_inspection.git && \
-        git clone -b ignition/humble https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git && \
-        git clone -b ros2_csm_eigen https://github.com/AlexKaravaev/csm.git && \
-        git clone -b main https://github.com/AlexKaravaev/ros2_laser_scan_matcher.git && \
-
+    for r in hsrb_drivers tmc_drivers tmc_gazebo hsrb_simulator hsrb_controllers hsrb_control hsrb_moveit \
+             hsr_common hsrb_launch hsrb_interfaces tmc_common tmc_common_msgs tmc_realtime_control \
+             hsrb_manipulation tmc_manipulation tmc_manipulation_base tmc_manipulation_planner tmc_voice \
+             hsrb_rosnav tmc_navigation tmc_teleop hsrb_teleop tmc_database hsrb_robot \
+             pick_and_place_example instance_segmentation_msgs cv_bridge_util compressed_rgbd_msgs \
+             tmc_point_cloud graspnet_ros hsrb_system_inspection; do \
+        git clone -q -b ${ROS_DISTRO} https://github.com/hsr-project/${r}.git || exit 1; \
+    done && \
+    git clone -q -b main https://github.com/hsr-project/coordinate_transform_util_ros.git && \
+    case "${ROS_DISTRO}" in \
+      humble) \
+        git clone -q -b rc26 https://github.com/Hibikino-Musashi-Home/hsrb_common.git && \
+        git clone -q -b humble https://github.com/hsr-project/tmc_manipulation_local_planner.git && \
+        git clone -q -b humble https://github.com/hsr-project/hsrb_robot_local_planner.git && \
+        git clone -q -b ignition/humble https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git ;; \
+      *) \
+        git clone -q -b ${ROS_DISTRO} https://github.com/hsr-project/hsrb_common.git && \
+        git clone -q -b ${ROS_DISTRO} https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git ;; \
+    esac && \
+    git clone -q -b ros2_csm_eigen https://github.com/AlexKaravaev/csm.git && \
+    git clone -q -b main https://github.com/AlexKaravaev/ros2_laser_scan_matcher.git && \
     rm -rf hsrb_launch/hsrb_robot_launch && \
     rm -rf hsrb_gazebo_launch/tmc_grid_map_server && \
     rm -rf hsrb_simulator/hsrb_rviz_simulator && \
     rm -rf tmc_drivers/tmc_pgr_camera && \
+    # ros2_laser_scan_matcher (main) は Humble 向け。Jazzy では tf2_geometry_msgs のヘッダが .hpp になった。
+    if [ "${ROS_DISTRO}" != "humble" ]; then \
+      grep -rl 'tf2_geometry_msgs/tf2_geometry_msgs.h\b' ros2_laser_scan_matcher | \
+        xargs -r sed -i 's|tf2_geometry_msgs/tf2_geometry_msgs\.h\b|tf2_geometry_msgs/tf2_geometry_msgs.hpp|g'; \
+    fi && \
     cd .. && \
-    . /opt/ros/humble/setup.bash && apt update -y && rosdep init && rosdep update && rosdep install --ignore-src -r -y -i --from-paths src && \
-    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
+    apt update -y && (rosdep init || true) && rosdep update --rosdistro $ROS_DISTRO && \
+    rosdep install --ignore-src -r -y -i --from-paths src && \
+    colcon build --symlink-install --continue-on-error --cmake-args -DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
 
-
-
-#RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
-#    mkdir -p /ws/src && \
-#    cd /ws/src && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_description.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_meshes.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_common.git && \
-#    git clone -b humble https://github.com/hsr-project/hsr_common.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_drivers.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_database.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_manipulation_base.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_manipulation.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_manipulation_planner.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_manipulation.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_moveit_plugins.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_moveit_config.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_common_msgs.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_realtime_control.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_navigation.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_rosnav.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_robot.git && \
-#    git clone -b ros2_csm_eigen https://github.com/AlexKaravaev/csm.git && \
-#    git clone -b main https://github.com/AlexKaravaev/ros2_laser_scan_matcher.git && \
-#    git clone -b humble https://github.com/hsr-project/tmc_voice.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_launch.git && \
-#    git clone -b humble https://github.com/hsr-project/hsrb_interfaces.git && \
-#    git clone -b feature/ros2 https://github.com/hsr-project/tmc_gazebo_task_evaluators.git && \
-#    git clone -b feature/ros2 https://github.com/hsr-project/tmc_wrs_gazebo.git && \
-#    rm -rf tmc_drivers/tmc_pgr_camera && \
-#    rm -rf tmc_voice/tmc_talk_hoya_py && \
-#    cd .. && \
-#    colcon build
-
-# RUN curl -sSL https://raw.githubusercontent.com/NVIDIA-Omniverse/IsaacSim-ros_workspaces/main/humble_ws/fastdds.xml -o /fastdds.xml
-# ENV FASTRTPS_DEFAULT_PROFILES_FILE /fastdds.xml
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 RUN curl -sSL https://github.com/hsr-project/hsrb_rosnav/raw/refs/heads/master/hsrb_rosnav_config/maps/white_space/map.yaml -o /map.yaml
@@ -170,4 +130,3 @@ COPY assets/cyclonedds.xml /cyclonedds.xml
 ADD assets/ros_entrypoint.ros2.sh /ros_entrypoint.sh
 
 CMD [ "ros2", "launch", "/hsr.launch.py" ]
-#CMD [ "tail", "-f", "/dev/null" ]

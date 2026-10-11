@@ -6,6 +6,11 @@ services:
     build:
       context: ..
       dockerfile: env_docker/Dockerfile.ros2
+      args:
+        # humble / jazzy。Makefile の ROS_DISTRO (既定 jazzy) から渡る。
+        ROS_DISTRO: ${ROS_DISTRO:-jazzy}
+    # distro ごとに別タグにして、切り替えても再ビルドし直しにならないようにする
+    image: hsr-omniverse-ros2:${ROS_DISTRO:-jazzy}
     ipc: host
     network_mode: host
     deploy:
@@ -58,6 +63,9 @@ services:
     build:
       context: ..
       dockerfile: env_docker/Dockerfile.isaacsim
+      args:
+        ROS_DISTRO: ${ROS_DISTRO:-jazzy}
+    image: hsr-omniverse-isaacsim:${ROS_DISTRO:-jazzy}
     ipc: host
     network_mode: host
     security_opt:

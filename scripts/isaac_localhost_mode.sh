@@ -48,7 +48,10 @@ export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI="file://$_ISAAC_PROFILE"
 export ROS_DOMAIN_ID="$_ISAAC_DOMAIN"
 # ROS_LOCALHOST_ONLY は CYCLONEDDS_URI と競合しうるので明示的に無効化しておく
+# Jazzy では ROS_LOCALHOST_ONLY は非推奨 (ROS_AUTOMATIC_DISCOVERY_RANGE)。CycloneDDS は XML 設定で lo に閉じるので
+# どちらも不要だが、hma2_ws 側のスクリプトが設定することがあるため明示的に無効化しておく。
 export ROS_LOCALHOST_ONLY=0
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 
 # 古い設定を握ったデーモンを落とす (次の ros2 コマンドで自動的に再起動する)
 ros2 daemon stop > /dev/null 2>&1 || true

@@ -125,3 +125,34 @@
 - `make up pc` (別 PC モード) の 5.1 での動作確認。
 - `configs/tasks/{gpsr,hri,laundry,pick_and_place,restaurant}` での `arena_cameras: true` / `make tune` の動作確認
   (カメラ位置は床中心から自動配置されるはずだが未確認)。
+
+## 12. Jazzy 化 (ステップ5、2026-10-12)
+
+- 構成: `ROS_DISTRO` build arg / 環境変数 (Makefile 既定 `jazzy`) で `ros2` と `isaacsim` の両イメージを切り替える。
+  Isaac 側は同梱の `isaacsim.ros2.bridge/jazzy/rclpy` (Python 3.11、87 パッケージ) を使い、同梱に無いメッセージは
+  `ros:jazzy-ros-base` (Python 3.12) に python3.11 を足した msgbuild ステージで建てる。`ros2` 側は
+  https://github.com/ry0hei-kobayashi/hsr-jazzy-docker と同じ hsr-project の `jazzy` ブランチ群。
+- Humble との差 (ros2 コンテナの clone 対象): `Hibikino-Musashi-Home/hsrb_common` (rc26 fork、humble のみ) の代わりに
+  `hsr-project/hsrb_common` jazzy を使う (rc26 fork 固有の変更があるなら未反映)。`tmc_manipulation_local_planner` と
+  `hsrb_robot_local_planner` は jazzy ブランチが無いので jazzy では入れない (launch からは未参照)。
+  `tmc_wrs_gazebo` は ry0hei-kobayashi fork の `jazzy` ブランチ。
+- semu fork は Jazzy 用ブランチ `isaac5.1-jazzy` (1.1.0) を作り、`bin/` / `packages/` / `exts/` を Jazzy の control_msgs で
+  建て直した (`tools/build.sh jazzy`)。hsr-omniverse2 の `.gitmodules` はこのブランチを指す。Humble 用は `isaac5.1-humble`
+  (692def7) のまま。hsr-omniverse2 自体は fork の `packages/` を sys.path に入れず `/app/ros_msgs` を使うので、
+  `ROS_DISTRO=humble` に戻しても fork の jazzy 成果物は影響しない (ソース import のみ)。
+- Jazzy で踏んだ差分 (直し済み、fork 側): `control_msgs/JointTrajectoryControllerState` から旧欄 `actual` / `desired` が
+  消えた (control_msgs >= 4.6)。semu fork の controller_state publisher が毎ステップ AttributeError を出していたので、
+  旧欄は `hasattr` で有る時だけ書く形にした (fork 1.0.1、成果物も再ビルド済み。**fork の commit / push と hsr-omniverse2 の
+  gitlink 更新が必要**)。Humble 側の購読者 (pumas の arm_node 等) が `actual` を読んでいる場合、Jazzy では `feedback` を読む
+  必要がある。
+- `ROS_LOCALHOST_ONLY` は Jazzy で非推奨 (`ROS_AUTOMATIC_DISCOVERY_RANGE` に置き換え)。このリポジトリの DDS 設定は
+  CycloneDDS の XML で閉じているので影響しないが、`scripts/isaac_localhost_mode.sh` の `export ROS_LOCALHOST_ONLY=0`
+  は Jazzy では警告が出る可能性がある。
+- 検証済み (2026-10-12、`make up localhost TASK=gpsr`、ROS_DISTRO=jazzy): ros2 コンテナ 127 パッケージのビルド
+  (`ros2_laser_scan_matcher` はヘッダ名を `.hpp` に置換して通過)、move_group 起動 ("You can start planning now")、
+  FJT 移動/cancel×2/NaN 拒否、`/gripper_controller/grasp`、台車 cmd_vel 走行 (0.35 m)、wrench 40 Hz、カメラ/compressed/
+  camera_info 20 Hz、`controller_state` (feedback 5 関節)、`hsrb_interface` の import。
+- 未検証: MoveIt の whole_body プランニングを経由した軌道 (Humble でも未実施)、tidyup 競技モードと観戦カメラ録画の Jazzy 版、
+  `examples/` の実走、Apptainer (hma2_ws) 側 Humble との DDS 相互運用 (Humble ⇄ Jazzy は RMW が同じ CycloneDDS なら
+  トピック互換だが、`control_msgs` の controller_state のようにメッセージ定義が変わったものは通らない)。
+

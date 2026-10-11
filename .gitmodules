@@ -7,4 +7,4 @@
 [submodule "3rdparty/semu.robotics.ros2_bridge"]
 	path = 3rdparty/semu.robotics.ros2_bridge
 	url = https://github.com/ry0hei-kobayashi/semu.robotics.ros2_bridge.git
-	branch = isaac5.1-humble
+	branch = isaac5.1-jazzy

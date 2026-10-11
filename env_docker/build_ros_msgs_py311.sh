@@ -18,10 +18,12 @@ PY=/py311/bin/python3.11
 
 # ROS の setup.bash は未定義変数を参照するので -u を一時的に外す
 set +u
-source /opt/ros/humble/setup.bash
+ROS_DISTRO="${ROS_DISTRO:-humble}"
+source /opt/ros/$ROS_DISTRO/setup.bash
 set -u
 
-export PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages:${PYTHONPATH:-}
+# 生成器 (rosidl_*) は apt がその distro の Python (humble: 3.10, jazzy: 3.12) に置いている
+export PYTHONPATH=$(ls -d /opt/ros/$ROS_DISTRO/lib/python3.*/site-packages | head -1):${PYTHONPATH:-}
 
 echo "=== 生成器が 3.11 から見えるか ==="
 $PY - <<'EOF'
@@ -41,31 +43,45 @@ EOF
 
 echo "=== colcon build (Python 3.11 向け) ==="
 cd /ws
-colcon build \
+# Jazzy の rosidl は FindPython3 を複数回呼ぶので、EXECUTABLE だけでなく ROOT_DIR と
+# FIND_STRATEGY=LOCATION でも 3.11 (venv) に固定し、PATH の先頭にも venv を置く
+# (humble では EXECUTABLE 指定だけで足りたが、jazzy では system の 3.12 が選ばれた)。
+PATH=/py311/bin:$PATH colcon build \
     --merge-install \
     --packages-select control_msgs tmc_control_msgs gazebo_msgs tf_transformations \
     --cmake-args \
         -DPython3_EXECUTABLE=$PY \
         -DPYTHON_EXECUTABLE=$PY \
+        -DPython3_ROOT_DIR=/py311 \
+        -DPython3_FIND_STRATEGY=LOCATION \
+        -DPython3_FIND_VIRTUALENV=ONLY \
         -DCMAKE_BUILD_TYPE=Release
 
 echo "=== 生成物の ABI を確認 ==="
-n311=$(find /ws/install -name '*cpython-311*.so' | wc -l)
-n310=$(find /ws/install -name '*cpython-310*.so' | wc -l)
-echo "  cpython-311: $n311 本 / cpython-310: $n310 本"
+# humble の拡張は *.cpython-310-*.so のように ABI タグ付きだが、jazzy の rosidl_generator_py は
+# タグ無し (<pkg>_s__rosidl_typesupport_c.so) で lib/python3.X/site-packages に置く。
+# どちらでも通るよう、3.11 の site-packages に拡張があり、かつどの .so も libpython3.12/3.10 を
+# 参照していないことで判定する。
+SP311=/ws/install/lib/python3.11/site-packages
+n311=$(find "$SP311" -name '*.so' 2>/dev/null | wc -l)
+# (set -e の下では、最後の grep が不一致で終わると代入全体が失敗扱いになるので || true)
+bad=$(for so in $(find /ws/install -name '*.so'); do readelf -d "$so" 2>/dev/null | grep -qE 'libpython3\.(10|12)' && echo "$so"; done || true)
+echo "  python3.11 site-packages の拡張: $n311 本"
 if [ "$n311" -eq 0 ]; then
-    echo "FAIL: 3.11 向けの .so が 1 本も出ていない (3.10 で建っている)"; exit 1
+    echo "FAIL: 3.11 向けの拡張が 1 本も無い。install 内の .so:"; find /ws/install -name '*.so' | sed 's|.*/||' | sort | head -40
+    ls -d /ws/install/lib/python3*/site-packages 2>/dev/null; exit 1
 fi
-if [ "$n310" -gt 0 ]; then
-    echo "FAIL: 3.10 向けの .so が混ざっている (Isaac から読めない)"
-    find /ws/install -name '*cpython-310*.so' | head; exit 1
+if [ -n "$bad" ]; then
+    echo "FAIL: 3.11 以外の libpython を参照する .so がある (Isaac から読めない):"; echo "$bad" | head; exit 1
 fi
 
 echo "=== /out に配る ==="
 mkdir -p "$OUT/lib" "$OUT/rclpy"
 find /ws/install -name '*.so' -exec cp -f {} "$OUT/lib/" \;
 for pkg in control_msgs tmc_control_msgs gazebo_msgs tf_transformations; do
-    d=$(find /ws/install -type d -name "$pkg" -path '*site-packages*' | head -1)
+    # jazzy は python3.12 の site-packages にも同名の階層を作るので、3.11 側を優先して探す
+    d=$(find "$SP311" -maxdepth 1 -type d -name "$pkg" | head -1)
+    [ -z "$d" ] && d=$(find /ws/install -type d -name "$pkg" -path '*site-packages*' | head -1)
     if [ -z "$d" ]; then
         echo "FAIL: $pkg の Python パッケージが見つからない"; exit 1
     fi
