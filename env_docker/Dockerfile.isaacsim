@@ -2,15 +2,15 @@
 # Copyright (c) 2023, MID Academic Promotions, Inc.
 # All rights reserved.
 #
-# Isaac Sim 5.1 + ROS 2 (Isaac 同梱の rclpy を使う。humble / jazzy を ROS_DISTRO で切替)
+# Isaac Sim 5.1 + ROS 2 Jazzy (Isaac 同梱の rclpy を使う。このブランチは Jazzy 専用)
 #
 # 版の前提:
 #   * Isaac Sim 5.1.0 は Ubuntu 24.04 (noble) / Python 3.11。CUDA 12.8 以降の
 #     ドライバ要件のため 4.5.0 は使わない。
-#   * noble に ros-humble-* の apt パッケージは無い。22.04 の Humble を持ち込んでも
-#     rclpy が cpython-310 で 3.11 から読めない。
-#   * Isaac 5.1 は /isaac-sim/exts/isaacsim.ros2.bridge/humble/ に Python 3.11 向けの
-#     rclpy (83 pkg) と rmw (cyclonedds / fastrtps) を同梱している。
+#   * noble の apt にある ros-jazzy-* は Python 3.12 向けで、Isaac の 3.11 からは
+#     rclpy の拡張 (.so) が読めない。
+#   * Isaac 5.1 は /isaac-sim/exts/isaacsim.ros2.bridge/jazzy/ に Python 3.11 向けの
+#     rclpy と rmw (cyclonedds / fastrtps) を同梱している。
 #     → ROS は apt で入れず、同梱物に PYTHONPATH / LD_LIBRARY_PATH を通すだけ。
 #
 # 同梱に無いもの (msgbuild ステージで Python 3.11 向けに建てる):
@@ -19,7 +19,7 @@
 #   * gazebo_msgs           /gazebo/get_world_properties 等の互換サービス
 #   * tf_transformations    純 Python (DLu/tf_transformations) + transforms3d
 #   * tmc_wrs_gazebo_worlds randomizer (純 Python, ry0hei-kobayashi/tmc_wrs_gazebo)
-#   建てる場所 (ros:humble, 22.04) と使う場所 (Isaac, 24.04 / py3.11) を分ける。
+#   建てる場所 (ros:jazzy + python3.11 venv) と使う場所 (Isaac, py3.11) を分ける。
 #   同梱 bridge には lib/ と rclpy/ しか無く CMake 側が丸ごと欠けているので、
 #   Isaac コンテナの中ではメッセージを建てられない。手順は env_docker/build_ros_msgs_py311.sh。
 #
@@ -27,17 +27,11 @@
 # ~/.hsr-omniverse/cache を bind mount して書くために root で走らせる
 # (4.5 時代と同じ運用。キャッシュの mount 先も /root/... のまま)。
 
-# ROS_DISTRO (build arg, 既定 jazzy): Isaac 5.1 は humble と jazzy の rclpy を両方同梱しているので、
-# PYTHONPATH の向き先と msgbuild ステージの土台を切り替えるだけで両方に対応できる。
-#   make build                    -> jazzy
-#   make build ROS_DISTRO=humble  -> humble
-ARG ROS_DISTRO=jazzy
-
 # ---------------------------------------------------------------------------
 # stage 1: Python 3.11 向けに ROS メッセージを建てる
 # ---------------------------------------------------------------------------
-FROM ros:${ROS_DISTRO}-ros-base AS msgbuild
-ARG ROS_DISTRO
+FROM ros:jazzy-ros-base AS msgbuild
+ENV ROS_DISTRO=jazzy
 
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
@@ -73,8 +67,7 @@ RUN git clone -q --depth 1 -b ${ROS_DISTRO} https://github.com/ros-controls/cont
     && git clone -q --depth 1 -b ros2 --filter=blob:none --sparse https://github.com/ros-simulation/gazebo_ros_pkgs.git \
     && (cd gazebo_ros_pkgs && git sparse-checkout set gazebo_msgs) \
     && git clone -q --depth 1 -b main https://github.com/DLu/tf_transformations.git \
-    && if [ "${ROS_DISTRO}" = "humble" ]; then b=ignition/humble; else b=${ROS_DISTRO}; fi \
-    && git clone -q --depth 1 -b $b https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git
+    && git clone -q --depth 1 -b ${ROS_DISTRO} https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git
 
 COPY env_docker/build_ros_msgs_py311.sh /build_ros_msgs_py311.sh
 RUN bash /build_ros_msgs_py311.sh
@@ -83,7 +76,6 @@ RUN bash /build_ros_msgs_py311.sh
 # stage 2: Isaac Sim 5.1
 # ---------------------------------------------------------------------------
 FROM nvcr.io/nvidia/isaac-sim:5.1.0 AS isaac-sim
-ARG ROS_DISTRO
 
 SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
@@ -98,14 +90,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # tf_transformations は transforms3d の薄い包み、randomizer は scipy を使う。
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir transforms3d scipy
 
-# ---- ROS 2 Humble: Isaac 同梱物 + 自前で建てたメッセージ --------------------
-ENV ROS_DISTRO=${ROS_DISTRO} \
+# ---- ROS 2 Jazzy: Isaac 同梱物 + 自前で建てたメッセージ ---------------------
+ENV ROS_DISTRO=jazzy \
     ROS_VERSION=2 \
-    ISAAC_ROS2_BRIDGE=/isaac-sim/exts/isaacsim.ros2.bridge/${ROS_DISTRO}
+    ISAAC_ROS2_BRIDGE=/isaac-sim/exts/isaacsim.ros2.bridge/jazzy
 COPY --from=msgbuild /out /app/ros_msgs
 # 同梱 bridge と同じ並べ方 (lib/ と rclpy/) にしてあるので、パスを足すだけでよい。
-ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/${ROS_DISTRO}/rclpy:/app
-ENV LD_LIBRARY_PATH=/app/ros_msgs/lib:/isaac-sim/exts/isaacsim.ros2.bridge/${ROS_DISTRO}/lib:${LD_LIBRARY_PATH}
+ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy:/app
+ENV LD_LIBRARY_PATH=/app/ros_msgs/lib:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib:${LD_LIBRARY_PATH}
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 COPY assets/cyclonedds.xml /cyclonedds.xml
 ADD assets/ros_entrypoint.isaacsim.sh /ros_entrypoint.sh

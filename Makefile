@@ -44,11 +44,6 @@
 
 ROS_DOMAIN_ID_PC ?= 55
 
-# ROS 2 の distro (humble / jazzy)。既定 jazzy。イメージは hsr-omniverse-{ros2,isaacsim}:<distro> に分かれる。
-#   make build ROS_DISTRO=humble / make up ROS_DISTRO=humble  で従来の Humble 構成に戻せる。
-ROS_DISTRO ?= jazzy
-export ROS_DISTRO
-
 # Isaac 側と Apptainer (hma2_ws) 側で必ず一致させる値。make up ROS_DOMAIN_ID=31 で変えられる。
 # 学生環境 (hma_env2) の既定が 26 なので合わせている。
 ROS_DOMAIN_ID ?= 26
@@ -310,7 +305,7 @@ help:
 	@echo "  make dev run     # same terminal: run the sim, traceback/logs shown here"
 	@echo "  make dev down    # stop when finished"
 	@echo ""
-	@echo "Resolved: ROS_DISTRO=$(ROS_DISTRO), DDS=$(CYCLONEDDS_URI), ROS_DOMAIN_ID=$(ROS_DOMAIN_ID), compose=$(COMPOSE_FILE)"
+	@echo "Resolved: DDS=$(CYCLONEDDS_URI), ROS_DOMAIN_ID=$(ROS_DOMAIN_ID), compose=$(COMPOSE_FILE)"
 
 # Modifier "targets" — accept as no-ops so they can sit on the command line.
 # ('ros2' は `make exec ros2` の引数として、また旧 `make ros2 up` 互換のために残す)
@@ -335,7 +330,7 @@ dds-check:
 	esac
 	@test -f 'assets/$(DDS_FILE)' || { \
 	  echo '❌ assets/$(DDS_FILE) が見つかりません'; exit 1; }
-	@echo '🔧 ROS_DISTRO=$(ROS_DISTRO)   DDS: $(CYCLONEDDS_URI)   ROS_DOMAIN_ID=$(ROS_DOMAIN_ID)   TASK=$(TASK)'
+	@echo '🔧 DDS: $(CYCLONEDDS_URI)   ROS_DOMAIN_ID=$(ROS_DOMAIN_ID)   TASK=$(TASK)'
 	@if [ -n '$(SEED)' ]; then \
 	  test -f 'configs/tasks/$(TASK)/placement.seed$(SEED).yaml' || { \
 	    echo '❌ Seed ファイルが見つかりません: configs/tasks/$(TASK)/placement.seed$(SEED).yaml'; \

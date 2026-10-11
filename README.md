@@ -2,14 +2,14 @@
 
 NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 
-> **Note:** **ROS 2 Jazzy + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。`make build ROS_DISTRO=humble` で Humble 構成にも戻せる。ROS1 (noetic) 構成は削除済み。
+> **Note:** **ROS 2 Jazzy + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。Humble 構成と ROS1 (noetic) 構成は削除済み (Jazzy 専用)。
 
-Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble と Jazzy の rclpy を**同梱**している。
+Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Jazzy の rclpy を**同梱**している。
 このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
 (`control_msgs` / `tmc_control_msgs` / `gazebo_msgs` / `tf_transformations`) を Python 3.11 向けに
 建てたもの (`env_docker/Dockerfile.isaacsim` の msgbuild ステージ) を使う。
-MoveIt など ROS 側のスタックは `ros2` コンテナ (Jazzy: Ubuntu 24.04 / Humble: 22.04) で動き、ホストネットワーク上の DDS で繋がる。
-distro は Makefile の `ROS_DISTRO` (既定 `jazzy`) で選び、イメージは `hsr-omniverse-{ros2,isaacsim}:<distro>` に分かれる。
+MoveIt など ROS 側のスタックは `ros2` コンテナ (Ubuntu 24.04 + apt の Jazzy) で動き、ホストネットワーク上の DDS で繋がる。
+イメージは `hsr-omniverse-{ros2,isaacsim}:jazzy`。
 
 ---
 
@@ -25,7 +25,7 @@ distro は Makefile の `ROS_DISTRO` (既定 `jazzy`) で選び、イメージ�
 | Docker                   | 29.x                        |
 | NVIDIA Container Toolkit | latest                      |
 | Isaac Sim (コンテナ内)   | 5.1.0 (Ubuntu 24.04 / Python 3.11) |
-| ROS 2 (コンテナ内)       | Jazzy (Isaac 側は同梱 rclpy、ros2 側は 24.04 + apt)。`ROS_DISTRO=humble` で Humble |
+| ROS 2 (コンテナ内)       | Jazzy (Isaac 側は同梱 rclpy、ros2 側は 24.04 + apt) |
 
 推奨スペック: RTX 30 系以降, VRAM 12GB 以上, RAM 32GB 以上, 空きディスク 100GB 以上。
 
@@ -68,7 +68,7 @@ git submodule update --init --recursive
 
 サブモジュールは `usd/hsrb` (HSR の USD)、`usd/wrs_models` (YCB 物体・家具)、
 `3rdparty/semu.robotics.ros2_bridge` (ROS 2 アクションサーバー。Toni-SM 氏の MIT ライセンス拡張を
-Isaac 5.1 向けに移植した fork、ブランチ `isaac5.1-humble`)。どれが無くても起動しない。
+Isaac 5.1 向けに移植した fork、ブランチ `isaac5.1-jazzy`)。どれが無くても起動しない。
 
 ### 3. キャッシュディレクトリ作成と X11 許可
 
@@ -85,7 +85,7 @@ xhost local:
 操作は `Makefile` 経由で統一しています。コマンドは `make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=...]` のかたちで組み合わせます (`ros2` は省略可。ROS1 構成を削除したので単語だけ互換のために受け付けます)。
 
 ```bash
-# ROS2 Humble (デフォルト)
+# ROS 2 Jazzy
 make build               # 全イメージをビルド (初回 30 分〜1 時間。isaacsim は 17GB)
 make build nocache       # レイヤキャッシュ無しで焼き直す
 make up                  # 起動 (ROS_DOMAIN_ID=26、DDS はマルチキャスト版 assets/cyclonedds.xml)

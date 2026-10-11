@@ -4,7 +4,7 @@ services:
     # 中身は手動 (make dev run) で実行する → ログがその端末だけに出る。
     command: ["sleep", "infinity"]
     # NOTE: ここで PYTHONPATH を上書きしないこと。Isaac 5.1 版の Dockerfile は
-    # PYTHONPATH に同梱 ROS 2 (humble/rclpy) と /app/ros_msgs を通しており、compose の
+    # PYTHONPATH に同梱 ROS 2 (jazzy/rclpy) と /app/ros_msgs を通しており、compose の
     # environment で PYTHONPATH=/app と書くとそれが丸ごと消えて rclpy が import できなくなる。
     # /app 自体は Dockerfile 側の PYTHONPATH に含めてある (scene_dressing 等の import 用)。
     volumes:

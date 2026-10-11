@@ -4,19 +4,14 @@
 #
 # ros2 コンテナ: HSR の ROS 2 スタック (MoveIt / nav2 / hsrb_* / tmc_*) + このリポジトリの launch。
 #
-# ROS_DISTRO (build arg, 既定 jazzy) で Humble / Jazzy を切り替える:
-#   make build                      -> jazzy (Ubuntu 24.04)
-#   make build ROS_DISTRO=humble    -> humble (Ubuntu 22.04、ステップ4 までの構成)
-# ブランチ名が distro と一致しないリポジトリだけ下の case で振り分ける。
+# ROS 2 Jazzy (Ubuntu 24.04) 専用。Humble 構成は削除した (このブランチは Jazzy のみ)。
 # Jazzy 版の構成は https://github.com/ry0hei-kobayashi/hsr-jazzy-docker を元にしている。
-ARG ROS_DISTRO=jazzy
-FROM ros:${ROS_DISTRO}-ros-core
-ARG ROS_DISTRO
+FROM ros:jazzy-ros-core
 
 SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_DISTRO=${ROS_DISTRO}
+ENV ROS_DISTRO=jazzy
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -73,8 +68,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3-stl \
     python3-rosdep
 
-# HSR のワークスペース。hsr-project は distro 名のブランチを持つ。例外 (fork や distro 固有の
-# ブランチ名) は case で振り分ける。
+# HSR のワークスペース。hsr-project は distro 名 (jazzy) のブランチを持つ。
+# tmc_wrs_gazebo は Jazzy 版が無いので ry0hei-kobayashi の fork (jazzy ブランチ) を使う。
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     mkdir -p /ws/src && \
     cd /ws/src && \
@@ -87,16 +82,8 @@ RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
         git clone -q -b ${ROS_DISTRO} https://github.com/hsr-project/${r}.git || exit 1; \
     done && \
     git clone -q -b main https://github.com/hsr-project/coordinate_transform_util_ros.git && \
-    case "${ROS_DISTRO}" in \
-      humble) \
-        git clone -q -b rc26 https://github.com/Hibikino-Musashi-Home/hsrb_common.git && \
-        git clone -q -b humble https://github.com/hsr-project/tmc_manipulation_local_planner.git && \
-        git clone -q -b humble https://github.com/hsr-project/hsrb_robot_local_planner.git && \
-        git clone -q -b ignition/humble https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git ;; \
-      *) \
-        git clone -q -b ${ROS_DISTRO} https://github.com/hsr-project/hsrb_common.git && \
-        git clone -q -b ${ROS_DISTRO} https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git ;; \
-    esac && \
+    git clone -q -b ${ROS_DISTRO} https://github.com/hsr-project/hsrb_common.git && \
+    git clone -q -b ${ROS_DISTRO} https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git && \
     git clone -q -b ros2_csm_eigen https://github.com/AlexKaravaev/csm.git && \
     git clone -q -b main https://github.com/AlexKaravaev/ros2_laser_scan_matcher.git && \
     rm -rf hsrb_launch/hsrb_robot_launch && \
@@ -104,10 +91,8 @@ RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rm -rf hsrb_simulator/hsrb_rviz_simulator && \
     rm -rf tmc_drivers/tmc_pgr_camera && \
     # ros2_laser_scan_matcher (main) は Humble 向け。Jazzy では tf2_geometry_msgs のヘッダが .hpp になった。
-    if [ "${ROS_DISTRO}" != "humble" ]; then \
-      grep -rl 'tf2_geometry_msgs/tf2_geometry_msgs.h\b' ros2_laser_scan_matcher | \
-        xargs -r sed -i 's|tf2_geometry_msgs/tf2_geometry_msgs\.h\b|tf2_geometry_msgs/tf2_geometry_msgs.hpp|g'; \
-    fi && \
+    grep -rl 'tf2_geometry_msgs/tf2_geometry_msgs.h\b' ros2_laser_scan_matcher | \
+      xargs -r sed -i 's|tf2_geometry_msgs/tf2_geometry_msgs\.h\b|tf2_geometry_msgs/tf2_geometry_msgs.hpp|g' && \
     cd .. && \
     apt update -y && (rosdep init || true) && rosdep update --rosdistro $ROS_DISTRO && \
     rosdep install --ignore-src -r -y -i --from-paths src && \
