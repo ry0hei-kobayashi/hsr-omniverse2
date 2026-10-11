@@ -141,7 +141,7 @@ defaults:
    └── office_w.jpg
    ```
 
-2. `env_docker/docker-compose-ros2.yml` (および `docker-compose.yml`) の `isaacsim:` サービスの `volumes:` に追加:
+2. `env_docker/docker-compose-ros2.yml` の `isaacsim:` サービスの `volumes:` に追加:
    ```yaml
    - ${HOME}/datasets/OfficeTextures:/data/OfficeTextures:ro
    ```

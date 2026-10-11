@@ -13,8 +13,6 @@ import time
 
 _DEBOUNCE_SEC = 3.0
 
-ROS_VERSION = os.environ.get('HSR_ROS_VERSION', '2').strip()
-
 # ROS2 matcher プロセスを特定する cmdline マッチキー。helper 自身の cmdline
 # (reset_world_matcher_helper.py) には含まれないので自己マッチしない。
 _ROS2_MATCHER_KEY = 'ros2_laser_scan_matcher'
@@ -32,17 +30,10 @@ class _Debouncer:
         return True
 
 
-def _restart_ros1():
-    # ROS1 標準 API でノードを kill する。launch 側の respawn="true" が再起動を担う。
-    import rosnode
-    print('[reset_world_helper] killing laser_scan_matcher_node (ROS1)', flush=True)
-    rosnode.kill_nodes(['/laser_scan_matcher_node'])
-
-
 def _kill_matcher_processes():
     """matcher プロセスを psutil で kill する (hma_ros2cli の ros2 node kill 同様)。
 
-    1つ以上 kill できたら True。ros2 には rosnode kill 相当が無いため、cmdline に
+    1つ以上 kill できたら True。ros2 には ROS1 の rosnode kill 相当が無いため、cmdline に
     _ROS2_MATCHER_KEY を含むプロセスを SIGKILL する。再起動は launch の respawn=True。
     """
     import psutil
@@ -71,22 +62,6 @@ def _restart_ros2():
     print('[reset_world_helper] no laser_scan_matcher process found', flush=True)
 
 
-def main_ros1():
-    import rospy
-    from std_msgs.msg import Empty
-
-    rospy.init_node('reset_world_matcher_helper', disable_signals=True)
-    deb = _Debouncer()
-
-    def _cb(_msg):
-        if deb.ready():
-            _restart_ros1()
-
-    rospy.Subscriber('/isaac/reset_world_event', Empty, _cb)
-    print('[reset_world_helper] ready (ROS1), waiting for /isaac/reset_world_event', flush=True)
-    rospy.spin()
-
-
 def main_ros2():
     import rclpy
     from rclpy.node import Node
@@ -113,7 +88,4 @@ def main_ros2():
 
 
 if __name__ == '__main__':
-    if ROS_VERSION == '1':
-        main_ros1()
-    else:
-        main_ros2()
+    main_ros2()

@@ -92,7 +92,6 @@ RUN /isaac-sim/python.sh -m pip install --no-cache-dir transforms3d scipy
 # ---- ROS 2 Humble: Isaac 同梱物 + 自前で建てたメッセージ --------------------
 ENV ROS_DISTRO=humble \
     ROS_VERSION=2 \
-    HSR_ROS_VERSION=2 \
     ISAAC_ROS2_BRIDGE=/isaac-sim/exts/isaacsim.ros2.bridge/humble
 COPY --from=msgbuild /out /app/ros_msgs
 # 同梱 bridge と同じ並べ方 (lib/ と rclpy/) にしてあるので、パスを足すだけでよい。

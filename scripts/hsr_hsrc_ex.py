@@ -23,9 +23,7 @@ stage = base.stage
 set_targets = base.set_targets
 UsdGeom = base.UsdGeom
 Gf = base.Gf
-og_ros_node = base.og_ros_node
 og_ros_camera_info_node = base.og_ros_camera_info_node
-is_ros2 = base.is_ros2
 
 
 class hsr(base.hsr):
@@ -88,8 +86,6 @@ class hsr(base.hsr):
 
     def _publish_color_optical_static_tf(self) -> None:
         """head_rgbd_sensor_link -> head_rgbd_sensor_color_optical_frame を静的TFで配信(hsrc_ex専用)。"""
-        if not is_ros2:
-            return
         try:
             from geometry_msgs.msg import TransformStamped
             from tf2_ros import StaticTransformBroadcaster
@@ -136,7 +132,7 @@ class hsr(base.hsr):
     def create_cameras(self) -> None:
         # 元 hsr.py の create_cameras をベースに、hsrc_ex で異なるフレーム名だけ差し替えたもの。
         # 左右ステレオ(head_l/r_stereo_*) は HSR-B と同じなので変更していない。
-        topic_prefix = "" if is_ros2 else self.prefix
+        topic_prefix = ""
 
         l_camera_prim = UsdGeom.Camera(
             omni.usd.get_context()
@@ -239,7 +235,7 @@ class hsr(base.hsr):
                         ("ReadSimTime", "isaacsim.core.nodes.IsaacReadSimulationTime"),
                         (
                             "PublishClock",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1PublishClock"),
+                            "isaacsim.ros2.bridge.ROS2PublishClock",
                         ),
                     ],
                     og.Controller.Keys.CONNECT: [
@@ -271,7 +267,7 @@ class hsr(base.hsr):
                         ),
                         (
                             "cameraHelperRgb",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
+                            "isaacsim.ros2.bridge.ROS2CameraHelper",
                         ),
                         ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
@@ -333,7 +329,7 @@ class hsr(base.hsr):
                         ),
                         (
                             "cameraHelperRgb",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
+                            "isaacsim.ros2.bridge.ROS2CameraHelper",
                         ),
                         ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
@@ -395,12 +391,12 @@ class hsr(base.hsr):
                         ),
                         (
                             "cameraHelperRgb",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
+                            "isaacsim.ros2.bridge.ROS2CameraHelper",
                         ),
                         ("cameraHelperInfo", og_ros_camera_info_node()),
                         (
                             "cameraHelperDepth",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
+                            "isaacsim.ros2.bridge.ROS2CameraHelper",
                         ),
                         ("cameraHelperDepthInfo", og_ros_camera_info_node()),
                     ],
@@ -496,7 +492,7 @@ class hsr(base.hsr):
                         ),
                         (
                             "cameraHelperRgb",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
+                            "isaacsim.ros2.bridge.ROS2CameraHelper",
                         ),
                         ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
@@ -608,7 +604,7 @@ class hsr(base.hsr):
                         "isaacsim.core.nodes.IsaacReadSimulationTime",
                     ),
                     ("readImu", "isaacsim.sensors.physics.IsaacReadIMU"),
-                    ("publishImu", og_ros_node("isaacsim.ros1.bridge.ROS1PublishImu")),
+                    ("publishImu", "isaacsim.ros2.bridge.ROS2PublishImu"),
                 ],
                 og.Controller.Keys.CONNECT: [
                     ("OnTick.outputs:tick", "readImu.inputs:execIn"),

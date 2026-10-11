@@ -67,11 +67,18 @@
   `og_ros_camera_info_node` の alias 追加だけ行った。
 - 対処: `make ros2 up localhost robot=hsrc_ex` で一度起動して、カメラ・把持・台車を確認する。
 
-## 8. ROS1 の死にコードが残っている (ステップ3 で削除予定)
+## 8. ROS1 依存の削除 (ステップ3、2026-10-12 完了)
 
-- `scripts/hsr.py` の `is_ros2 is False` 分岐 (`3rdparty/OgnROS1Action*` import 含む)、`scripts/reset_world_matcher_helper.py`、
-  `scripts/launch_isaacsim.py` の rospy フォールバック、`3rdparty/OgnROS1Action*.py`、`env_docker/Dockerfile.isaacsim` / `Dockerfile.ros`、
-  `launch/hsr.launch`、Makefile の `ros1`。`make ros1 ...` は 5.1 化後は動かない (Dockerfile.isaacsim が 4.5 のまま)。
+- 削除したファイル: `3rdparty/OgnROS1Action*.py`、`env_docker/Dockerfile.isaacsim` (noetic)、`env_docker/Dockerfile.ros`、
+  `env_docker/docker-compose.yml` (ROS1 スタック)、`env_docker/docker-compose-multigpu.yml` (ROS1 の Dockerfile に依存)、
+  `launch/hsr.launch`、`scripts/sample-ros-softbody.py` (roscore 前提)。
+- コードから消したもの: `HSR_ROS_VERSION` セレクタと `is_ros2` 分岐 (hsr.py 22 箇所、hsrc_ex 1、launch_isaacsim 3)、
+  rospy / actionlib / `tf.transformations` 経路、`og_ros_node()` (OGN ノード名は `isaacsim.ros2.bridge.ROS2*` を直接記述)、
+  `reset_world_matcher_helper.py` の ROS1 分岐、Makefile の `ros1` 選択。
+- 残したもの: Makefile の `ros2` 単語 (互換のための no-op)、`env_docker/docker-compose-ros2.yml` というファイル名、
+  `assets/ros_entrypoint.sh.ros2`。名前の整理はステップ4 (リファクタ) で検討。
+- `env_docker/Dockerfile.ycb-grasp` / `docker-compose-ycb-grasp.yml` は ROS1 ではないので残した (動作未確認)。
+- 検証: `make up localhost TASK=gpsr` で起動し、FJT 移動・`/gripper_controller/grasp` (tmc_control_msgs)・IMU・wheel_odom・カメラ・scan を確認。Python エラーなし。
 
 ## 9. 外部由来コードの出所・ライセンス
 

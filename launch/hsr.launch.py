@@ -410,7 +410,6 @@ def generate_launch_description():
             'use_sim_time:=true',
         ],
         output='screen',
-        additional_env={'HSR_ROS_VERSION': '2'},
     )
 
     grasp_tf_broadcaster = ExecuteProcess(
