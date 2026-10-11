@@ -4,3 +4,8 @@
 # Python cache
 __pycache__/
 .env
+
+# 競技モードの録画出力 (make ros2 up TASK=<name> TIME=...) と make ros2 tune の出力
+# 競技モードの録画・tune の出力。ディレクトリだけ残す (.gitkeep)
+recordings/*
+!recordings/.gitkeep

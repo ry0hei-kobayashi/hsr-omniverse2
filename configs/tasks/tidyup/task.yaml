@@ -1,0 +1,35 @@
+# ============================================================
+# TidyUp (rc26) のタスク設定
+# ============================================================
+# make ros2 up TASK=tidyup で使われる。
+# 書き方は configs/tasks/README.md を参照。
+
+# このタスクで使う world (worlds/ 内のファイル名)
+# 4部屋 (田の字) の TidyUp アリーナ。構造の説明は同フォルダの README.md と
+# worlds/rc26_tidyup.world 冒頭のコメントを参照。
+world: rc26_tidyup.world
+
+# 見た目 (configs/dressing.yaml のプリセットから選ぶ)
+# 会場風の木目床 + 白壁 (rc26_venue)。/wall_* も白壁色に塗られる。
+dressing:
+  preset: rc26_venue
+  lighting: default
+
+# ---- 競技モード ------------------------------------------------------------
+# 競技時間 (秒, シミュレータ内時間)。0 なら時間無制限の通常起動。
+# >0 なら時間が来たときにシミュレータが自動終了する (arena_cameras: true なら
+# その間 4 方向の観戦カメラで録画し、/recordings に mp4 を保存する)。
+# 環境変数 TASK_TIME (make ros2 up TASK=tidyup TIME=600) があればそれで上書き。
+time_limit: 600
+
+# 観戦カメラ 4 台 (北/南/東/西) を作るか。位置・画角は placement.yaml の arena_cameras: で指定。
+#   true  … time_limit (TASK_TIME) > 0 のとき録画する。
+#           make ros2 tune TASK=tidyup (CAMERA_TUNE=1) なら録画せず GUI で位置調整。
+#   false … カメラを作らない (time_limit > 0 でも時間切れの自動終了だけ行う)。
+arena_cameras: true
+
+# 競技用の固定配置 (Seed) ファイル名のパターン。{n} が Seed 番号に置き換わる。
+# make ros2 up TASK=tidyup SEED=2 (環境変数 PLACEMENT_SEED=2) で
+# このフォルダの placement.seed2.yaml が objects: の配置に使われる
+# (robot: / people: / furniture: / arena_cameras: は placement.yaml のまま)。
+placement_seeds: placement.seed{n}.yaml

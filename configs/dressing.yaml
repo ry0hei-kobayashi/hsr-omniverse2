@@ -82,6 +82,9 @@ dressing_presets:
     # それを会場の白壁色 (実写から抽出) に塗る。restaurant など他プリセットは
     # このキーを持たないので灰色のまま (影響しない)。
     map_box_color: [0.90, 0.89, 0.85]
+    # 直線壁で作った world (rc26_tidyup.world 等) の物理壁 (/wall_*) も同じ白壁色に塗る。
+    # map_box_* を使う world には /wall_* が無いので、そちらの見た目は変わらない。
+    wall_color: [0.90, 0.89, 0.85]
 
   # 背景のみ (床なし)
   backdrop_only:

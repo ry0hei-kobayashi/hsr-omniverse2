@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""生の RGB-D Image を圧縮 (CompressedImage) して再配信する中継ノード。
+
+Isaac Sim の ROS2CameraHelper は raw の sensor_msgs/Image しか publish しないが、
+実機の HSR は image_transport 経由で publish するため /compressed・/compressedDepth が
+存在する。消費側 (hma_pcl_reconst2 の use_compressed=true, openmm/mmpose 等) はこの
+圧縮 topic を購読するので、sim 側でも同じ topic 構成を再現するためにこのノードを挟む。
+
+これが無いと head_pcl_reconst の depth/rgb 同期が一度も発火せず、
+/head_rgbd_sensor/reconsted/points が advertise だけされて無言になる。
+"""
 
 import json
 import struct
@@ -43,13 +53,13 @@ DEFAULT_MAPPINGS = [
 ]
 
 
-class OpenMMRgbdCompressionRepublisher(Node):
+class RgbdRepublisher(Node):
     """生のRGB-D(Image)をsubして圧縮(CompressedImage)をpublishする中継ノード。
     既存topicに追加する形なので元のtopicには影響しない。
     複数の (入力→出力) を1ノードで扱い、実在する入力だけを中継する。"""
 
     def __init__(self) -> None:
-        super().__init__('openmm_rgbd_compression_republisher')
+        super().__init__('rgbd_republisher')
 
         # mappings: JSON配列で上書き可。空なら DEFAULT_MAPPINGS を使う。
         #   例: '[{"input":"/a","output":"/a/compressed","kind":"rgb"}, ...]'
@@ -202,7 +212,7 @@ class OpenMMRgbdCompressionRepublisher(Node):
 
 def main(args=None) -> None:
     rclpy.init(args=args)
-    node = OpenMMRgbdCompressionRepublisher()
+    node = RgbdRepublisher()
     try:
         rclpy.spin(node)
     finally:

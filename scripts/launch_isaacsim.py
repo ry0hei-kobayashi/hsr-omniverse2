@@ -19,6 +19,7 @@
 import math
 import os
 import threading
+import time
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -63,6 +64,16 @@ import construct_environment
 import furniture_spawn
 import hsr
 import people_spawn
+
+# 観戦カメラ (競技モードの録画 / make ros2 tune の調整モード)。
+# omni.replicator と cv2 に依存するので、無い環境でも通常起動は壊さないよう
+# 遅延エラーにする (カメラが必要になった時点で原因を出して止める)。
+try:
+    import arena_cameras
+    _arena_cameras_import_error = None
+except ImportError as _e:  # pragma: no cover - 実行環境依存
+    arena_cameras = None
+    _arena_cameras_import_error = _e
 # isort: on
 
 
@@ -113,23 +124,8 @@ except ImportError:
 
 # reset_world 後の localization 復帰用メッセージ。import パスは ROS1/ROS2 共通。
 
-viewports.set_camera_view(eye=np.array(
-    [3.7, 1.7, 5.0]), target=np.array([0, 0, 0]))
-
-create_prim(
-    '/World/Light_1',
-    'SphereLight',
-    position=np.array([2.0, 0.0, 5.0]),
-    attributes={'inputs:radius': 0.01, 'inputs:intensity': 5e4,
-                'inputs:color': (1.0, 1.0, 1.0)},
-)
-create_prim(
-    '/World/Light_2',
-    'SphereLight',
-    position=np.array([-2.0, 0.0, 5.0]),
-    attributes={'inputs:radius': 0.01, 'inputs:intensity': 5e4,
-                'inputs:color': (1.0, 1.0, 1.0)},
-)
+# (初期視点と照明の配置は、部屋の中心が分かってからでないと決められないので
+#  ワールドファイルを読んだ後 = 床サイズの計算の直後に行う)
 
 
 # アセットの「根っこ(root)」の決め方。
@@ -171,7 +167,7 @@ else:
 
 
 # ============================================================
-# 背景と床 (全タスク共通・オフライン対応)
+# 背景 (全タスク共通・オフライン対応)
 # ============================================================
 # 以前は Grid 環境 (/Isaac/Environments/Grid/default_environment.usd) をアセット
 # サーバ(ネット)から読み込み、その GroundPlane を物理の床に使っていた。
@@ -179,6 +175,7 @@ else:
 #   (2) 背景を白い無地にする (青いグリッドをやめる)
 # ため、ネット取得をやめてローカルに「白い背景(DomeLight) + 当たり判定付きの地面」を作る。
 # 床の見た目テクスチャは後段の dressing がこの上に貼る。
+# (地面そのものは部屋の大きさに合わせるため、world を読んだ後で作る → 下の [floor])
 BACKGROUND_STAGE_PATH = '/background'  # 互換のため名前だけ残す (contact 判定の文字列等)
 
 # 白い背景: テクスチャ無しの DomeLight は、その色がそのまま背景として見える。
@@ -189,117 +186,203 @@ create_prim(
     attributes={'inputs:intensity': 1000.0, 'inputs:color': (1.0, 1.0, 1.0)},
 )
 
-# 物理の地面 (ロボット・物体が乗る面)。大きく薄い箱に当たり判定を付け、上面を z=0 に置く。
-# (以前は背景 USD に含まれていた GroundPlane の代わり。)
-_GROUND_PATH = '/World/GroundPlane'
-_ground_prim = create_prim(
-    prim_path=_GROUND_PATH,
-    prim_type='Cube',
-    translation=[0.0, 0.0, -1.0],  # サイズ2の Cube を z 方向 1 倍 → 上面が z=0
-    scale=[50.0, 50.0, 1.0],  # 約 100m x 100m の床 (場所を選ばず乗れる)
-)
-physx_utils.setCollider(_ground_prim, approximationShape='none')
-
-# 床の摩擦 (滑り防止) をこのローカル地面に適用する。
-floor_material = PhysicsMaterial(
-    prim_path='/World/PhysicsMaterials/FloorMaterial',
-    static_friction=60.0,
-    dynamic_friction=60.0,
-)
-GeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
-    floor_material, weaker_than_descendants=True
-)
-
-model_names = []
-# 生オブジェクト(物理を持たない自作モデル)に drop_object で剛体を付けた prim パス。
-# 剛体が spawn root に付き /body プリムにならないため、[recol] の /body 判定では
-# 拾えない。ここに記録しておき、recol で同じ実行時メンテナンス(collider 再登録)を
-# 適用してロボットがすり抜けないようにする。
-_runtime_rigid_object_paths = []
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ============================================================
-# reset_world
+# タスク選択 (TASK 環境変数) と競技モードの解決
 # ============================================================
-_spawn_initial_states = []
-
-# サービスコールバック (rclpy executor スレッド) から物理ステップ中に prim を
-# 書き換えるのは危険なので、フラグを立ててメインループ側で物理ステップ間に実行する。
-_reset_requested = False
-_reset_done = threading.Event()
-
-
-def _request_reset_and_wait():
-    """reset_world を要求し、メインループが適用し終えるまでブロックする。"""
-    global _reset_requested
-    _reset_done.clear()
-    _reset_requested = True
-    # メインループが適用 → _reset_done.set() するまで待つ (適用保証)。
-    _reset_done.wait(timeout=5.0)
-
-
-model_root = os.path.join(repo_root, 'usd', 'wrs_models')
-if not os.path.exists(model_root):
-    model_root = '/app/usd/wrs_models'
-
-# 自作モデル (my_models / rc26_practice_day_1 など) を読み込み時に剛体化したとき
-# に付ける「既定の質量 (kg)」。YCB は 1 つずつ実測値が入っているが、自作モデルは
-# 値が無いので一律この既定値を入れる (PhysX 任せの自動推定だと密度×体積で大きく
-# ブレるため)。個別の正確な値が必要になったら、後でモデルごとに調整する。
-DEFAULT_OBJECT_MASS_KG = 0.2
-
-# ============================================================
-# タスク選択 (TASK 環境変数)
-# ============================================================
-# `make ros2 dev run TASK=hri` のように指定すると、configs/tasks/<TASK>/ の
-# 設定 (world / placement / dressing) を使う。TASK 未指定なら従来どおり
+# `make ros2 up TASK=hri` のように指定すると、configs/tasks/<TASK>/ の
+# 設定 (world / placement / dressing / 競技モード) を使う。TASK 未指定なら従来どおり
 # configs 直下の既定を使う (後方互換)。
-#   - task.yaml ... world のファイル名 と dressing の選択 (preset/lighting)
-#   - placement.yaml (任意) ... robot/objects/people。無ければ共通の既定。
-_task = os.environ.get('TASK', '').strip()
-_task_world_name = None  # task.yaml の world: (worlds/ 内のファイル名)
-_task_placement_path = None  # None なら configs/placement.yaml (各ローダーの既定)
-_task_dressing_preset = None  # None なら dressing.yaml の defaults
-_task_dressing_lighting = None
-if _task:
-    _task_dir = next(
+#   task.yaml のキー (configs/tasks/README.md 参照):
+#     world            ... worlds/ 内のファイル名
+#     dressing         ... {preset, lighting} (configs/dressing.yaml のプリセット名)
+#     time_limit       ... 競技時間 (秒, シミュレータ内時間)。0 = 無制限。
+#                          >0 で時間が来たら自動終了 (環境変数 TASK_TIME が上書き)。
+#     arena_cameras    ... true で観戦カメラ 4 台を作る (time_limit>0 なら録画、
+#                          CAMERA_TUNE=1 なら調整モード)。
+#     placement_seeds  ... 固定配置 (Seed) ファイル名のパターン。{n} が Seed 番号。
+#                          環境変数 PLACEMENT_SEED=<n> で選ばれ、objects: の配置に使う。
+#   placement.yaml (任意) ... robot/objects/people/furniture/arena_cameras。無ければ共通の既定。
+#
+# 環境変数は task.yaml の値を「上書き」するだけ (task.yaml が一次情報):
+#   TASK_TIME (秒) > time_limit,  CAMERA_TUNE=1 > arena_cameras (調整モードを強制),
+#   PLACEMENT_SEED=<n> > (無指定なら placement.yaml の objects をそのまま使う)
+_TASK_DEFAULTS = {
+    'time_limit': 0,
+    'arena_cameras': False,
+    'placement_seeds': 'placement.seed{n}.yaml',
+}
+
+
+def _load_task_config(task):
+    """configs/tasks/<task>/ を探し、(task_dir, task.yaml の辞書, placement.yaml のパス) を返す。
+
+    task が空なら (None, {}, None)。フォルダが無ければ FileNotFoundError。
+    task.yaml が無いときは警告して空の辞書 (world/dressing は既定)。
+    placement.yaml はタスクフォルダにあればそのパス、無ければ None (各ローダーの既定)。
+    """
+    if not task:
+        return None, {}, None
+    task_dir = next(
         (
             d
             for d in (
-                os.path.join('/app/configs/tasks', _task),
-                os.path.join(repo_root, 'configs', 'tasks', _task),
+                os.path.join('/app/configs/tasks', task),
+                os.path.join(repo_root, 'configs', 'tasks', task),
             )
             if os.path.isdir(d)
         ),
         None,
     )
-    if _task_dir is None:
+    if task_dir is None:
         raise FileNotFoundError(
-            f"TASK='{_task}' のフォルダが見つかりません。configs/tasks/{_task}/ を作ってください。"
+            f"TASK='{task}' のフォルダが見つかりません。configs/tasks/{task}/ を作ってください。"
         )
-    print(f"[task] selected TASK='{_task}' dir={_task_dir}")
+    print(f"[task] selected TASK='{task}' dir={task_dir}")
 
-    # task.yaml (world と dressing の選択) を読む。
-    _task_yaml = os.path.join(_task_dir, 'task.yaml')
-    if os.path.isfile(_task_yaml):
-        with open(_task_yaml) as _f:
-            _tcfg = yaml.safe_load(_f) or {}
-        _task_world_name = _tcfg.get('world')
-        _dsel = _tcfg.get('dressing') or {}
-        _task_dressing_preset = _dsel.get('preset')
-        _task_dressing_lighting = _dsel.get('lighting')
+    task_yaml = os.path.join(task_dir, 'task.yaml')
+    if os.path.isfile(task_yaml):
+        with open(task_yaml) as f:
+            tcfg = yaml.safe_load(f) or {}
     else:
-        print(f'[task] WARNING: {_task_yaml} が無いので world/dressing は既定を使います。')
+        tcfg = {}
+        print(f'[task] WARNING: {task_yaml} が無いので world/dressing は既定を使います。')
 
     # placement.yaml はタスクフォルダにあればそれを優先 (無ければ共通の既定)。
-    _p = os.path.join(_task_dir, 'placement.yaml')
-    if os.path.isfile(_p):
-        _task_placement_path = _p
-        print(f'[task] placement: {_p}')
+    placement = os.path.join(task_dir, 'placement.yaml')
+    if os.path.isfile(placement):
+        print(f'[task] placement: {placement}')
     else:
+        placement = None
         print('[task] placement: タスク個別が無いので共通の configs/placement.yaml を使用')
+    return task_dir, tcfg, placement
 
-# Extract poses of objects from the world file
+
+def _resolve_task_time(task_time_limit):
+    """競技時間 [秒] を決める。環境変数 TASK_TIME があれば task.yaml の time_limit を上書き。
+
+    `make ros2 up TASK=<name> TIME=600` が TASK_TIME=600 として届く。空なら task.yaml の値。
+    数値として読めない値は警告して task.yaml の値に戻す。負の値は 0 (無制限) 扱い。
+    """
+    try:
+        value = float(task_time_limit or 0)
+    except (TypeError, ValueError):
+        print(f'[task] WARNING: task.yaml の time_limit={task_time_limit!r} を数値として'
+              f'読めません。0 (無制限) にします。', flush=True)
+        value = 0.0
+    env = os.environ.get('TASK_TIME', '').strip()
+    if env:
+        try:
+            value = float(env)
+            print(f'[task] TASK_TIME={env} で task.yaml の time_limit を上書き', flush=True)
+        except ValueError:
+            print(f"[task] WARNING: TASK_TIME={env!r} を数値として読めません。"
+                  f'task.yaml の time_limit={value:g} を使います。', flush=True)
+    return max(value, 0.0)
+
+
+def _resolve_camera_tune():
+    """調整モードか (環境変数 CAMERA_TUNE)。`make ros2 tune TASK=<name>` が 1 を渡す。"""
+    return os.environ.get('CAMERA_TUNE', '').strip().lower() in (
+        '1', 'true', 'yes', 'on')
+
+
+def _resolve_placement_seed(task, task_dir, pattern, base_placement_path):
+    """objects: の配置に使う placement ファイルを決める。
+
+    環境変数 PLACEMENT_SEED=<n> (make ros2 up TASK=<name> SEED=<n>) があれば
+    configs/tasks/<task>/<pattern の {n} を n に置換> を返す。TASK が無い・n が整数でない・
+    ファイルが無いときは理由を明示して止める (黙って既定に落ちると配置ミスに気付けない)。
+    無指定なら base_placement_path (タスクの placement.yaml, または None=共通の既定)。
+    """
+    seed_env = os.environ.get('PLACEMENT_SEED', '').strip()
+    if not seed_env:
+        return base_placement_path
+    if not task:
+        raise RuntimeError(
+            f'PLACEMENT_SEED={seed_env} が指定されましたが TASK がありません。'
+            'Seed ファイルは configs/tasks/<TASK>/ から探すので、TASK=<name> も指定してください。'
+        )
+    try:
+        seed = int(seed_env)
+    except ValueError:
+        raise ValueError(
+            f'PLACEMENT_SEED={seed_env!r} は整数ではありません (例: SEED=2)。'
+        ) from None
+    pattern = str(pattern or _TASK_DEFAULTS['placement_seeds'])
+    if '{n}' not in pattern:
+        raise ValueError(
+            f"TASK='{task}' の task.yaml の placement_seeds={pattern!r} に {{n}} がありません。"
+            "例: placement_seeds: placement.seed{n}.yaml"
+        )
+    seed_path = os.path.join(task_dir, pattern.replace('{n}', str(seed)))
+    if not os.path.isfile(seed_path):
+        raise FileNotFoundError(
+            f"TASK='{task}' の Seed {seed} の配置ファイルが見つかりません: {seed_path}\n"
+            f'task.yaml の placement_seeds ({pattern}) に合う名前で '
+            f'configs/tasks/{task}/ に置いてください。'
+        )
+    print(f'[task] PLACEMENT_SEED={seed} -> objects: は {seed_path} を使用 '
+          '(robot/people/furniture/arena_cameras は placement.yaml のまま)', flush=True)
+    return seed_path
+
+
+def _resolve_render_every_n_steps(default=2):
+    """物理 60 Hz のうち何ステップに 1 回描画するか (環境変数 RENDER_EVERY_N_STEPS)。
+
+    描画したフレームだけがカメラの publish 候補になるので、ここが RGB-D の上限レートを決める:
+      カメラ publish [Hz] = 60 / RENDER_EVERY_N_STEPS / (CAMERA_FRAME_SKIP + 1) * RTF
+    既定 2 = 30 Hz 描画。RTF が 1.0 を保てないときは 3 や 4 に。物理と全身制御は常に 60 Hz。
+    """
+    raw = os.environ.get('RENDER_EVERY_N_STEPS', '').strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        print('[render] WARNING: RENDER_EVERY_N_STEPS=%r is invalid; using %d'
+              % (raw, default), flush=True)
+        return default
+
+
+_task = os.environ.get('TASK', '').strip()
+_task_dir, _tcfg, _task_placement_path = _load_task_config(_task)
+_task_world_name = _tcfg.get('world')  # task.yaml の world: (worlds/ 内のファイル名)
+_dsel = _tcfg.get('dressing') or {}
+_task_dressing_preset = _dsel.get('preset')  # None なら dressing.yaml の defaults
+_task_dressing_lighting = _dsel.get('lighting')
+
+# 競技時間 (秒, シミュレータ内時間)。>0 なら競技モード (時間が来たら自動終了)。
+TASK_TIME = _resolve_task_time(_tcfg.get('time_limit', _TASK_DEFAULTS['time_limit']))
+# 調整モード (CAMERA_TUNE=1): 観戦カメラ 4 台だけ作り、録画も自動終了もしない。
+# GUI で位置・画角をいじると /recordings/tune/ に設定 yaml とプレビュー画像が書き出され、
+# make ros2 tune-apply TASK=<name> でタスクの placement.yaml に反映できる。
+CAMERA_TUNE = _resolve_camera_tune()
+# 観戦カメラを作るか。task.yaml の arena_cameras が一次情報だが、CAMERA_TUNE=1 は
+# 「カメラを調整したい」という明示なので false でも作る (調整してから true にする運用)。
+ARENA_CAMERAS = bool(_tcfg.get('arena_cameras', _TASK_DEFAULTS['arena_cameras']))
+if CAMERA_TUNE and not ARENA_CAMERAS:
+    print('[task] CAMERA_TUNE=1: task.yaml は arena_cameras: false ですが、調整のため'
+          'カメラを作ります (録画で使うには arena_cameras: true にしてください)。', flush=True)
+    ARENA_CAMERAS = True
+if CAMERA_TUNE and TASK_TIME > 0:
+    print('[task] CAMERA_TUNE=1 のため競技モード(録画・自動終了)は無効にします。', flush=True)
+    TASK_TIME = 0.0
+if TASK_TIME > 0:
+    print(f'[task] 競技モード: {TASK_TIME:.0f} 秒 (シミュレータ内時間) で自動終了・'
+          f"録画{'あり' if ARENA_CAMERAS else 'なし (arena_cameras: false)'}", flush=True)
+# objects: の配置に使う placement (Seed 指定があればそのファイル)。
+_object_placement_path = _resolve_placement_seed(
+    _task, _task_dir, _tcfg.get('placement_seeds', _TASK_DEFAULTS['placement_seeds']),
+    _task_placement_path)
+RENDER_EVERY_N_STEPS = _resolve_render_every_n_steps()
+print('[render] viewport update every %d physics step(s)' % RENDER_EVERY_N_STEPS,
+      flush=True)
+
+# ============================================================
+# ワールドファイルの決定
+# ============================================================
 # タスクで world が指定されていれば、それを候補の先頭に置く。
 if _task_world_name:
     # タスクが world を明示している場合は、それが見つからなければ
@@ -336,6 +419,314 @@ else:
 print(f'Loading world file: {world_file}')
 if not os.path.exists(world_file):
     raise FileNotFoundError(f'World file not found: {world_file}')
+
+# ============================================================
+# [floor] 床サイズの計算 (部屋の外周 + 余白)
+# ============================================================
+# 床 (見た目のテクスチャ床と当たり判定の床) を部屋に合わせた大きさで作るため、
+# 地面を作る前にワールドファイルから部屋の外周を計算しておく。
+# 床の一辺 = 部屋 (壁・家具の外周) + 余白。FLOOR_MARGIN を大きくすると、床が壁の外まで
+# その分だけ広がる。見た目のテクスチャ床 (dressing) と当たり判定の床 (GroundPlane) を
+# 同じ大きさ・同じ中心にそろえる (灰色の床がテクスチャの外にはみ出さない)。
+FLOOR_MARGIN = 1.5  # 壁の外へ広げる余白 (m)
+_wb = object_placement.world_xy_bounds(world_file)
+if _wb is not None:
+    _floor_size = max(_wb[1] - _wb[0], _wb[3] - _wb[2]) + 2.0 * FLOOR_MARGIN
+    _floor_cx = (_wb[0] + _wb[1]) / 2.0
+    _floor_cy = (_wb[2] + _wb[3]) / 2.0
+else:
+    # 家具・壁が 1 つも無い world: 外周が決まらないので従来どおり約 100m 四方の床を原点に置く
+    # (場所を選ばず乗れる)。dressing も既定サイズに任せる。
+    _floor_size, _floor_cx, _floor_cy = 100.0, 0.0, 0.0
+print(f'[floor] size={_floor_size:.2f}m center=({_floor_cx:.2f}, {_floor_cy:.2f})')
+
+# ============================================================
+# 初期視点と部屋の照明
+# ============================================================
+# どちらも「部屋の中心」を基準に置く。world 座標を直接書くと、ワールドを
+# 平行移動・回転したときにここだけ取り残されて照明が偏る (実際に起きた)。
+viewports.set_camera_view(
+    eye=np.array([_floor_cx - 1.7, _floor_cy + 3.7, 5.0]),
+    target=np.array([_floor_cx, _floor_cy, 0.0]))
+
+# 部屋の中心をはさんで 2 灯。4m 離して対称に置く。
+for _i, _dy in enumerate((2.0, -2.0)):
+    create_prim(
+        f'/World/Light_{_i + 1}',
+        'SphereLight',
+        position=np.array([_floor_cx, _floor_cy + _dy, 5.0]),
+        attributes={'inputs:radius': 0.01, 'inputs:intensity': 5e4,
+                    'inputs:color': (1.0, 1.0, 1.0)},
+    )
+
+# 物理の地面 (ロボット・物体が乗る面)。薄い板に当たり判定を付け、上面を z=0 に置く。
+# 大きさは上で計算した「テクスチャ床と同じ」正方形。厚さは 5cm (横から見ても薄い板)。
+# (以前は背景 USD に含まれていた GroundPlane の代わり。)
+_GROUND_THICKNESS = 0.05  # 床の厚さ (m)
+_GROUND_PATH = '/World/GroundPlane'
+_ground_prim = create_prim(
+    prim_path=_GROUND_PATH,
+    prim_type='Cube',
+    # サイズ2の Cube なので scale = 実寸の半分。上面が z=0 に来るよう中心を厚さの半分だけ下げる。
+    translation=[_floor_cx, _floor_cy, -_GROUND_THICKNESS / 2.0],
+    scale=[_floor_size / 2.0, _floor_size / 2.0, _GROUND_THICKNESS / 2.0],
+)
+physx_utils.setCollider(_ground_prim, approximationShape='none')
+
+# 床の摩擦 (滑り防止) をこのローカル地面に適用する。
+floor_material = PhysicsMaterial(
+    prim_path='/World/PhysicsMaterials/FloorMaterial',
+    static_friction=60.0,
+    dynamic_friction=60.0,
+)
+GeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
+    floor_material, weaker_than_descendants=True
+)
+
+model_names = []
+# 生オブジェクト(物理を持たない自作モデル)に drop_object で剛体を付けた prim パス。
+# 剛体が spawn root に付き /body プリムにならないため、[recol] の /body 判定では
+# 拾えない。ここに記録しておき、recol で同じ実行時メンテナンス(collider 再登録)を
+# 適用してロボットがすり抜けないようにする。
+_runtime_rigid_object_paths = []
+
+# ============================================================
+# reset_world
+# ============================================================
+_spawn_initial_states = []
+
+# GUI (ギズモ) で動かされた prim を起動時の姿勢へ戻すためのテーブル。
+# _spawn_initial_states は剛体を持つ物体しか持たないので、剛体を持たない静的 prim
+# (world 由来の家具・壁, /World/Furniture, /World/People) は手で動かすと戻せない。
+# それらは姿勢の真実が USD の xformOp だけにあるため、起動時 (timeline.play() の
+# 直前) の op の値をここに控えてリセット時に書き戻す。
+#
+# 要素は prim 単位のエントリ:
+#   {'prim': Usd.Prim, 'path': str,
+#    'ops': [{'attr': Usd.Attribute, 'value': op の値}, ...],
+#    'order_attr': Usd.Attribute, 'order': xformOpOrder の値 (未 authored なら None)}
+#
+# xformOpOrder も控えるのが要点。ギズモは op を持たない prim を掴むと
+# xformOp:translate や xformOp:transform を新しく生やすので、op の値を書き戻す
+# だけでは「後から生えた op」がスタックに残って prim が元に戻らない。
+_manual_initial_xforms = []
+
+# 上の記録対象にする「スポーン単位の root prim」パス。world 由来の家具・壁と
+# drop_object の物体はどちらもステージ直下 (/<name>) に作られるが、そこには Kit の
+# ビューポートカメラ (/OmniverseKit_Persp 等) も同居している。ステージ直下を丸ごと
+# 走査するとリセットのたびにユーザの視点まで戻ってしまうので、作った物だけを控える。
+_spawn_root_paths = []
+
+# サービスコールバック (rclpy executor スレッド) から物理ステップ中に prim を
+# 書き換えるのは危険なので、フラグを立ててメインループ側で物理ステップ間に実行する。
+_reset_requested = False
+_reset_done = threading.Event()
+
+
+def _request_reset_and_wait():
+    """reset_world を要求し、メインループが適用し終えるまでブロックする。"""
+    global _reset_requested
+    _reset_done.clear()
+    _reset_requested = True
+    # メインループが適用 → _reset_done.set() するまで待つ (適用保証)。
+    _reset_done.wait(timeout=5.0)
+
+
+def _manual_reset_target_prims():
+    """GUI で掴んで動かしうる「スポーン単位の root prim」を集める。
+
+    捕捉はこの root から下のサブツリー全体が対象 (_capture_manual_reset_targets)。
+    ここで root だけを列挙するのは、ステージ直下を丸ごと走査すると Kit の
+    ビューポートカメラ (/OmniverseKit_Persp 等) まで拾ってしまい、リセットのたびに
+    ユーザの視点が戻ってしまうため。起点は「自分で作った物」に限る。
+      - _spawn_root_paths: world 由来の家具・壁と drop_object の物体。
+        ロボット (/hsrb) は reset_to_spawn が担当するので入っていない。
+      - /World/Furniture, /World/People の子: furniture_spawn / people_spawn が置く。
+        (/World 自身は床や環境テクスチャも含むので、この 2 つの子だけを見る)
+    """
+    _st = omni.usd.get_context().get_stage()
+    prims = []
+    for _path in _spawn_root_paths:
+        _p = _st.GetPrimAtPath(_path)
+        if _p and _p.IsValid():
+            prims.append(_p)
+    for _root_path in (furniture_spawn.FURNITURE_ROOT,
+                       people_spawn.PEOPLE_ROOT):
+        _root = _st.GetPrimAtPath(_root_path)
+        if _root and _root.IsValid():
+            prims.extend(_root.GetChildren())
+    return prims
+
+
+# サブツリーへ潜らず root の xformOp だけを控える旧挙動へ戻す非常口。
+# 深い捕捉が重すぎて起動時間が問題になったとき用 (実測値は起動ログの
+# [reset_world] captured ... に出る)。
+_DEEP_CAPTURE = os.environ.get('RESET_DEEP_CAPTURE', '1') != '0'
+
+
+def _capture_prim_xform_state(prim):
+    """1 prim の xformOp とその順序を控える。Xformable でなければ None。"""
+    _x = UsdGeom.Xformable(prim)
+    if not _x:
+        return None
+
+    _ops = []
+    for _op in _x.GetOrderedXformOps():
+        _attr = _op.GetAttr()
+        if _attr and _attr.IsValid():
+            _ops.append({'attr': _attr, 'value': _attr.Get()})
+
+    _order_attr = _x.GetXformOpOrderAttr()
+    # authored されていなければ None として控える。復元時に順序を空にして、
+    # ギズモが後から生やした op ごと無かったことにするため。
+    _order = (_order_attr.Get()
+              if _order_attr and _order_attr.HasAuthoredValue() else None)
+
+    return {
+        'prim': prim,
+        'path': str(prim.GetPath()),
+        'ops': _ops,
+        'order_attr': _order_attr,
+        'order': _order,
+    }
+
+
+def _capture_manual_reset_targets():
+    """起動時の xformOp の値と順序を控える (reset_world で書き戻すため)。
+
+    行列 1 個に畳まず op 単位で持つ。drop_object が Y-up モデルに後付けする
+    rotateX(90) や furniture_spawn のスケール補正を含む op スタックの順序を
+    壊さずに復元できる。
+
+    スポーン root だけでなくその配下も走査する。tall table の天板のような
+    「モデル内部のメッシュ」をギズモで掴まれると、root の op を戻しても
+    子 prim に生えた op が残って戻らないため。走査は起動時の 1 回だけで、
+    書き戻しは reset のときだけなので、実行中のフレームには乗らない。
+    """
+    _t0 = time.perf_counter()
+    _prim_count = 0
+    _op_count = 0
+
+    for _root in _manual_reset_target_prims():
+        try:
+            for _p in (Usd.PrimRange(_root) if _DEEP_CAPTURE else (_root,)):
+                if not _p.IsActive():
+                    continue
+                _state = _capture_prim_xform_state(_p)
+                if _state is None:
+                    continue
+                _manual_initial_xforms.append(_state)
+                _prim_count += 1
+                _op_count += len(_state['ops'])
+        except Exception as _e:
+            print('[reset_world] xform capture failed for %s: %r'
+                  % (_root.GetPath(), _e), flush=True)
+
+    print('[reset_world] captured %d xform ops over %d prims for manual-move '
+          'reset in %.0f ms (deep=%s)'
+          % (_op_count, _prim_count, 1e3 * (time.perf_counter() - _t0),
+             _DEEP_CAPTURE), flush=True)
+
+
+def _restore_manual_xforms():
+    """控えておいた xformOp を書き戻す (手で動かした prim を元の位置へ)。
+
+    サブツリーまで控えているので対象は数千 prim になりうる。値が起動時と同じ prim
+    には書き込まない。無駄な authoring と USD の変更通知を出さないためで、
+    実際に動かされた prim は一部だけなので大半はここで素通りする。
+    """
+    for s in _manual_initial_xforms:
+        for _op in s['ops']:
+            _attr = _op['attr']
+            if _op['value'] is None or not _attr.IsValid():
+                # GUI で消された prim など。書き戻せないので飛ばす。
+                continue
+            try:
+                if _attr.Get() != _op['value']:
+                    _attr.Set(_op['value'])
+            except Exception as _e:
+                print('[reset_world] xform restore failed for %s: %r'
+                      % (_attr.GetPath(), _e), flush=True)
+
+        # 値を戻したあとに順序を戻す。ギズモが後から生やした op はここで
+        # xformOpOrder から外れ、属性は残るが評価されなくなる。
+        _prim = s['prim']
+        _order_attr = s['order_attr']
+        if not _prim.IsValid() or not _order_attr or not _order_attr.IsValid():
+            continue
+        try:
+            if s['order'] is None:
+                # 起動時は順序が未 authored = 変換なし。ギズモに掴まれて順序が
+                # 生えた prim だけ空へ戻す (ClearXformOpOrder は空の順序を書くので、
+                # 未 authored の prim に対して呼ぶと全 prim に無駄な opinion が残る)。
+                if _order_attr.HasAuthoredValue():
+                    UsdGeom.Xformable(_prim).ClearXformOpOrder()
+            elif _order_attr.Get() != s['order']:
+                _order_attr.Set(s['order'])
+        except Exception as _e:
+            print('[reset_world] xformOpOrder restore failed for %s: %r'
+                  % (s['path'], _e), flush=True)
+
+
+def _capture_spawn_rigid_state(root_prim, label):
+    """スポーンした物の剛体のワールド姿勢を控える (reset_world で戻すため)。
+
+    剛体 (RigidBodyAPI) が付いた prim を subtree から探し、その「合成済み
+    ワールド変換」を保存する。ワールド変換で持つことで Y-up の rotateX(90) 補正や
+    YCB の /body 内部オフセットが自動で正しく反映され、reset 時に
+    dc.get_rigid_body(body_path) でそのまま戻せる。
+
+    剛体 prim のパスはモデルによって違う (YCB と trofast は /<name>/body、
+    wrc_* は /<name>/link) ので、パスを決め打ちせず subtree から探す。
+    剛体を持たないモデル (壁の unit_box など) は何も控えない。
+    """
+    if not root_prim or not root_prim.IsValid():
+        return
+    try:
+        _rb_prim = next(
+            (p for p in Usd.PrimRange(root_prim)
+             if p.HasAPI(UsdPhysics.RigidBodyAPI)),
+            None,
+        )
+        if _rb_prim is None:
+            return
+        _m = UsdGeom.Xformable(_rb_prim).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default())
+        _t = _m.ExtractTranslation()
+        _q = _m.GetOrthonormalized().ExtractRotationQuat()
+        _qi = _q.GetImaginary()
+        _spawn_initial_states.append({
+            'body_path': str(_rb_prim.GetPath()),
+            'p': (_t[0], _t[1], _t[2]),
+            'q': (_q.GetReal(), _qi[0], _qi[1], _qi[2]),  # (w, x, y, z)
+        })
+    except Exception as _e:
+        print('[reset_world] spawn pose capture failed for %s: %r' %
+              (label, _e), flush=True)
+
+
+model_root = os.path.join(repo_root, 'usd', 'wrs_models')
+if not os.path.exists(model_root):
+    model_root = '/app/usd/wrs_models'
+
+# 競技当日に追加する未知物体。wrs_models と同じく
+#   <object名>/model.usd
+# の構成にしておけば placement.yaml の object: から参照できる (usd/unknown_objects/README.md)。
+unknown_object_root = os.path.join(repo_root, 'usd', 'unknown_objects')
+if not os.path.exists(unknown_object_root):
+    unknown_object_root = '/app/usd/unknown_objects'
+
+# 自作モデル (my_models / rc26_practice_day_1 など) を読み込み時に剛体化したとき
+# に付ける「既定の質量 (kg)」。YCB は 1 つずつ実測値が入っているが、自作モデルは
+# 値が無いので一律この既定値を入れる (PhysX 任せの自動推定だと密度×体積で大きく
+# ブレるため)。個別の正確な値が必要になったら、後でモデルごとに調整する。
+DEFAULT_OBJECT_MASS_KG = 0.2
+
+# ============================================================
+# ワールド (部屋) の読み込み
+# ============================================================
+# ワールドファイル (world_file) は地面を作る前に上で決定済み。
+# ここでは家具・壁の配置を読み取って部屋を組み立てる。
 tree = ET.parse(world_file)
 root = tree.getroot()
 for i in root.findall('world/include'):
@@ -366,6 +757,30 @@ for i in root.findall('world/include'):
         _cube_prim = omni.usd.get_context().get_stage().GetPrimAtPath(stage_path)
         physx_utils.setCollider(_cube_prim, approximationShape='none')
         model_names.append(model_name)
+        _spawn_root_paths.append(stage_path)
+    if model_uri == 'model://unit_cylinder' and not os.path.exists(model_path):
+        # unit_box と同様に、USD モデルが無い円柱は Cylinder prim で直接作る。
+        # scale は (直径, 直径, 高さ) 指定 → prim には半分を渡す (Cube と同じ扱い)。
+        scale_tag = i.find('scale')
+        if scale_tag is None:
+            size = np.array([1.0, 1.0, 1.0])
+        else:
+            size = np.array([float(n) for n in scale_tag.text.split(' ')])
+        size = np.maximum(size, 1e-4)
+        orientation = euler_angles_to_quat([er, ep, ey])
+        create_prim(
+            prim_path=stage_path,
+            prim_type='Cylinder',
+            translation=[x, y, z],
+            orientation=orientation,
+            scale=size * 0.5,
+        )
+        # 当たり判定 (collider)。円柱は 'none' (三角メッシュ) が使えないことが
+        # あるため convexHull で近似する (テーブルとしては十分な精度)。
+        _cyl_prim = omni.usd.get_context().get_stage().GetPrimAtPath(stage_path)
+        physx_utils.setCollider(_cyl_prim, approximationShape='convexHull')
+        model_names.append(model_name)
+        _spawn_root_paths.append(stage_path)
     if not os.path.exists(model_path):
         continue
     create_prim(
@@ -385,7 +800,163 @@ for i in root.findall('world/include'):
         root_joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0))
         root_joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0))
         root_joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0))
+    else:
+        # reset_world 用: <static> の無いモデルは FixedJoint で固定されず、
+        # ロボットに押されると動く動的剛体 (trofast_*, wrc_tray_*, wrc_container_*)。
+        # 参照した model.usd 側に RigidBodyAPI が入っているので、剛体のワールド姿勢を
+        # 控えて _reset_objects() が dynamic control で戻せるようにする。親 Xform の
+        # xformOp を書き戻すだけでは PhysX が持つ姿勢を上書きできない。
+        # <static> 付きは FixedJoint があるので対象にしない (dc で姿勢を書くと
+        # ジョイントと競合する)。まだ play() していないので、ここで控えるのは
+        # world ファイルどおりの姿勢になる。
+        _capture_spawn_rigid_state(
+            omni.usd.get_context().get_stage().GetPrimAtPath(stage_path),
+            model_name)
     model_names.append(model_name)
+    _spawn_root_paths.append(stage_path)
+
+
+# ============================================================
+# 引き出し (段違い棚 wrc_stair_like_drawer の trofast) を「本物の引き出し」にする
+# ============================================================
+# world ファイルの trofast_* は段違い棚 (wrc_stair_like_drawer) に「置いてあるだけ」の
+# 自由剛体で、そのままではロボットが取っ手を掴んで引くことができない。理由は 2 つ:
+#
+#   1. trofast_knob/model.usd の /body に ArticulationRootAPI が付いている。
+#      これが付いた物体は PhysX が別アーティキュレーションとして扱い、ロボット
+#      (これもアーティキュレーション) と衝突しなくなる = 指がすり抜ける。
+#      YCB は drop_object() の [obj-fix] で除去しているが、world の <include> 経由で
+#      読まれる trofast はその経路を通らないため付いたままだった。
+#
+#   2. 棚のレール間隔は 0.280 m なのに箱の上縁は 0.300 m あり、左右 10 mm ずつ
+#      最初から食い込んでいる。実物の「縁をレールに引っ掛けて吊る」構造をそのまま
+#      USD にしたためで、剛体シミュレーションでは初期めり込みになる。PhysX が
+#      これを押し出そうとして箱が弾かれたり楔状に噛んで沈み込んだりする。
+#
+# 対策として、棚と箱の間に PrismaticJoint (直動ジョイント) を張り、レールの代わりに
+# ジョイントで運動を拘束する。ジョイントで繋いだ 2 体は collisionEnabled=False により
+# 当たり判定が切れるので、上記 2. のめり込みも同時に解消する。結果として
+# 「手前にだけスライドし、引き切ると止まり、抜け落ちない」本物の引き出しになる。
+# 段違い棚の無い world (他タスク) では何もしない (no-op)。
+DRAWER_FRAME_PATH = '/wrc_stair_like_drawer'
+# 引き出しを何 m 引き出せるか (ジョイントの上限)。箱の奥行きは 0.4235 m。
+DRAWER_PULL_LIMIT = float(os.environ.get('DRAWER_PULL_LIMIT', '') or '0.30')
+# 引き出しの粘性抵抗 [N/(m/s)]。大きいほど重い引き心地になる。0 で無抵抗。
+# 指の把持力 (hsr.py の FINGER_MAX_FORCE) で引ける範囲に収めること。
+DRAWER_DAMPING = float(os.environ.get('DRAWER_DAMPING', '') or '15.0')
+# 粘性抵抗が出せる力の上限 [N]。引き出しを止める力ではなく減衰の頭打ち。
+DRAWER_DAMPING_MAX_FORCE = float(
+    os.environ.get('DRAWER_DAMPING_MAX_FORCE', '') or '200.0')
+# 0 にすると引き出し化を丸ごと止めて従来の「置いてあるだけの箱」に戻せる。
+DRAWER_JOINTS_ENABLED = os.environ.get('DRAWER_JOINTS', '1') != '0'
+
+# 引き出しにした箱の /body パス。[recol] の対象外にするために覚えておく
+# ([recol] は setRigidBody で剛体を作り直すため、張ったジョイントが壊れる)。
+_drawer_body_paths = []
+
+
+def _strip_articulation_root(prim):
+    """prim 以下の ArticulationRootAPI を外して「ただの剛体」に戻す。
+
+    drop_object() の [obj-fix] と同じ処理。付いたままだとロボットの指がすり抜ける。
+    """
+    for p in Usd.PrimRange(prim):
+        if p.HasAPI(UsdPhysics.ArticulationRootAPI):
+            p.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+            print('[drawer] removed ArticulationRootAPI from %s' % p.GetPath(),
+                  flush=True)
+        if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
+            p.RemoveAPI(PhysxSchema.PhysxArticulationAPI)
+
+
+def _setup_drawers():
+    """段違い棚と trofast_* を PrismaticJoint で繋いで引き出しにする。"""
+    _stage = omni.usd.get_context().get_stage()
+    frame = _stage.GetPrimAtPath(DRAWER_FRAME_PATH)
+    frame_link = _stage.GetPrimAtPath(DRAWER_FRAME_PATH + '/link')
+    if not frame.IsValid() or not frame_link.IsValid():
+        # この world に段違い棚が無い (別アリーナ) なら何もしない。
+        return
+
+    # 棚もアーティキュレーションを外して素の剛体に戻したうえで kinematic にする。
+    # <static> により world への FixedJoint は張られているが、それだけだと剛体
+    # (mass 1kg) のままなので引き出しを引く反力で棚が揺れる。kinematic にすれば
+    # 完全に不動のアンカーになり、ジョイントの相手として安定する。
+    _strip_articulation_root(frame)
+    UsdPhysics.RigidBodyAPI.Apply(frame_link).CreateKinematicEnabledAttr(True)
+
+    frame_inv = UsdGeom.Xformable(frame_link).ComputeLocalToWorldTransform(
+        Usd.TimeCode.Default()).GetInverse()
+
+    for name in model_names:
+        if not name.startswith('trofast'):
+            continue
+        root = _stage.GetPrimAtPath('/' + name)
+        body_path = '/' + name + '/body'
+        body = _stage.GetPrimAtPath(body_path)
+        if not root.IsValid() or not body.IsValid():
+            print('[drawer] skip %s (no /body prim)' % name, flush=True)
+            continue
+
+        # 1. 指がすり抜ける原因の ArticulationRootAPI を外す。
+        _strip_articulation_root(root)
+
+        # 2. 棚に対する箱の現在の相対姿勢を測り、そこをジョイント原点 (= 閉じた状態)
+        #    にする。world ファイルに書かれた姿勢がそのまま「閉」になるので、
+        #    座標をコードに焼き込まずに済む。
+        body_l2w = UsdGeom.Xformable(body).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default())
+        rel = body_l2w * frame_inv
+        rel_pos = rel.ExtractTranslation()
+        rel_rot = rel.GetOrthonormalized().ExtractRotationQuat()
+
+        # 3. 直動ジョイント。軸は棚ローカルの X = ワールド +Y = 引き出しの手前方向。
+        #    (棚は yaw=90° で置かれ、前面の桟が world の +Y 側にある)
+        joint = UsdPhysics.PrismaticJoint.Define(
+            _stage, Sdf.Path('/' + name + '/drawer_joint'))
+        joint.CreateBody0Rel().SetTargets([DRAWER_FRAME_PATH + '/link'])
+        joint.CreateBody1Rel().SetTargets([body_path])
+        joint.CreateAxisAttr('X')
+        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(rel_pos))
+        joint.CreateLocalRot0Attr().Set(Gf.Quatf(rel_rot))
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0))
+        joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0))
+        # 0 = 閉じきり、DRAWER_PULL_LIMIT = 引ききり。ここで機械的に止まる。
+        joint.CreateLowerLimitAttr(0.0)
+        joint.CreateUpperLimitAttr(DRAWER_PULL_LIMIT)
+        # 棚と箱の当たり判定を切る (既定でも False だが、レールとの初期めり込みを
+        # 確実に無効化したいので明示する)。動きはジョイントが拘束するので、
+        # 当たり判定を切っても箱が棚をすり抜けて落ちることはない。
+        joint.CreateCollisionEnabledAttr(False)
+
+        # 4. 粘性抵抗。これが無いと引いた勢いでストッパーに激突して跳ね返る。
+        #    stiffness=0 なので「戻ろうとする力」は働かず、引いた位置で止まる。
+        drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), 'linear')
+        drive.CreateTypeAttr('force')
+        drive.CreateStiffnessAttr(0.0)
+        drive.CreateDampingAttr(DRAWER_DAMPING)
+        drive.CreateTargetVelocityAttr(0.0)
+        drive.CreateMaxForceAttr(DRAWER_DAMPING_MAX_FORCE)
+
+        # 5. 掴んで静止すると眠ってしまい、次に押しても反応しなくなるのを防ぐ
+        #    ([recol] が同じことをしているが、引き出しは [recol] 対象外にするため)。
+        _rb = PhysxSchema.PhysxRigidBodyAPI.Apply(body)
+        _rb.CreateDisableGravityAttr(False)
+        _rb.CreateSleepThresholdAttr(0.0)
+
+        _drawer_body_paths.append(body_path)
+        print('[drawer] %s -> prismatic joint (0..%.2f m, damping=%.1f)'
+              % (name, DRAWER_PULL_LIMIT, DRAWER_DAMPING), flush=True)
+
+
+if DRAWER_JOINTS_ENABLED:
+    try:
+        _setup_drawers()
+    except Exception as _e:
+        # 引き出しが作れなくてもシミュレータ自体は起動させる。
+        print('[drawer] setup failed: %r' % _e, flush=True)
+else:
+    print('[drawer] DRAWER_JOINTS=0 のため引き出し化をスキップ', flush=True)
 
 
 def _subtree_has_rigid_body(prim):
@@ -421,19 +992,23 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
     # まとめて "_" に置換し、1 階層の安全な prim 名にする。
     safe_name = gazebo_name.replace('-', '_').replace('/', '_')
     stage_path = f'/{safe_name}'
-    # name は次の 2 通りの書き方を許す:
+    # name は次の 3 通りの書き方を許す:
     #   (A) usd/ からの相対パス  例: 'rc26_practice_day_1/drink/led'
     #       -> usd/rc26_practice_day_1/drink/led/model.usd を直接指す。
     #          フォルダ階層まで明示するので、物体名の重複が起きない。
     #   (B) 物体フォルダ名だけ    例: 'ycb_011_banana', 'led'
     #       -> 従来どおり my_models / wrs_models を探す (後方互換)。
+    #   (C) 競技の未知物体のフォルダ名  例: 'logitech_m310_mouse', 'hamburger'
+    #       -> usd/unknown_objects/<name>/model.usd (usd/unknown_objects/README.md)。
     model_candidates = [
         os.path.join(repo_root, 'usd', name, 'model.usd'),  # (A)
         os.path.join(repo_root, 'usd', 'my_models', name, 'model.usd'),
         os.path.join(model_root, name, 'model.usd'),
+        os.path.join(unknown_object_root, name, 'model.usd'),  # (C)
         '/app/usd/' + name + '/model.usd',  # (A)
         '/app/usd/my_models/' + name + '/model.usd',
         '/app/usd/wrs_models/' + name + '/model.usd',
+        '/app/usd/unknown_objects/' + name + '/model.usd',  # (C)
     ]
     model_path = next((p for p in model_candidates if os.path.exists(p)), None)
     if model_path is None:
@@ -499,40 +1074,21 @@ def drop_object(gazebo_name, name, x, y, z, yaw=0.0, roll=0.0, pitch=0.0):
         print('[obj-fix] err %r' % _e, flush=True)
 
     model_names.append(gazebo_name)
+    _spawn_root_paths.append(stage_path)
 
-    # reset_world 用: この物体の初期姿勢を記録する。剛体 (RigidBodyAPI) が付いた
-    # prim を subtree から探し、その「合成済みワールド変換」を保存する。ワールド変換で
-    # 持つことで Y-up の rotateX(90) 補正や YCB の /body 内部オフセットが自動で正しく
-    # 反映され、reset 時に dc.get_rigid_body(body_path) でそのまま戻せる。
-    try:
-        _rb_prim = next(
-            (p for p in Usd.PrimRange(dropped_prim)
-             if p.HasAPI(UsdPhysics.RigidBodyAPI)),
-            None,
-        )
-        if _rb_prim is not None:
-            _m = UsdGeom.Xformable(_rb_prim).ComputeLocalToWorldTransform(
-                Usd.TimeCode.Default())
-            _t = _m.ExtractTranslation()
-            _q = _m.GetOrthonormalized().ExtractRotationQuat()
-            _qi = _q.GetImaginary()
-            _spawn_initial_states.append({
-                'body_path': str(_rb_prim.GetPath()),
-                'p': (_t[0], _t[1], _t[2]),
-                'q': (_q.GetReal(), _qi[0], _qi[1], _qi[2]),  # (w, x, y, z)
-            })
-    except Exception as _e:
-        print('[reset_world] spawn pose capture failed for %s: %r' %
-              (gazebo_name, _e), flush=True)
+    # reset_world 用: この物体の初期姿勢を記録する。
+    _capture_spawn_rigid_state(dropped_prim, gazebo_name)
 
     return model_path
 
 
-# ランダム配置 (WRS 競技の出題) は使わず、configs/placement.yaml の指定に
+# ランダム配置 (WRS 競技の出題) は使わず、placement.yaml の指定に
 # 従って家具の上に物体を配置する。ランダムに戻したいときは下を有効化:
 #   randomizer.generate_wrs_task(drop_func=drop_object)
+# objects: だけは Seed 指定 (PLACEMENT_SEED) があればその Seed ファイルから読む
+# (_object_placement_path)。None なら object_placement 側の既定 (configs/placement.yaml)。
 object_placement.apply_placements(
-    world_file, drop_object, config_path=_task_placement_path)
+    world_file, drop_object, config_path=_object_placement_path)
 
 # placement.yaml の people: セクションに従って「人」を配置する。
 # people が空 (デフォルト) のときは何も置かず、既存の動作は変わらない。
@@ -606,6 +1162,24 @@ if _spawn_path is not None:
 else:
     print(f'[hsr] placement.yaml が無いのでフォールバック値を使用: {_robot_spawn}')
 
+# スポーン姿勢は odom (ひいては map) 座標の原点そのもの (scripts/hsr.py の odom 初期化)。
+# 原点からずれていると、placement.yaml に書く world 座標と、ナビゲーションに
+# 渡す map 座標が、そのずれの分だけ食い違う。黙って壊れると原因が分からない
+# ので、はっきり警告する。位置を変えたいときは部屋 (world ファイル) の
+# ほうを動かして、スタート地点が原点に来るようにすること。
+if max(abs(_robot_spawn['x']), abs(_robot_spawn['y']),
+       abs(_robot_spawn['yaw'])) > 1e-6:
+    print(
+        '[hsr] WARNING: robot: が原点 (0, 0, 0) ではありません '
+        f"(x={_robot_spawn['x']}, y={_robot_spawn['y']}, "
+        f"yaw={_robot_spawn['yaw']}).\n"
+        '[hsr]          odom / map 座標が world 座標とこの分ずれます。'
+        '絶対座標のナビゲーションを使うなら\n'
+        '[hsr]          robot: を (0, 0, 0) に戻し、代わりに world ファイル '
+        f'({os.path.basename(world_file)}) 側を平行移動してください。',
+        flush=True,
+    )
+
 # どのロボットをスポーンするかは `make ros2 up robot=hsrb` が渡す環境変数 ROBOT で決める。
 # 優先順位: 環境変数 ROBOT > 既定 'hsrb'。
 _env_robot = os.environ.get('ROBOT', '').strip()
@@ -672,24 +1246,51 @@ for i in range(len(contact_links)):
     )
 
 
-actor_to_body_name_cache = {}
+actor_to_body_path_cache = {}
 prev_contact = None
+
+
+def _actor_body_path(actor):
+    try:
+        return actor_to_body_path_cache[actor]
+    except KeyError:
+        path = str(PhysicsSchemaTools.intToSdfPath(actor))
+        actor_to_body_path_cache[actor] = path
+        return path
+
+
+def _is_wall_body(body_name):
+    """衝突検出トピックへ知らせる「壁」か。
+
+    world ごとに壁の名前が違うので、既知の命名をまとめて見る:
+      - wrc_frame / task2a_* : WRS 系 world の部屋枠・課題エリア
+      - wall_*               : 直線壁で作った world (rc26_tidyup.world, rc26_restaurant.world)
+    """
+    return (body_name == 'wrc_frame' or body_name.startswith('task2a_')
+            or body_name.startswith('wall_'))
 
 
 def contact_report_event(ch, cd):
     global prev_contact
     for c in ch:
-        try:
-            body1 = actor_to_body_name_cache[c.actor1]
-        except KeyError:
-            body1 = str(PhysicsSchemaTools.intToSdfPath(
-                c.actor1)).split('/')[1]
-            actor_to_body_name_cache[c.actor1] = body1
-        if body1 != 'background':
-            if prev_contact != body1:
-                print(f'Contact {body1}')
-                prev_contact = body1
-        if body1 == 'wrc_frame' or body1.startswith('task2a_'):
+        path0 = _actor_body_path(c.actor0)
+        path1 = _actor_body_path(c.actor1)
+        robot0 = path0 == hsr_stage_path or path0.startswith(hsr_stage_path + '/')
+        robot1 = path1 == hsr_stage_path or path1.startswith(hsr_stage_path + '/')
+
+        # PhysX の購読はシーン全体の接触を返す。従来は actor1 だけを見て
+        # wall と World (床) の常時接触までロボットの衝突として通知していた。
+        # ロボットが当事者でない接触と、ロボット内部の自己接触は無視する。
+        if robot0 == robot1:
+            continue
+        other_path = path1 if robot0 else path0
+        body_name = other_path.strip('/').split('/')[0]
+        if body_name != 'background' and prev_contact != body_name:
+            print(f'Contact {body_name}')
+            prev_contact = body_name
+        # 壁にロボット自身がぶつかった場合だけ衝突検出トピックへ
+        # 知らせる (競技の Hit 判定と同じ仕組み)。
+        if _is_wall_body(body_name):
             collision_detect_pub.publish(std_msgs.msg.Bool(data=True))
 
 
@@ -710,6 +1311,10 @@ kit.set_setting('/physics/updateToUsd', True)
 kit.update()
 _hsr.onsimulationstart(simulation_context)
 simulation_context.initialize_physics()
+# reset_world 用: 物理が 1 ステップも進んでいない今 (= placement.yaml / world ファイル
+# どおりの姿勢) の xformOp を控える。この後に GUI で prim を動かしても、リセットで
+# ここに戻せるようになる。play() より後だと物体が落ち始めた姿勢を拾ってしまう。
+_capture_manual_reset_targets()
 omni.timeline.get_timeline_interface().play()
 
 # 人を配置したときだけアニメーションをループ再生する設定にする。
@@ -738,8 +1343,9 @@ if _num_people > 0:
 
 # ラボ環境テクスチャ (床 + 周囲背景 + 照明) を適用。
 # timeline.play() の "後" でないと PhysX セットアップを壊すので注意。
-# 床・背景幕 (周囲4枚の壁) を world の家具・壁の広がりに合わせて
-# 自動でサイズ・中心を決める。world が原点からずれていても正しく囲める。
+# 床・背景幕 (周囲4枚の壁) のサイズ・中心は起動時に計算した _floor_size/_floor_cx/_floor_cy
+# を使う (当たり判定の GroundPlane と同じ大きさ・中心 = 灰色の床がはみ出さない)。
+# world が原点からずれていても正しく囲める。
 # タスクで dressing の preset/lighting を選んでいれば、それを渡す
 # (未指定なら apply_lab_dressing 側が dressing.yaml の defaults を使う)。
 _dress_kwargs = {}
@@ -747,27 +1353,54 @@ if _task_dressing_preset:
     _dress_kwargs['preset'] = _task_dressing_preset
 if _task_dressing_lighting:
     _dress_kwargs['lighting'] = _task_dressing_lighting
-_bounds = object_placement.world_xy_bounds(world_file)
-if _bounds is not None:
-    _min_x, _max_x, _min_y, _max_y = _bounds
-    _margin = 0.5  # 外周から壁を少し外に出す余白 (m)
-    _room_size = max(_max_x - _min_x, _max_y - _min_y) + 2.0 * _margin
-    _center_x = (_min_x + _max_x) / 2.0
-    _center_y = (_min_y + _max_y) / 2.0
+if _wb is not None:
     print(
-        f'[dressing] world bounds -> room_size={_room_size:.2f} '
-        f'center=({_center_x:.2f}, {_center_y:.2f})'
+        f'[dressing] world bounds -> room_size={_floor_size:.2f} '
+        f'center=({_floor_cx:.2f}, {_floor_cy:.2f})'
     )
     construct_environment.apply_lab_dressing(
-        room_size=_room_size,
-        center_x=_center_x,
-        center_y=_center_y,
+        room_size=_floor_size,
+        center_x=_floor_cx,
+        center_y=_floor_cy,
         **_dress_kwargs,
     )
 else:
     construct_environment.apply_lab_dressing(**_dress_kwargs)
 for _ in range(3):
     kit.update()
+
+# ============================================================
+# 観戦カメラ (競技モードの録画 / 調整モード)
+# ============================================================
+# (timeline.play() と dressing の後 = シーンが完成した状態で作る)
+# カメラの位置・画角はタスクの placement.yaml の arena_cameras: から読む
+# (_task_placement_path を明示的に渡す。無ければ床の中心から自動配置)。
+if ARENA_CAMERAS and arena_cameras is None:
+    raise RuntimeError(
+        'task.yaml の arena_cameras: true (または CAMERA_TUNE=1) ですが '
+        f'arena_cameras モジュールを import できません: {_arena_cameras_import_error!r}\n'
+        '(omni.replicator.core と cv2 が必要です)'
+    )
+
+# 競技モードなら 4方向の観戦カメラを作って録画を開始する。
+_recorder = None
+if ARENA_CAMERAS and TASK_TIME > 0:
+    _recorder = arena_cameras.ArenaRecorder(
+        TASK_TIME, center_x=_floor_cx, center_y=_floor_cy,
+        config_path=_task_placement_path)
+    _recorder.setup()
+
+# 調整モードなら同じカメラを作るだけ (録画なし・時間制限なし)。
+_tuner = None
+if CAMERA_TUNE:
+    _tuner = arena_cameras.ArenaCameraTuner(
+        center_x=_floor_cx, center_y=_floor_cy,
+        config_path=_task_placement_path)
+    _tuner.setup()
+
+# カメラ無しの競技モード (time_limit>0, arena_cameras: false): 録画はせず、
+# 競技時間が来たらシミュレータを終了するだけ。開始時刻は最初のステップで決まる。
+_task_timer_t0 = None
 
 
 # simulate gazebo ros APIs required for task evaluators
@@ -786,6 +1419,14 @@ def get_xform(stage, model_name):
     except:
         # print(f'Failed to get xform for {model_name}')
         return Gf.Matrix4d()
+
+
+# トピック版リセット。`ros2 topic pub --once /isaac/reset_world_request
+# std_msgs/msg/Empty` の 1 コマンドでリセットできる (サービスと同じ経路)。
+# コールバックはフラグを立てるだけ。実際の復元はメインループが物理ステップ間で行う。
+def handle_reset_world_topic(_msg):
+    global _reset_requested
+    _reset_requested = True
 
 
 if is_ros2:
@@ -838,6 +1479,14 @@ if is_ros2:
         handle_reset_world_ros2,
         qos_profile=rclpy.qos.qos_profile_services_default,
     )
+
+    handle_reset_world_topic_ros2 = handle_reset_world_topic
+    _reset_world_topic_sub = _hsr.ros2node.create_subscription(
+        EmptyMsg,
+        '/isaac/reset_world_request',
+        handle_reset_world_topic_ros2,
+        10,
+    )
 else:
 
     def handle_get_world_properties(req):
@@ -877,6 +1526,8 @@ else:
         return EmptyResponse()
 
     rospy.Service('/isaac/reset_world', EmptySrv, handle_reset_world)
+    _reset_world_topic_sub = rospy.Subscriber(
+        '/isaac/reset_world_request', EmptyMsg, handle_reset_world_topic)
 
 # reset_world (テレポート) 後に localization スタックを spawn 位置へ復帰させる publisher。
 #   /isaac/reset_world_event : laser_scan_matcher 再起動ヘルパー (別コンテナの ROS ノード)
@@ -952,19 +1603,29 @@ if _lidar_prim.IsValid():
         _draw_attr.Set(False)
         print(f'[sample-ros] disable showing lidar beam: {_lidar_path}')
 
+_physics_step_index = 0
 while kit.is_running():
     # Run with a fixed step size
+    _render_this_step = (_physics_step_index % RENDER_EVERY_N_STEPS == 0)
     if _num_people > 0:
         # 人 (UsdSkel) のアニメーションは kit.update() を回さないと評価されない。
         # ただし step(render=True) は内部で描画するので、その後に kit.update()
         # を足すと「1 コマで 2 回描画」になりレンダラが不安定になる
         # (X 接続断・セグフォルトの原因)。そこで物理ステップは描画なし
         # (render=False) にし、描画とアニメ評価は kit.update() の 1 回に任せる。
+        # その kit.update() も RENDER_EVERY_N_STEPS で間引く。毎ステップ呼ぶと
+        # 人がいるシーンだけ 60 Hz 描画になって間引き設定が丸ごと無視され、
+        # RTF が大きく落ちる。アニメ評価も同じ間引きになる (既定 2 なら 30 Hz) が、
+        # 見た目には分からない。
         simulation_context.step(render=False)
-        kit.update()
+        if _render_this_step:
+            kit.update()
     else:
-        # 人が居ないときは従来どおり (描画つき物理ステップのみ)。
-        simulation_context.step(render=True)
+        # 物理と全身制御は 60 Hz のまま。Kit のビューポートとカメラのレンダープロダクトを
+        # 同じ 60 Hz で描くと sim 時間が実時間に対して大きく遅れるので、N ステップに
+        # 1 回だけ描く。
+        simulation_context.step(render=_render_this_step)
+    _physics_step_index += 1
     try:
         _hsr.step()
     except Exception:
@@ -975,9 +1636,43 @@ while kit.is_running():
 
         traceback.print_exc()
 
+    # --- 競技モード: 観戦カメラで録画し、競技時間が来たら保存して終了する ---
+    if _recorder is not None:
+        try:
+            if _recorder.step(simulation_context.current_time):
+                print('[task] 競技時間終了。動画を保存してシミュレータを終了します。',
+                      flush=True)
+                _recorder.close()
+                _recorder = None
+                break
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
+    elif TASK_TIME > 0:
+        # カメラ無しの競技モード: 時間が来たら終了するだけ。
+        if _task_timer_t0 is None:
+            _task_timer_t0 = simulation_context.current_time
+        if simulation_context.current_time - _task_timer_t0 >= TASK_TIME:
+            print('[task] 競技時間終了。シミュレータを終了します (録画なし)。', flush=True)
+            break
+
+    # --- 調整モード: GUI で動かしたカメラの値を /recordings/tune/ に書き出す ---
+    if _tuner is not None:
+        try:
+            _tuner.step()
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
+
     # --- reset_world: サービス要求があれば物理ステップ間でここで適用する ---
     if _reset_requested:
         try:
+            # 先に USD の姿勢 (手で動かした静的家具・人・物体の親 Xform) を戻し、
+            # その後で _reset_objects() が動的剛体のワールド姿勢を確定させる。
+            # 逆順にすると親 Xform の復元が剛体のワールド姿勢をずらしてしまう。
+            _restore_manual_xforms()
             _reset_objects()
             _hsr.reset_to_spawn(
                 _robot_spawn['x'], _robot_spawn['y'], _robot_spawn['yaw'])
@@ -1009,6 +1704,13 @@ while kit.is_running():
             for _p in list(_st4.Traverse()):
                 _ps = str(_p.GetPath())
                 if _ps.startswith('/hsrb'):
+                    continue
+                # 引き出し (PrismaticJoint を張った trofast) は除外する。
+                # setRigidBody は PhysX の剛体を作り直すため、張ったジョイントが
+                # 外れて引き出しが落ちる。引き出しは _setup_drawers() の時点で
+                # ArticulationRootAPI を外し済み ([recol] が直したかった「指が
+                # すり抜ける」原因そのもの) なので、再登録しなくてよい。
+                if _ps in _drawer_body_paths:
                     continue
                 # /body (YCB/焼き込み) と、生オブジェクトの spawn root
                 # (_runtime_rigid_object_paths に記録) の両方を再登録対象にする。
@@ -1073,5 +1775,11 @@ while kit.is_running():
         pass
 
 
+# 競技モードで途中終了したときも録画を閉じる (break 以外の抜け方への保険)。
+if _recorder is not None:
+    try:
+        _recorder.close()
+    except Exception:
+        pass
 simulation_context.stop()
 kit.close()

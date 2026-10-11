@@ -24,6 +24,7 @@ set_targets = base.set_targets
 UsdGeom = base.UsdGeom
 Gf = base.Gf
 og_ros_node = base.og_ros_node
+og_ros_camera_info_node = base.og_ros_camera_info_node
 is_ros2 = base.is_ros2
 
 
@@ -272,10 +273,7 @@ class hsr(base.hsr):
                             "cameraHelperRgb",
                             og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
                         ),
-                        (
-                            "cameraHelperInfo",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
-                        ),
+                        ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
                         ("OnTick.outputs:tick", "createRenderProduct.inputs:execIn"),
@@ -316,7 +314,6 @@ class hsr(base.hsr):
                             "cameraHelperInfo.inputs:topicName",
                             topic_prefix + "/head_l_stereo_camera/camera_info",
                         ),
-                        ("cameraHelperInfo.inputs:type", "camera_info"),
                     ],
                 },
             )
@@ -338,10 +335,7 @@ class hsr(base.hsr):
                             "cameraHelperRgb",
                             og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
                         ),
-                        (
-                            "cameraHelperInfo",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
-                        ),
+                        ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
                         ("OnTick.outputs:tick", "createRenderProduct.inputs:execIn"),
@@ -382,7 +376,6 @@ class hsr(base.hsr):
                             "cameraHelperInfo.inputs:topicName",
                             topic_prefix + "/head_r_stereo_camera/camera_info",
                         ),
-                        ("cameraHelperInfo.inputs:type", "camera_info"),
                     ],
                 },
             )
@@ -404,18 +397,12 @@ class hsr(base.hsr):
                             "cameraHelperRgb",
                             og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
                         ),
-                        (
-                            "cameraHelperInfo",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
-                        ),
+                        ("cameraHelperInfo", og_ros_camera_info_node()),
                         (
                             "cameraHelperDepth",
                             og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
                         ),
-                        (
-                            "cameraHelperDepthInfo",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
-                        ),
+                        ("cameraHelperDepthInfo", og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
                         ("OnTick.outputs:tick", "createRenderProduct.inputs:execIn"),
@@ -465,7 +452,6 @@ class hsr(base.hsr):
                             "cameraHelperInfo.inputs:topicName",
                             topic_prefix + "/head_rgbd_sensor/color/camera_info",
                         ),
-                        ("cameraHelperInfo.inputs:type", "camera_info"),
                         ("cameraHelperDepth.inputs:frameId", self.RGBD_FRAME),
                         (
                             "cameraHelperDepth.inputs:topicName",
@@ -486,7 +472,6 @@ class hsr(base.hsr):
                             "cameraHelperDepthInfo.inputs:topicName",
                             topic_prefix + "/head_rgbd_sensor/depth/camera_info",
                         ),
-                        ("cameraHelperDepthInfo.inputs:type", "camera_info"),
                         # camera_info stays RELIABLE (default) — small payload,
                         # and depth_image_proc::PointCloudXyzrgbNode subscribes
                         # via image_transport/message_filters which does NOT
@@ -513,10 +498,7 @@ class hsr(base.hsr):
                             "cameraHelperRgb",
                             og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
                         ),
-                        (
-                            "cameraHelperInfo",
-                            og_ros_node("isaacsim.ros1.bridge.ROS1CameraHelper"),
-                        ),
+                        ("cameraHelperInfo", og_ros_camera_info_node()),
                     ],
                     og.Controller.Keys.CONNECT: [
                         ("OnTick.outputs:tick", "createRenderProduct.inputs:execIn"),
@@ -552,7 +534,6 @@ class hsr(base.hsr):
                             "cameraHelperInfo.inputs:topicName",
                             topic_prefix + "/hand_camera/camera_info",
                         ),
-                        ("cameraHelperInfo.inputs:type", "camera_info"),
                     ],
                 },
             )

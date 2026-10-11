@@ -4,3 +4,7 @@
 [submodule "usd/wrs_models"]
 	path = usd/wrs_models
 	url = https://github.com/hsr-project/tmc_wrs_omniverse_models.git
+[submodule "3rdparty/semu.robotics.ros2_bridge"]
+	path = 3rdparty/semu.robotics.ros2_bridge
+	url = https://github.com/ry0hei-kobayashi/semu.robotics.ros2_bridge.git
+	branch = isaac5.1-humble

@@ -2,23 +2,29 @@
 
 NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 
-> **Note:** **ROS1 noetic or ROS 2 Humble + Isaac Sim 4.5**
+> **Note:** **ROS 2 Humble + Isaac Sim 5.1** (CUDA 12.8 世代のドライバ向け)。旧 ROS1 noetic 構成 (`make ros1 ...`) は残っているが保守対象外。
+
+Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Humble の rclpy を**同梱**している。
+このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
+(`control_msgs` / `tmc_control_msgs` / `gazebo_msgs` / `tf_transformations`) を Python 3.11 向けに
+建てたもの (`env_docker/Dockerfile.isaacsim-ros2` の msgbuild ステージ) を使う。
+MoveIt など ROS 側のスタックは従来どおり 22.04 + Humble の `ros2` コンテナで動き、ホストネットワーク上の DDS で繋がる。
 
 ---
 
-## クイックスタート (ROS 2 Humble + Isaac Sim 4.5)
+## クイックスタート (ROS 2 Humble + Isaac Sim 5.1)
 
 ### 動作確認済み環境
 
 | 項目                     | バージョン                  |
 | ------------------------ | --------------------------- |
-| OS                       | Ubuntu 22.04                |
-| GPU                      | NVIDIA RTX 4070 (VRAM 12GB) |
-| NVIDIA Driver            | 580.142                     |
+| OS (ホスト)              | Ubuntu 22.04 / 24.04        |
+| GPU                      | NVIDIA RTX A6000 (VRAM 48GB) / RTX 4070 (12GB) |
+| NVIDIA Driver            | 580.x (CUDA 12.8 以降が必要)  |
 | Docker                   | 29.x                        |
 | NVIDIA Container Toolkit | latest                      |
-| Isaac Sim (コンテナ内)   | 4.5.0                       |
-| ROS 2 (コンテナ内)       | Humble                      |
+| Isaac Sim (コンテナ内)   | 5.1.0 (Ubuntu 24.04 / Python 3.11) |
+| ROS 2 (コンテナ内)       | Humble (Isaac 側は同梱 rclpy、ros2 側は 22.04 + apt) |
 
 推奨スペック: RTX 30 系以降, VRAM 12GB 以上, RAM 32GB 以上, 空きディスク 100GB 以上。
 
@@ -52,12 +58,16 @@ docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
 ### 2. リポジトリのクローン
 
 ```bash
-git clone --recursive https://github.com/ry0hei-kobayashi/hsr-omniverse.git
-cd hsr-omniverse
+git clone --recursive https://github.com/ry0hei-kobayashi/hsr-omniverse2.git
+cd hsr-omniverse2
 
 # --recursive を忘れた場合は:
 git submodule update --init --recursive
 ```
+
+サブモジュールは `usd/hsrb` (HSR の USD)、`usd/wrs_models` (YCB 物体・家具)、
+`3rdparty/semu.robotics.ros2_bridge` (ROS 2 アクションサーバー。Toni-SM 氏の MIT ライセンス拡張を
+Isaac 5.1 向けに移植した fork、ブランチ `isaac5.1-humble`)。どれが無くても起動しない。
 
 ### 3. キャッシュディレクトリ作成と X11 許可
 
@@ -71,20 +81,27 @@ xhost local:
 
 ### 4. ビルド・起動
 
-操作は `Makefile` 経由で統一しています。コマンドは `make {ros1|ros2} <action> [pc]` のかたちで組み合わせます (デフォルト `ros2`、`pc` 修飾子は `ros2` 限定)。
+操作は `Makefile` 経由で統一しています。コマンドは `make {ros1|ros2} <action> [dev] [pc|localhost] [nocache] [TASK=...]` のかたちで組み合わせます (デフォルト `ros2`、`pc`/`localhost` 修飾子は `ros2` 限定)。
 
 ```bash
 # ROS2 Humble (デフォルト)
-make ros2 build               # 全イメージをビルド
-make ros2 up                  # standalone モード起動 (host ローカル、ROS_DOMAIN_ID=0)
-make ros2 up pc               # PC モード (CycloneDDS PC + ROS_DOMAIN_ID=55)
+make ros2 build               # 全イメージをビルド (初回 30 分〜1 時間。isaacsim は 17GB)
+make ros2 build nocache       # レイヤキャッシュ無しで焼き直す
+make ros2 up                  # 起動 (ROS_DOMAIN_ID=26、DDS はマルチキャスト版 assets/cyclonedds.xml)
+make ros2 up localhost        # DDS を loopback に閉じる (LAN へのマルチキャスト漏洩対策。docs/dds-localhost.md)
+make ros2 up pc               # 別 PC と通信する PC モード (CycloneDDS unicast + ROS_DOMAIN_ID=55)
 ROS_DOMAIN_ID=49 make ros2 up pc  # Domain ID を上書き
 ROS_DOMAIN_ID=26 make ros2 up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
+make ros2 up TASK=gpsr        # configs/tasks/gpsr/ の world/配置/見た目で起動 (後述)
+make ros2 up TASK=tidyup TIME=600 SEED=1  # 競技モード (600 秒で自動終了・観戦カメラ録画・固定 Seed 1)
+make ros2 tune TASK=tidyup    # 観戦カメラの位置調整 → make ros2 tune-apply TASK=tidyup で反映
 make ros2 up robot=hsrc_ex    # スポーンするロボットを切り替え (hsrb/hsrc_ex、後述)
+make ros2 up RVIZ=1           # MoveIt の RViz2 も起動 (既定オフ)
+make ros2 up GRASP=1          # アタッチ把持 (指に吸い付く) を有効化。既定は物理接触のみ
 make ros2 down                # 停止
 make ros2 ps                  # コンテナ状態
-make ros2 ros                 # ros2 コンテナで bash
-make ros2 isaacsim            # isaacsim コンテナで bash
+make ros2 exec ros2           # ros2 コンテナで bash (ROS 環境 source 済み)
+make ros2 exec isaacsim       # isaacsim コンテナで bash
 make ros2 logs                # ログを tail
 
 # ROS1 Noetic
@@ -109,12 +126,13 @@ Isaac Sim の初回起動は 10〜20 分かかります(シェーダーコンパ
 別ターミナルから:
 
 ```bash
-make ros2 ros
-# コンテナ内で:
-source /opt/ros/humble/setup.bash
-source /ws/install/setup.bash
+make ros2 exec ros2
+# コンテナ内で (ROS 環境は /ros_entrypoint.sh が source 済み):
 ros2 topic list
 ```
+
+> **ROS_DOMAIN_ID** は既定 26 (学生環境 hma_env2 に合わせている)。別 PC や Apptainer 側と通信するときは
+> 両方で必ず揃えること。ずれると一切つながらない。`make ros2 up ROS_DOMAIN_ID=31` で変更できる。
 
 #### トラブルシューティング: トピックが `/parameter_events` と `/rosout` しか出ない
 
@@ -135,6 +153,76 @@ ros2 topic echo /scan --once    # 中身を 1 件だけ見る
 ```
 
 > **切り分けのヒント:** isaacsim コンテナ自身と ros2 コンテナの両方から `ros2 topic list` を比べると、「コンテナ間通信の問題」か「Isaac Sim 側がまだ出していない」かを判別できます。なお Isaac Sim が完全に起動し終えてから確認すれば、最初から正しく見えることがほとんどです。
+
+#### トラブルシューティング: `/head_rgbd_sensor/reconsted/points` が空
+
+トピックは `ros2 topic list` に出るのに `ros2 topic echo` しても何も来ない場合。
+
+この点群は sim 側ではなく `hma2_ws` の `head_pcl_reconst` (`hma_pcl_reconst2`) が作っている。
+このノードは `use_compressed: true` で動くため、購読先は raw の画像ではなく**圧縮版**:
+
+- `/head_rgbd_sensor/rgb/image_rect_color/compressed`
+- `/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth`
+
+Isaac Sim の `ROS2CameraHelper` は raw の `sensor_msgs/Image` しか出さないので、これを圧縮して
+配り直す `scripts/openmm_rgbd_compression_republisher.py` (ノード名 `rgbd_republisher`) が必要。
+`hsr.launch.py` が既定で起動する。これが動いていないと depth/rgb の同期が一度も発火せず、
+publisher は advertise だけされて無言になる。
+
+```bash
+make ros2 exec ros2
+# コンテナ内で:
+ros2 node list | grep rgbd_republisher                          # 起動しているか
+ros2 topic info /head_rgbd_sensor/rgb/image_rect_color/compressed  # Publisher count が 1 か
+```
+
+`Publisher count: 0` なら republisher が落ちている。`make ros2 logs | grep -i republisher` でエラーを確認する。
+意図的に止めたい場合のみ `ros2 launch /hsr.launch.py use_rgbd_republisher:=false`。
+
+RViz で表示するときは publisher が BEST_EFFORT なので **Reliability を Best Effort** にすること。
+Reliable のままだと QoS 不一致で永久に繋がらない。
+
+#### カメラのレート (既定 30 Hz)
+
+`/head_rgbd_sensor/*` の publish レートは 2 つの間引き設定の積で決まる。
+
+```
+カメラ publish [Hz] = 60 / RENDER_EVERY_N_STEPS / (CAMERA_FRAME_SKIP + 1) * RTF
+```
+
+| 変数 | 既定 | 意味 |
+|---|---|---|
+| `RENDER_EVERY_N_STEPS` | 2 | 物理 60 Hz のうち何ステップに 1 回描画するか (= 30 Hz 描画) |
+| `CAMERA_FRAME_SKIP` | 0 | 描画したフレームのうち何枚に 1 枚 publish するか (0 = 毎フレーム) |
+| `ENABLE_STEREO_CAMERAS` | 0 | head_l/head_r ステレオ (1280x960 x2) を作るか |
+
+既定は `60 / 2 / 1 = 30 Hz` で実機の HSR と同等。物理と whole-body 制御と `/clock` は常に 60 Hz。
+ステレオ 2 本はレンダープロダクトのピクセル予算の 73% を占めるのに購読者が居ないので既定で作らない。
+ステレオ画像が要るタスクのときだけ `make ros2 up ENABLE_STEREO_CAMERAS=1`。
+
+**RTF が 1.0 を保てないとき** (`ros2 topic hz /clock` が 60 から大きく落ちるとき) は、軽い順に
+`make ros2 up CAMERA_FRAME_SKIP=1` (15 Hz)、`make ros2 up RENDER_EVERY_N_STEPS=3` (20 Hz) を試す。
+いずれも環境変数なので再ビルドは不要。
+
+#### トラブルシューティング: 点群のレートが発行元より低い
+
+`/head_rgbd_sensor/reconsted/points` は **1 枚 9.83MB** (640x480 x point_step 32) と巨大で、
+CycloneDDS の UDP 断片化の影響をまともに受ける。発行元が 30 Hz でも受信側でごっそり落ちることがある。
+
+sim 側 (docker コンテナ) の DDS 設定は `assets/cyclonedds.xml` にあり、`FragmentSize` と
+`WhcHigh`、ソケットバッファ (100MB) をこのサイズ前提で調整済み。
+
+発行元の `head_pcl_reconst` は `hma2_ws` の Apptainer 側で動いており、DDS 設定も別ファイル
+(`hma2_ws/env/rmw_profiles/5e_isaac/cyclonedds.xml`、`gen_rmw_profiles.py` の自動生成物) を読む。
+そちらが Cyclone 既定 (1344B / 100kB) のままだと 1 断片の欠落でサンプルが丸ごと失われる。
+直すのは **生成スクリプト側** (hma2_ws リポジトリの作業)。
+
+#### DDS を loopback に閉じる (`make ros2 up localhost`)
+
+既定の `assets/cyclonedds.xml` は物理 NIC にバインドし、点群・画像を LAN へマルチキャストで撒く
+(実測で Wi-Fi が 500 Mbps → 50 Mbps に低下)。同一ホスト内だけで ROS 通信するなら
+`make ros2 up localhost` で `assets/cyclonedds.localhost.xml` (lo 固定・マルチキャスト無効) に切り替える。
+Apptainer 側は `source scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]`。詳細は [docs/dds-localhost.md](./docs/dds-localhost.md)。
 
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
@@ -291,16 +379,21 @@ make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd
 
 ```
 .
-├── 3rdparty/      # 外部由来モジュール (OgnROS1Action*.py)
-├── assets/        # 設定/リソース (cyclonedds.xml, cyclonedds.pc.xml, ros_entrypoint.sh.ros2, hsr-omniverse.rviz)
-├── configs/       # 実行時設定 (placement.yaml, dressing.yaml, tasks/ …) ※下のリンク参照
-├── env_docker/    # Dockerfile.* と docker-compose*.yml
+├── 3rdparty/      # 外部由来モジュール。semu.robotics.ros2_bridge/ は git submodule (MIT, Toni-SM の fork: ROS2 アクションサーバー)、OgnROS1Action*.py は ROS1 用
+├── assets/        # 設定/リソース (cyclonedds*.xml 3 種, ros_entrypoint.sh.*, hsr-omniverse.rviz, MoveIt 上書き用 joint_limits-smooth.yaml / moveit-no-octomap.rviz)
+├── configs/       # 実行時設定 (placement.yaml, dressing.yaml, tasks/<task>/ …) ※下のリンク参照
+├── docs/          # 補足ドキュメント (dds-localhost.md, tmc_wrs_gazebo_worlds-build-note.md)
+├── env_docker/    # Dockerfile.* (isaacsim-ros2 は Isaac 5.1 + py3.11 メッセージビルドの 2 ステージ) と docker-compose*.yml
+├── examples/      # 制御指示のサンプル (hsrb_interface / MoveIt)。ros2 コンテナに /examples で live マウント
 ├── launch/        # ROS1/ROS2 launch ファイル
-├── scripts/       # 実行スクリプト (hsr.py, ros2_bridge.py, launch_isaacsim.py, fetch_isaac_offline_assets.py 他)
-├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー)
+├── recordings/    # 競技モードの録画・tune の出力先 (git 管理外)
+├── scripts/       # 実行スクリプト (hsr.py, launch_isaacsim.py, arena_cameras.py, fetch_isaac_offline_assets.py 他)
+├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー, unknown_objects/ 等)
 └── worlds/        # .world ファイル (家具・壁の配置)
 ```
 
 エントリポイント: `scripts/launch_isaacsim.py` (旧 `sample-ros.py`)。Isaac Sim から HSR を起動するメインスクリプト。
 
 設定まわり (タスク別の world/配置/見た目): [configs/README.md](./configs/README.md) → タスク個別は [configs/tasks/README.md](./configs/tasks/README.md)。
+
+既知の注意点・懸念点 (DDS の探索、非推奨 API、root 所有の録画、未検証項目など): [docs/known-issues.md](./docs/known-issues.md)。

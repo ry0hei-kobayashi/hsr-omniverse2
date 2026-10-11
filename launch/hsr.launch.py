@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+import importlib.util
 
 import xacro
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node, SetParameter
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
@@ -31,14 +33,17 @@ def declare_arguments():
             description='URDF/XACRO description file with the robot.',
         )
     )
-    # compressed RGB-D 中継ノード(1本)全体の ON/OFF スイッチ。既定 true。
-    # 1ノードで openmm/mmpose・pcl_reconst 両方が要求する compressed/compressedDepth を出す
+    # RGB-D の compressed/compressedDepth を作る中継ノード(1本)を起動するか。既定 true。
+    # Isaac は raw の Image しか出さないが、実機の HSR は image_transport 経由で
+    # /compressed・/compressedDepth も出す。消費側 (hma_pcl_reconst2 の use_compressed=true,
+    # openmm/mmpose 等) はそちらを購読するので、sim でも同じ topic 構成を再現する。
+    # これを false にすると /head_rgbd_sensor/reconsted/points が出なくなる。
     # (マッピングは scripts/openmm_rgbd_compression_republisher.py の DEFAULT_MAPPINGS)。
     declared_arguments.append(
         DeclareLaunchArgument(
-            'openmm_rgbd_compression',
+            'use_rgbd_republisher',
             default_value='true',
-            description='Publish compressed RGB-D topics (openmm/mmpose & pcl_reconst) via one republisher.',
+            description='Publish compressed RGB-D topics (pcl_reconst / openmm) via one republisher.',
         )
     )
     # hsrc_ex シーンが color/camera_info で出す camera_info を rgb/camera_info に名前替え中継するか。
@@ -59,6 +64,15 @@ def declare_arguments():
             'use_rviz',
             default_value='false',
             description='Launch the MoveIt RViz2 on the Isaac Sim (ros2 container) side.',
+        )
+    )
+    # /grasp_detector_node/result の姿勢を TF として流す (RViz で把持候補を見るため)。
+    # 実体は examples/grasp_tf_broadcaster.py (compose が /examples に live マウント)。
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_grasp_tf',
+            default_value='true',
+            description='Broadcast /grasp_detector_node/result poses as TF frames for RViz.',
         )
     )
     # テレオペ "ロジック本体"(joystick_control + pseudo controllers)を Sim 側で起動するか。
@@ -97,6 +111,82 @@ def render_xacro_and_launch_robot_state_publisher(context: LaunchContext, args: 
             ],
             remappings=[('joint_states', '/whole_body/joint_states')],
             output={'both': 'log'},
+        )
+    ]
+
+
+def launch_moveit_rviz(context: LaunchContext, args: dict):
+    """MoveIt 付属の RViz2 を respawn 付きで起動する。
+
+    hsrb_moveit_config の launch に use_rviz を渡すと respawn 無しで起動され、
+    GL 初期化の一時的な失敗 (コンテナ起動直後の X/GLX) で RViz だけ消えて
+    プランニング UI が無くなる。ここでは同じパラメータを組み立てて respawn=True で立てる。
+    """
+    moveit_share = get_package_share_directory('hsrb_moveit_config')
+    description_package = context.perform_substitution(
+        args['description_package'])
+    description_file = context.perform_substitution(args['description_file'])
+
+    description_module_path = os.path.join(
+        moveit_share, 'launch', 'robot_description.py')
+    spec = importlib.util.spec_from_file_location(
+        '_hsrb_moveit_robot_description', description_module_path)
+    description_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(description_module)
+    robot_description = {
+        'robot_description': description_module.parse(
+            description_package, description_file)
+    }
+
+    def load_text(relative_path):
+        with open(os.path.join(moveit_share, relative_path), 'r') as stream:
+            return stream.read()
+
+    def load_yaml(relative_path):
+        with open(os.path.join(moveit_share, relative_path), 'r') as stream:
+            return yaml.safe_load(stream)
+
+    robot_description_semantic = {
+        'robot_description_semantic': load_text('config/hsrb.srdf')
+    }
+    ompl_planning_pipeline_config = {
+        'move_group': {
+            'planning_plugin': 'ompl_interface/OMPLPlanner',
+            'request_adapters': ' '.join([
+                'default_planner_request_adapters/AddTimeOptimalParameterization',
+                'default_planner_request_adapters/FixWorkspaceBounds',
+                'default_planner_request_adapters/FixStartStateBounds',
+                'default_planner_request_adapters/FixStartStateCollision',
+                'default_planner_request_adapters/FixStartStatePathConstraints',
+            ]),
+            'start_state_max_bounds_error': 0.1,
+        }
+    }
+    ompl_planning_pipeline_config['move_group'].update(
+        load_yaml('config/ompl_planning.yaml'))
+
+    return [
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            parameters=[
+                robot_description,
+                robot_description_semantic,
+                ompl_planning_pipeline_config,
+                load_yaml('config/kinematics.yaml'),
+                {'use_sim_time': True},
+            ],
+            arguments=[
+                '-d', os.path.join(moveit_share, 'config', 'moveit.rviz')
+            ],
+            respawn=True,
+            respawn_delay=2.0,
+            additional_env={
+                '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
+                'QT_X11_NO_MITSHM': '1',
+            },
         )
     ]
 
@@ -183,10 +273,18 @@ def generate_launch_description():
                 ]),
                 launch_arguments={
                     'use_sim_time': 'true',
-                    'use_rviz': LaunchConfiguration('use_rviz'),
+                    # RViz は下の moveit_rviz で respawn 付きで起動する
+                    # (GL 初期化の一時的な失敗でプランニング UI が消えないように)。
+                    'use_rviz': 'false',
                 }.items(),
             ),
         ]
+    )
+
+    moveit_rviz = OpaqueFunction(
+        function=launch_moveit_rviz,
+        args=[args],
+        condition=IfCondition(LaunchConfiguration('use_rviz')),
     )
 
     # task_evaluators = GroupAction(
@@ -255,7 +353,7 @@ def generate_launch_description():
             'use_sim_time:=true',
         ],
         output='screen',
-        condition=IfCondition(args['openmm_rgbd_compression']),
+        condition=IfCondition(args['use_rgbd_republisher']),
     )
 
     # pcl_reconst は rgb/camera_info を要求するが、hsrc_ex シーンは
@@ -315,6 +413,18 @@ def generate_launch_description():
         additional_env={'HSR_ROS_VERSION': '2'},
     )
 
+    grasp_tf_broadcaster = ExecuteProcess(
+        cmd=[
+            'python3',
+            '/examples/grasp_tf_broadcaster.py',
+            '--ros-args',
+            '-p',
+            'use_sim_time:=true',
+        ],
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('use_grasp_tf')),
+    )
+
     # Isaac の真値odom(hsr.py で wheel_odom を物理真値で上書き済み)を TF/計画に使うため、
     # 起動後に odometry_switcher を wheel_odom へ切り替える。既定の laser_odom は壁の少ない
     # 疎な環境でスキャンマッチングが破綻し odom が飛ぶため、真値の wheel を使う。
@@ -343,6 +453,8 @@ def generate_launch_description():
         robot_state_publisher,
         common,
         moveit,
+        moveit_rviz,
+        grasp_tf_broadcaster,
         odom,
         switch_odom_to_wheel,
         teleop,

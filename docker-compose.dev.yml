@@ -3,10 +3,10 @@ services:
     # 起動と同時に Python を実行せず、コンテナを生かしたまま待機させる。
     # 中身は手動 (make ros2 dev run) で実行する → ログがその端末だけに出る。
     command: ["sleep", "infinity"]
-    environment:
-      # /app/scripts から起動するので、リポジトリ直下の scene_dressing 等を
-      # import できるように /app も検索パスに加える。
-      - PYTHONPATH=/app
+    # NOTE: ここで PYTHONPATH を上書きしないこと。Isaac 5.1 版の Dockerfile は
+    # PYTHONPATH に同梱 ROS 2 (humble/rclpy) と /app/ros_msgs を通しており、compose の
+    # environment で PYTHONPATH=/app と書くとそれが丸ごと消えて rclpy が import できなくなる。
+    # /app 自体は Dockerfile 側の PYTHONPATH に含めてある (scene_dressing 等の import 用)。
     volumes:
       # --- ソースコードは「ディレクトリごと」live マウントする -----------------
       # base (docker-compose-ros2.yml) は launch_isaacsim.py 等を「単一ファイル」で
@@ -17,6 +17,8 @@ services:
       # dev では /app/scripts/launch_isaacsim.py を実行する (Makefile の LAUNCH_PY)。
       - ../scripts:/app/scripts:ro
       - ../scene_dressing:/app/scene_dressing:ro
+      # semu.robotics.ros2_bridge (submodule)。hsr.py が /app/scripts/../3rdparty で見つける。
+      - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
 
       # 追加で必要なデータセット (家具シーン / HDRI)。
       # テクスチャは repo の configs/textures/ に同梱したので dev でも追加マウント不要。
