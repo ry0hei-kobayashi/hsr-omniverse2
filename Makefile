@@ -2,17 +2,16 @@
 # HSR-Omniverse Makefile
 #
 # Usage:
-#   make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]
+#   make <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]
 #
-#   ros2          省略可 (ROS1 構成は削除済み。互換のため単語だけ受け付ける)
-#   build         Build images            (make ros2 build nocache でキャッシュ無し)
+#   build         Build images            (make build nocache でキャッシュ無し)
 #   up            Start the stack
 #   down          Stop and remove containers
 #   logs          Tail logs of all services
 #   ps            Container status
 #   ros           Open bash in ros2 container
 #   isaacsim      Open bash in isaacsim container
-#   exec          Open bash: make ros2 exec ros2 / make ros2 exec isaacsim
+#   exec          Open bash: make exec ros2 / make exec isaacsim
 #   run           (dev) Run launch_isaacsim.py manually in isaacsim
 #   tune          観戦カメラ 4 台の位置・画角を GUI で調整する (録画しない)
 #   tune-apply    tune の結果を configs/tasks/<TASK>/placement.yaml に反映する
@@ -20,43 +19,42 @@
 #   localhost     CycloneDDS を loopback (lo) に閉じる (LAN へのマルチキャスト漏洩対策)
 #
 # タスク (configs/tasks/<TASK>/task.yaml):
-#   make ros2 up TASK=tidyup            configs/tasks/tidyup/ の world/placement/dressing で起動
-#   make ros2 up TASK=tidyup TIME=600   競技モード: 600 秒 (シミュ内時間) で自動終了。観戦カメラ
+#   make up TASK=tidyup            configs/tasks/tidyup/ の world/placement/dressing で起動
+#   make up TASK=tidyup TIME=600   競技モード: 600 秒 (シミュ内時間) で自動終了。観戦カメラ
 #                                       4 台で録画して recordings/ に mp4 を保存 (task.yaml の
 #                                       time_limit を上書き。arena_cameras: true のタスクで有効)
-#   make ros2 up TASK=tidyup SEED=1     configs/tasks/tidyup/placement.seed1.yaml を読む
-#   make ros2 tune TASK=tidyup          観戦カメラ調整。GUI で動かすと recordings/tune/ に yaml と
-#                                       プレビュー画像が出る → make ros2 tune-apply TASK=tidyup
+#   make up TASK=tidyup SEED=1     configs/tasks/tidyup/placement.seed1.yaml を読む
+#   make tune TASK=tidyup          観戦カメラ調整。GUI で動かすと recordings/tune/ に yaml と
+#                                       プレビュー画像が出る → make tune-apply TASK=tidyup
 #   どのタスクでも同じキー (time_limit / arena_cameras / placement_seeds) が使える。
 #   書き方は configs/tasks/README.md。
 #
 # 把持:
-#   make ros2 up GRASP=1    アタッチ把持 (物体が指に吸い付く) を有効にする。既定は無効で、
+#   make up GRASP=1    アタッチ把持 (物体が指に吸い付く) を有効にする。既定は無効で、
 #                           指と物体の物理接触 (摩擦) だけで掴む。
 #
 # Examples:
-#   make ros2 build
-#   make ros2 up
-#   make ros2 up localhost              # DDS を lo に閉じる (docs/dds-localhost.md)
-#   make ros2 up pc                     # PC mode, ROS_DOMAIN_ID=55 default
-#   ROS_DOMAIN_ID=49 make ros2 up pc    # override Domain ID
-#   make ros2 up RVIZ=1                 # MoveIt RViz2 も起動する (既定オフ)
+#   make build
+#   make up
+#   make up localhost              # DDS を lo に閉じる (docs/dds-localhost.md)
+#   make up pc                     # PC mode, ROS_DOMAIN_ID=55 default
+#   ROS_DOMAIN_ID=49 make up pc    # override Domain ID
+#   make up RVIZ=1                 # MoveIt RViz2 も起動する (既定オフ)
 # ============================================================================
 
 ROS_DOMAIN_ID_PC ?= 55
 
-# Isaac 側と Apptainer (hma2_ws) 側で必ず一致させる値。make ros2 up ROS_DOMAIN_ID=31 で変えられる。
+# Isaac 側と Apptainer (hma2_ws) 側で必ず一致させる値。make up ROS_DOMAIN_ID=31 で変えられる。
 # 学生環境 (hma_env2) の既定が 26 なので合わせている。
 ROS_DOMAIN_ID ?= 26
 export ROS_DOMAIN_ID
 
-# スポーンするロボット切替。`make ros2 up robot=hsrb` のように小文字 robot= でも、
+# スポーンするロボット切替。`make up robot=hsrb` のように小文字 robot= でも、
 # ROBOT=hsrb でも渡せる。未指定なら空 → placement.yaml の robot.model に従う。
 ROBOT ?= $(robot)
 
 # --- compose file -------------------------------------------------------------
-# ROS1 (noetic) 構成はステップ3 で削除した。'ros2' は互換のため no-op modifier として残す。
-COMPOSE_FILE := env_docker/docker-compose-ros2.yml
+COMPOSE_FILE := env_docker/docker-compose.yml
 ROS_SERVICE  := ros2
 
 # -p hsr-omniverse: compose のプロジェクト名。付けないとフォルダ名 (env_docker) が
@@ -115,12 +113,12 @@ DDS_FILE := $(patsubst file:///%,%,$(CYCLONEDDS_URI))
 
 # --- nocache modifier -------------------------------------------------------
 # 'nocache' を付けるとレイヤキャッシュを一切使わずに焼き直す。
-#   make ros2 build nocache
+#   make build nocache
 # 依存 (apt/pip/git) を最新で取り直したいとき、キャッシュが壊れている疑いがあるとき用。
 # isaacsim イメージは 17GB あるので数十分〜1時間以上かかる。通常は付けないこと。
 # ※ --pull は付けない。ベースが nvcr.io/nvidia/isaac-sim:5.1.0 (NGC 認証が要る) なので、
 #    ログインしていない環境では pull 失敗でビルドごと落ちる。ベースまで取り直したいときだけ
-#    手で `make ros2 build nocache PULL=--pull`。
+#    手で `make build nocache PULL=--pull`。
 PULL ?=
 NO_CACHE ?= $(if $(filter nocache,$(MAKECMDGOALS)),1,0)
 ifeq ($(NO_CACHE),1)
@@ -138,16 +136,16 @@ ifneq ($(strip $(SEED)),)
     $(error SEED=<n> には TASK=<name> が必要です (configs/tasks/<TASK>/placement.seed<n>.yaml を読むため))
   endif
 endif
-# RViz2 は既定でオフ。見たいときだけ `make ros2 up RVIZ=1`。
+# RViz2 は既定でオフ。見たいときだけ `make up RVIZ=1`。
 RVIZ ?= 0
 USE_RVIZ := $(if $(filter 1 true TRUE yes YES on ON,$(RVIZ)),true,false)
-# アタッチ把持。既定 0 (物理接触のみ)。`make ros2 up GRASP=1` で有効。
+# アタッチ把持。既定 0 (物理接触のみ)。`make up GRASP=1` で有効。
 GRASP ?= 0
-# 1 にすると観戦カメラの調整モード (make ros2 tune で自動的に 1 になる)
+# 1 にすると観戦カメラの調整モード (make tune で自動的に 1 になる)
 CAMERA_TUNE ?=
 
 # --- 台車 / アーム / 引き出しの物理パラメータ --------------------------------------
-# 値はここが一次情報。compose の既定値と揃えてあり、`make ros2 up BASE_TRAJ_P_GAIN=1.0` で上書きできる。
+# 値はここが一次情報。compose の既定値と揃えてあり、`make up BASE_TRAJ_P_GAIN=1.0` で上書きできる。
 BASE_DIRECT_DRIVE ?= 1
 # 直接駆動の台車を「衝突形状を持たない kinematic anchor」に溶接して毎ステップ
 # テレポートするか (1)、平面ジョイント上の動剛体として速度を書くか (0)。
@@ -160,7 +158,7 @@ BASE_DIRECT_DRIVE ?= 1
 #         (BASE_KINEMATIC_COLLISION / BASE_COLLISION_*)
 #   - 腕: anchor を kinematic target で動かし、PhysX 自身に速度を導出させる
 #         (BASE_KINEMATIC_ANCHOR_MODE=usd)
-# 切り分けたいときだけ `make ros2 up BASE_KINEMATIC_DRIVE=0` で従来経路へ戻せる。
+# 切り分けたいときだけ `make up BASE_KINEMATIC_DRIVE=0` で従来経路へ戻せる。
 BASE_KINEMATIC_DRIVE ?= 1
 # kinematic 駆動時の壁クランプ。0 にすると台車が壁をすり抜ける。
 BASE_KINEMATIC_COLLISION ?= 1
@@ -259,14 +257,13 @@ SIM_ENV_ASSIGNMENTS = TASK_TIME=$(TASK_TIME) USE_RVIZ=$(USE_RVIZ) $(foreach v,$(
 SIM_ENV_EXEC_FLAGS = -e TASK_TIME=$(TASK_TIME) $(foreach v,$(SIM_ENV_NAMES),-e $(v)=$($(v)))
 
 # --- Targets ----------------------------------------------------------------
-.PHONY: help ros2 pc localhost dev nocache dds-check build up down logs ps ros isaacsim exec run tune tune-apply list-anims offline-assets
+.PHONY: help pc localhost dev nocache dds-check build up down logs ps ros isaacsim exec run tune tune-apply list-anims offline-assets
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Usage: make [ros2] <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]"
+	@echo "Usage: make <action> [dev] [pc|localhost] [nocache] [TASK=<name>] [TIME=<秒>] [SEED=<n>]"
 	@echo ""
 	@echo "Modifiers:"
-	@echo "  ros2            省略可。ROS2 Humble + Isaac Sim 5.1 (compose: env_docker/docker-compose-ros2.yml)"
 	@echo "  pc              CycloneDDS cross-PC mode, ROS_DOMAIN_ID=$(ROS_DOMAIN_ID_PC) (override via env)"
 	@echo "  localhost       CycloneDDS を loopback に閉じる (LAN へのマルチキャスト漏洩対策)"
 	@echo "  dev             Dev mode: isaacsim stays idle (no auto Python); run it manually"
@@ -278,39 +275,40 @@ help:
 	@echo "  down            Stop and remove containers"
 	@echo "  logs            Tail logs"
 	@echo "  ps              Container status"
-	@echo "  ros             Open bash in ros container ($(ROS_SERVICE))"
+	@echo "  ros             Open bash in ros2 container"
 	@echo "  isaacsim        Open bash in isaacsim container"
-	@echo "  exec            Open bash: make ros2 exec ros2 / make ros2 exec isaacsim"
+	@echo "  exec            Open bash: make exec ros2 / make exec isaacsim"
 	@echo "  run             (dev) Run launch_isaacsim.py manually in isaacsim"
 	@echo "  tune            観戦カメラの位置・画角を GUI で調整する (TASK= 必須、録画しない)"
 	@echo "  tune-apply      tune の結果を configs/tasks/<TASK>/placement.yaml に反映する"
 	@echo "  offline-assets  人など『アセットサーバ依存』USDをusd/isaac_offline/へ取得(要ネット・会場前に一度だけ)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make ros2 build"
-	@echo "  make ros2 up"
-	@echo "  make ros2 up TASK=gpsr                 # configs/tasks/gpsr/ の設定で起動"
-	@echo "  make ros2 up TASK=tidyup TIME=600      # 競技モード (600 秒で自動終了・録画)"
-	@echo "  make ros2 up TASK=tidyup SEED=1        # 固定 Seed 1 の配置で起動"
-	@echo "  make ros2 tune TASK=tidyup             # 観戦カメラ調整 → make ros2 tune-apply TASK=tidyup"
-	@echo "  make ros2 up robot=hsrb                # ロボットを hsrb で起動 (placement.yaml より優先)"
-	@echo "  make ros2 up robot=hsrc_ex             # ロボットを hsrc_ex で起動"
-	@echo "  make ros2 up localhost                 # DDS を lo に閉じる"
-	@echo "  make ros2 up localhost ROS_DOMAIN_ID=31  # Apptainer 側と同じ値を指定する"
-	@echo "  make ros2 up pc / ROS_DOMAIN_ID=49 make ros2 up pc"
-	@echo "  make ros2 up RVIZ=1                    # MoveIt RViz2 も起動する (既定はオフ)"
-	@echo "  make ros2 up GRASP=1                   # アタッチ把持を有効にする"
-	@echo "  make ros2 up BASE_TRAJ_P_GAIN=1.0      # whole_body 台車 FB を弱める"
-	@echo "  make ros2 up DRAWER_JOINTS=0           # 引き出し化をやめ『置いてあるだけの箱』に戻す"
+	@echo "  make build"
+	@echo "  make up"
+	@echo "  make up TASK=gpsr                 # configs/tasks/gpsr/ の設定で起動"
+	@echo "  make up TASK=tidyup TIME=600      # 競技モード (600 秒で自動終了・録画)"
+	@echo "  make up TASK=tidyup SEED=1        # 固定 Seed 1 の配置で起動"
+	@echo "  make tune TASK=tidyup             # 観戦カメラ調整 → make tune-apply TASK=tidyup"
+	@echo "  make up robot=hsrb                # ロボットを hsrb で起動 (placement.yaml より優先)"
+	@echo "  make up robot=hsrc_ex             # ロボットを hsrc_ex で起動"
+	@echo "  make up localhost                 # DDS を lo に閉じる"
+	@echo "  make up localhost ROS_DOMAIN_ID=31  # Apptainer 側と同じ値を指定する"
+	@echo "  make up pc / ROS_DOMAIN_ID=49 make up pc"
+	@echo "  make up RVIZ=1                    # MoveIt RViz2 も起動する (既定はオフ)"
+	@echo "  make up GRASP=1                   # アタッチ把持を有効にする"
+	@echo "  make up BASE_TRAJ_P_GAIN=1.0      # whole_body 台車 FB を弱める"
+	@echo "  make up DRAWER_JOINTS=0           # 引き出し化をやめ『置いてあるだけの箱』に戻す"
 	@echo ""
 	@echo "  # Dev mode (開発用。リリース後は up を使う):"
-	@echo "  make ros2 dev up      # start containers in background (-d), isaacsim idle, prompt returns"
-	@echo "  make ros2 dev run     # same terminal: run the sim, traceback/logs shown here"
-	@echo "  make ros2 dev down    # stop when finished"
+	@echo "  make dev up      # start containers in background (-d), isaacsim idle, prompt returns"
+	@echo "  make dev run     # same terminal: run the sim, traceback/logs shown here"
+	@echo "  make dev down    # stop when finished"
 	@echo ""
 	@echo "Resolved: DDS=$(CYCLONEDDS_URI), ROS_DOMAIN_ID=$(ROS_DOMAIN_ID), compose=$(COMPOSE_FILE)"
 
-# Modifier "targets" — accept as no-ops so they can sit on the command line
+# Modifier "targets" — accept as no-ops so they can sit on the command line.
+# ('ros2' は `make exec ros2` の引数として、また旧 `make ros2 up` 互換のために残す)
 ros2 pc localhost dev nocache:
 	@:
 
@@ -325,8 +323,8 @@ dds-check:
 	  *) echo '❌ CYCLONEDDS_URI が不正です: $(CYCLONEDDS_URI)'; \
 	     echo '   compose が bind mount しているのは次の3つだけです:'; \
 	     echo '     file:///cyclonedds.xml            (既定/マルチキャスト版)'; \
-	     echo '     file:///cyclonedds.localhost.xml  (make ros2 up localhost)'; \
-	     echo '     file:///cyclonedds.pc.xml         (make ros2 up pc)'; \
+	     echo '     file:///cyclonedds.localhost.xml  (make up localhost)'; \
+	     echo '     file:///cyclonedds.pc.xml         (make up pc)'; \
 	     echo '   手打ちせず make の modifier を使ってください'; \
 	     exit 1;; \
 	esac
@@ -342,12 +340,12 @@ dds-check:
 	fi
 
 # TASK=<名前> を付けると configs/tasks/<名前>/ の world/placement/dressing を使う。
-#   例: make ros2 dev run TASK=hri   (未指定なら configs 直下の既定)
+#   例: make dev run TASK=hri   (未指定なら configs 直下の既定)
 run:
 	$(COMPOSE) exec $(SIM_ENV_EXEC_FLAGS) isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
 
 # アセットサーバにある「人のアニメ」ファイル一覧を表示する確認用 (画面なし)。
-#   make ros2 dev list-anims   (先に 'make ros2 dev up' でコンテナ起動が必要)
+#   make dev list-anims   (先に 'make dev up' でコンテナ起動が必要)
 list-anims:
 	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh /app/scripts/list_people_anims.py
 
@@ -355,7 +353,7 @@ list-anims:
 # usd/isaac_offline/ にミラー(コピー)してくる。★ネットに繋がる環境で会場前に一度だけ実行。
 # 取得後は usd/isaac_offline/ をコミットすれば、以後 people は完全オフラインで動く。
 # 追加で取りたいサーバパスがあれば FETCH_ARGS で渡せる:
-#   make ros2 offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
+#   make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 offline-assets:
 	$(COMPOSE) run --rm --no-deps \
 	  -e http_proxy= -e https_proxy= \
@@ -370,13 +368,13 @@ build:
 	$(COMPOSE) build $(BUILD_FLAGS)
 
 # TASK=<名前> を付けると configs/tasks/<名前>/ の設定で起動する。
-#   例: make ros2 up TASK=hri   (未指定なら configs 直下の既定)
+#   例: make up TASK=hri   (未指定なら configs 直下の既定)
 up: dds-check
 	@if [ "$(PC)" = "1" ] && [ -n "$(PEER)" ]; then \
 	  echo "[pc] cyclonedds.pc.xml を生成 (PEER=$(PEER))"; \
 	  ./scripts/gen_cyclonedds_pc.sh $(PEER); \
 	elif [ "$(PC)" = "1" ]; then \
-	  echo "[pc] PEER 未指定 → 既存の assets/cyclonedds.pc.xml を使用 (自動生成するなら: make ros2 up pc PEER=192.168.0.10)"; \
+	  echo "[pc] PEER 未指定 → 既存の assets/cyclonedds.pc.xml を使用 (自動生成するなら: make up pc PEER=192.168.0.10)"; \
 	fi
 	$(SIM_ENV_ASSIGNMENTS) $(COMPOSE) up $(UP_FLAGS)
 
@@ -396,8 +394,8 @@ isaacsim:
 	$(COMPOSE) exec isaacsim bash
 
 # --- exec: コンテナに入る ----------------------------------------------------
-#   make ros2 exec ros2       ROS 2 コンテナ (/ros_entrypoint.sh 経由で ROS 環境 source 済み)
-#   make ros2 exec isaacsim   Isaac Sim コンテナ
+#   make exec ros2       ROS 2 コンテナ (/ros_entrypoint.sh 経由で ROS 環境 source 済み)
+#   make exec isaacsim   Isaac Sim コンテナ
 # ('ros2' は ROS 版選択の modifier と同じ単語なので、exec と並べたときだけ入り先として解釈する)
 EXEC_SERVICE := $(if $(filter isaacsim,$(MAKECMDGOALS)),isaacsim,$(if $(filter exec,$(MAKECMDGOALS)),$(ROS_SERVICE),))
 exec:
@@ -406,7 +404,7 @@ ifeq ($(EXEC_SERVICE),isaacsim)
 else ifneq ($(EXEC_SERVICE),)
 	$(COMPOSE) exec $(EXEC_SERVICE) /ros_entrypoint.sh bash
 else
-	@echo "Usage: make ros2 exec ros2 | make ros2 exec isaacsim"; exit 1
+	@echo "Usage: make exec ros2 | make exec isaacsim"; exit 1
 endif
 
 # ============================================================
@@ -417,16 +415,16 @@ endif
 # カメラの映像がそのまま見える。動かすたびに次の 2 つが書き出される:
 #   recordings/tune/arena_cameras.yaml  <- configs/tasks/<TASK>/placement.yaml に貼る設定
 #   recordings/tune/preview.png         <- 実際に録画される 2x2 の絵
-# (dev モードで使いたいときは `make ros2 dev up CAMERA_TUNE=1 TASK=...` + `make ros2 dev run TASK=...`)
+# (dev モードで使いたいときは `make dev up CAMERA_TUNE=1 TASK=...` + `make dev run TASK=...`)
 # 子 make には MAKECMDGOALS の modifier が伝わらないので、選ばれたプロファイルを
 # コマンドライン変数として明示的に引き継ぐ。
 tune:
-	@test -n '$(TASK)' || { echo '❌ make ros2 tune TASK=<name> のように TASK を指定してください'; exit 1; }
+	@test -n '$(TASK)' || { echo '❌ make tune TASK=<name> のように TASK を指定してください'; exit 1; }
 	@$(MAKE) up CAMERA_TUNE=1 TASK=$(TASK) CYCLONEDDS_URI=$(CYCLONEDDS_URI) ROS_DOMAIN_ID=$(ROS_DOMAIN_ID)
 
 # tune の調整結果 (recordings/tune/arena_cameras.yaml) を
 # configs/tasks/<TASK>/placement.yaml に反映する。make tune だけでは反映されない
 # (コンテナから configs/ は読み取り専用のため)。
 tune-apply:
-	@test -n '$(TASK)' || { echo '❌ make ros2 tune-apply TASK=<name> のように TASK を指定してください'; exit 1; }
+	@test -n '$(TASK)' || { echo '❌ make tune-apply TASK=<name> のように TASK を指定してください'; exit 1; }
 	@TASK=$(TASK) python3 scripts/apply_tune.py

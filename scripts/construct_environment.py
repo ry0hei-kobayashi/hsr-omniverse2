@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import omni.kit.commands
 import omni.usd
-from omni.isaac.core.utils import stage, viewports
-from omni.isaac.core.utils.prims import create_prim
-from omni.isaac.core.utils.rotations import euler_angles_to_quat
+from isaacsim.core.utils import stage, viewports
+from isaacsim.core.utils.prims import create_prim
+from isaacsim.core.utils.rotations import euler_angles_to_quat
 from pxr import Gf, Sdf, Usd, UsdShade
 
 import scene_dressing

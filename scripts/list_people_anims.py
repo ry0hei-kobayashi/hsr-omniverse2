@@ -16,7 +16,7 @@ list_people_anims: アセットサーバにある「人のアニメ」ファイ�
   - シミュレーションは一切回さない。フォルダの中身を表示して終了するだけ。
 
 実行 (dev モードでコンテナが起動している状態で):
-  make ros2 dev list-anims
+  make dev list-anims
 """
 from __future__ import annotations
 

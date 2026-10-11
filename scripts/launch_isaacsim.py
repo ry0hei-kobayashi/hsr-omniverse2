@@ -27,6 +27,7 @@ import yaml
 from isaacsim.simulation_app import SimulationApp
 
 import object_placement  # no omni dependency; safe before Kit boots
+import task_config  # 同上 (純粋関数のみ)
 
 kit = SimulationApp({
     'renderer': 'RayTracedLighting',
@@ -45,11 +46,11 @@ from isaacsim.core.api.materials.physics_material import PhysicsMaterial
 from isaacsim.core.version import get_version
 from isaacsim.sensors.physics import ContactSensor
 from isaacsim.storage.native import get_assets_root_path
-from omni.isaac.core import SimulationContext
-from omni.isaac.core.prims import GeometryPrim
-from omni.isaac.core.utils import nucleus, stage, viewports
-from omni.isaac.core.utils.prims import create_prim
-from omni.isaac.core.utils.rotations import euler_angles_to_quat
+from isaacsim.core.api import SimulationContext
+from isaacsim.core.prims import SingleGeometryPrim
+from isaacsim.core.utils import stage, viewports
+from isaacsim.core.utils.prims import create_prim
+from isaacsim.core.utils.rotations import euler_angles_to_quat
 from omni.isaac.dynamic_control import _dynamic_control
 from omni.physx import get_physx_simulation_interface
 from omni.physx.scripts import utils as physx_utils
@@ -61,11 +62,12 @@ from tmc_wrs_gazebo_worlds import randomizer
 
 # Local modules that import omni at module top -> must come after Kit boots.
 import construct_environment
+import drawers
 import furniture_spawn
 import hsr
 import people_spawn
 
-# 観戦カメラ (競技モードの録画 / make ros2 tune の調整モード)。
+# 観戦カメラ (競技モードの録画 / make tune の調整モード)。
 # omni.replicator と cv2 に依存するので、無い環境でも通常起動は壊さないよう
 # 遅延エラーにする (カメラが必要になった時点で原因を出して止める)。
 try:
@@ -80,10 +82,10 @@ except ImportError as _e:  # pragma: no cover - 実行環境依存
 # from omni.isaac.core.materials.physics_material import PhysicsMaterial
 
 
-# from omni.isaac.core import SimulationContext
-# from omni.isaac.core.utils import viewports, stage
-# from omni.isaac.core.utils.prims import create_prim
-# from omni.isaac.core.utils.rotations import euler_angles_to_quat
+# from isaacsim.core.api import SimulationContext
+# from isaacsim.core.utils import viewports, stage
+# from isaacsim.core.utils.prims import create_prim
+# from isaacsim.core.utils.rotations import euler_angles_to_quat
 # import omni.kit.commands
 
 
@@ -170,7 +172,7 @@ repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ============================================================
 # タスク選択 (TASK 環境変数) と競技モードの解決
 # ============================================================
-# `make ros2 up TASK=hri` のように指定すると、configs/tasks/<TASK>/ の
+# `make up TASK=hri` のように指定すると、configs/tasks/<TASK>/ の
 # 設定 (world / placement / dressing / 競技モード) を使う。TASK 未指定なら従来どおり
 # configs 直下の既定を使う (後方互換)。
 #   task.yaml のキー (configs/tasks/README.md 参照):
@@ -187,160 +189,22 @@ repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 環境変数は task.yaml の値を「上書き」するだけ (task.yaml が一次情報):
 #   TASK_TIME (秒) > time_limit,  CAMERA_TUNE=1 > arena_cameras (調整モードを強制),
 #   PLACEMENT_SEED=<n> > (無指定なら placement.yaml の objects をそのまま使う)
-_TASK_DEFAULTS = {
-    'time_limit': 0,
-    'arena_cameras': False,
-    'placement_seeds': 'placement.seed{n}.yaml',
-}
-
-
-def _load_task_config(task):
-    """configs/tasks/<task>/ を探し、(task_dir, task.yaml の辞書, placement.yaml のパス) を返す。
-
-    task が空なら (None, {}, None)。フォルダが無ければ FileNotFoundError。
-    task.yaml が無いときは警告して空の辞書 (world/dressing は既定)。
-    placement.yaml はタスクフォルダにあればそのパス、無ければ None (各ローダーの既定)。
-    """
-    if not task:
-        return None, {}, None
-    task_dir = next(
-        (
-            d
-            for d in (
-                os.path.join('/app/configs/tasks', task),
-                os.path.join(repo_root, 'configs', 'tasks', task),
-            )
-            if os.path.isdir(d)
-        ),
-        None,
-    )
-    if task_dir is None:
-        raise FileNotFoundError(
-            f"TASK='{task}' のフォルダが見つかりません。configs/tasks/{task}/ を作ってください。"
-        )
-    print(f"[task] selected TASK='{task}' dir={task_dir}")
-
-    task_yaml = os.path.join(task_dir, 'task.yaml')
-    if os.path.isfile(task_yaml):
-        with open(task_yaml) as f:
-            tcfg = yaml.safe_load(f) or {}
-    else:
-        tcfg = {}
-        print(f'[task] WARNING: {task_yaml} が無いので world/dressing は既定を使います。')
-
-    # placement.yaml はタスクフォルダにあればそれを優先 (無ければ共通の既定)。
-    placement = os.path.join(task_dir, 'placement.yaml')
-    if os.path.isfile(placement):
-        print(f'[task] placement: {placement}')
-    else:
-        placement = None
-        print('[task] placement: タスク個別が無いので共通の configs/placement.yaml を使用')
-    return task_dir, tcfg, placement
-
-
-def _resolve_task_time(task_time_limit):
-    """競技時間 [秒] を決める。環境変数 TASK_TIME があれば task.yaml の time_limit を上書き。
-
-    `make ros2 up TASK=<name> TIME=600` が TASK_TIME=600 として届く。空なら task.yaml の値。
-    数値として読めない値は警告して task.yaml の値に戻す。負の値は 0 (無制限) 扱い。
-    """
-    try:
-        value = float(task_time_limit or 0)
-    except (TypeError, ValueError):
-        print(f'[task] WARNING: task.yaml の time_limit={task_time_limit!r} を数値として'
-              f'読めません。0 (無制限) にします。', flush=True)
-        value = 0.0
-    env = os.environ.get('TASK_TIME', '').strip()
-    if env:
-        try:
-            value = float(env)
-            print(f'[task] TASK_TIME={env} で task.yaml の time_limit を上書き', flush=True)
-        except ValueError:
-            print(f"[task] WARNING: TASK_TIME={env!r} を数値として読めません。"
-                  f'task.yaml の time_limit={value:g} を使います。', flush=True)
-    return max(value, 0.0)
-
-
-def _resolve_camera_tune():
-    """調整モードか (環境変数 CAMERA_TUNE)。`make ros2 tune TASK=<name>` が 1 を渡す。"""
-    return os.environ.get('CAMERA_TUNE', '').strip().lower() in (
-        '1', 'true', 'yes', 'on')
-
-
-def _resolve_placement_seed(task, task_dir, pattern, base_placement_path):
-    """objects: の配置に使う placement ファイルを決める。
-
-    環境変数 PLACEMENT_SEED=<n> (make ros2 up TASK=<name> SEED=<n>) があれば
-    configs/tasks/<task>/<pattern の {n} を n に置換> を返す。TASK が無い・n が整数でない・
-    ファイルが無いときは理由を明示して止める (黙って既定に落ちると配置ミスに気付けない)。
-    無指定なら base_placement_path (タスクの placement.yaml, または None=共通の既定)。
-    """
-    seed_env = os.environ.get('PLACEMENT_SEED', '').strip()
-    if not seed_env:
-        return base_placement_path
-    if not task:
-        raise RuntimeError(
-            f'PLACEMENT_SEED={seed_env} が指定されましたが TASK がありません。'
-            'Seed ファイルは configs/tasks/<TASK>/ から探すので、TASK=<name> も指定してください。'
-        )
-    try:
-        seed = int(seed_env)
-    except ValueError:
-        raise ValueError(
-            f'PLACEMENT_SEED={seed_env!r} は整数ではありません (例: SEED=2)。'
-        ) from None
-    pattern = str(pattern or _TASK_DEFAULTS['placement_seeds'])
-    if '{n}' not in pattern:
-        raise ValueError(
-            f"TASK='{task}' の task.yaml の placement_seeds={pattern!r} に {{n}} がありません。"
-            "例: placement_seeds: placement.seed{n}.yaml"
-        )
-    seed_path = os.path.join(task_dir, pattern.replace('{n}', str(seed)))
-    if not os.path.isfile(seed_path):
-        raise FileNotFoundError(
-            f"TASK='{task}' の Seed {seed} の配置ファイルが見つかりません: {seed_path}\n"
-            f'task.yaml の placement_seeds ({pattern}) に合う名前で '
-            f'configs/tasks/{task}/ に置いてください。'
-        )
-    print(f'[task] PLACEMENT_SEED={seed} -> objects: は {seed_path} を使用 '
-          '(robot/people/furniture/arena_cameras は placement.yaml のまま)', flush=True)
-    return seed_path
-
-
-def _resolve_render_every_n_steps(default=2):
-    """物理 60 Hz のうち何ステップに 1 回描画するか (環境変数 RENDER_EVERY_N_STEPS)。
-
-    描画したフレームだけがカメラの publish 候補になるので、ここが RGB-D の上限レートを決める:
-      カメラ publish [Hz] = 60 / RENDER_EVERY_N_STEPS / (CAMERA_FRAME_SKIP + 1) * RTF
-    既定 2 = 30 Hz 描画。RTF が 1.0 を保てないときは 3 や 4 に。物理と全身制御は常に 60 Hz。
-    """
-    raw = os.environ.get('RENDER_EVERY_N_STEPS', '').strip()
-    if not raw:
-        return default
-    try:
-        return max(1, int(raw))
-    except ValueError:
-        print('[render] WARNING: RENDER_EVERY_N_STEPS=%r is invalid; using %d'
-              % (raw, default), flush=True)
-        return default
-
-
 _task = os.environ.get('TASK', '').strip()
-_task_dir, _tcfg, _task_placement_path = _load_task_config(_task)
+_task_dir, _tcfg, _task_placement_path = task_config.load_task_config(_task, repo_root)
 _task_world_name = _tcfg.get('world')  # task.yaml の world: (worlds/ 内のファイル名)
 _dsel = _tcfg.get('dressing') or {}
 _task_dressing_preset = _dsel.get('preset')  # None なら dressing.yaml の defaults
 _task_dressing_lighting = _dsel.get('lighting')
 
 # 競技時間 (秒, シミュレータ内時間)。>0 なら競技モード (時間が来たら自動終了)。
-TASK_TIME = _resolve_task_time(_tcfg.get('time_limit', _TASK_DEFAULTS['time_limit']))
+TASK_TIME = task_config.resolve_task_time(_tcfg.get('time_limit', task_config.TASK_DEFAULTS['time_limit']))
 # 調整モード (CAMERA_TUNE=1): 観戦カメラ 4 台だけ作り、録画も自動終了もしない。
 # GUI で位置・画角をいじると /recordings/tune/ に設定 yaml とプレビュー画像が書き出され、
-# make ros2 tune-apply TASK=<name> でタスクの placement.yaml に反映できる。
-CAMERA_TUNE = _resolve_camera_tune()
+# make tune-apply TASK=<name> でタスクの placement.yaml に反映できる。
+CAMERA_TUNE = task_config.resolve_camera_tune()
 # 観戦カメラを作るか。task.yaml の arena_cameras が一次情報だが、CAMERA_TUNE=1 は
 # 「カメラを調整したい」という明示なので false でも作る (調整してから true にする運用)。
-ARENA_CAMERAS = bool(_tcfg.get('arena_cameras', _TASK_DEFAULTS['arena_cameras']))
+ARENA_CAMERAS = bool(_tcfg.get('arena_cameras', task_config.TASK_DEFAULTS['arena_cameras']))
 if CAMERA_TUNE and not ARENA_CAMERAS:
     print('[task] CAMERA_TUNE=1: task.yaml は arena_cameras: false ですが、調整のため'
           'カメラを作ります (録画で使うには arena_cameras: true にしてください)。', flush=True)
@@ -352,10 +216,10 @@ if TASK_TIME > 0:
     print(f'[task] 競技モード: {TASK_TIME:.0f} 秒 (シミュレータ内時間) で自動終了・'
           f"録画{'あり' if ARENA_CAMERAS else 'なし (arena_cameras: false)'}", flush=True)
 # objects: の配置に使う placement (Seed 指定があればそのファイル)。
-_object_placement_path = _resolve_placement_seed(
-    _task, _task_dir, _tcfg.get('placement_seeds', _TASK_DEFAULTS['placement_seeds']),
+_object_placement_path = task_config.resolve_placement_seed(
+    _task, _task_dir, _tcfg.get('placement_seeds', task_config.TASK_DEFAULTS['placement_seeds']),
     _task_placement_path)
-RENDER_EVERY_N_STEPS = _resolve_render_every_n_steps()
+RENDER_EVERY_N_STEPS = task_config.resolve_render_every_n_steps()
 print('[render] viewport update every %d physics step(s)' % RENDER_EVERY_N_STEPS,
       flush=True)
 
@@ -455,7 +319,7 @@ floor_material = PhysicsMaterial(
     static_friction=60.0,
     dynamic_friction=60.0,
 )
-GeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
+SingleGeometryPrim(prim_path=_GROUND_PATH).apply_physics_material(
     floor_material, weaker_than_descendants=True
 )
 
@@ -792,142 +656,9 @@ for i in root.findall('world/include'):
     _spawn_root_paths.append(stage_path)
 
 
-# ============================================================
-# 引き出し (段違い棚 wrc_stair_like_drawer の trofast) を「本物の引き出し」にする
-# ============================================================
-# world ファイルの trofast_* は段違い棚 (wrc_stair_like_drawer) に「置いてあるだけ」の
-# 自由剛体で、そのままではロボットが取っ手を掴んで引くことができない。理由は 2 つ:
-#
-#   1. trofast_knob/model.usd の /body に ArticulationRootAPI が付いている。
-#      これが付いた物体は PhysX が別アーティキュレーションとして扱い、ロボット
-#      (これもアーティキュレーション) と衝突しなくなる = 指がすり抜ける。
-#      YCB は drop_object() の [obj-fix] で除去しているが、world の <include> 経由で
-#      読まれる trofast はその経路を通らないため付いたままだった。
-#
-#   2. 棚のレール間隔は 0.280 m なのに箱の上縁は 0.300 m あり、左右 10 mm ずつ
-#      最初から食い込んでいる。実物の「縁をレールに引っ掛けて吊る」構造をそのまま
-#      USD にしたためで、剛体シミュレーションでは初期めり込みになる。PhysX が
-#      これを押し出そうとして箱が弾かれたり楔状に噛んで沈み込んだりする。
-#
-# 対策として、棚と箱の間に PrismaticJoint (直動ジョイント) を張り、レールの代わりに
-# ジョイントで運動を拘束する。ジョイントで繋いだ 2 体は collisionEnabled=False により
-# 当たり判定が切れるので、上記 2. のめり込みも同時に解消する。結果として
-# 「手前にだけスライドし、引き切ると止まり、抜け落ちない」本物の引き出しになる。
-# 段違い棚の無い world (他タスク) では何もしない (no-op)。
-DRAWER_FRAME_PATH = '/wrc_stair_like_drawer'
-# 引き出しを何 m 引き出せるか (ジョイントの上限)。箱の奥行きは 0.4235 m。
-DRAWER_PULL_LIMIT = float(os.environ.get('DRAWER_PULL_LIMIT', '') or '0.30')
-# 引き出しの粘性抵抗 [N/(m/s)]。大きいほど重い引き心地になる。0 で無抵抗。
-# 指の把持力 (hsr.py の FINGER_MAX_FORCE) で引ける範囲に収めること。
-DRAWER_DAMPING = float(os.environ.get('DRAWER_DAMPING', '') or '15.0')
-# 粘性抵抗が出せる力の上限 [N]。引き出しを止める力ではなく減衰の頭打ち。
-DRAWER_DAMPING_MAX_FORCE = float(
-    os.environ.get('DRAWER_DAMPING_MAX_FORCE', '') or '200.0')
-# 0 にすると引き出し化を丸ごと止めて従来の「置いてあるだけの箱」に戻せる。
-DRAWER_JOINTS_ENABLED = os.environ.get('DRAWER_JOINTS', '1') != '0'
-
-# 引き出しにした箱の /body パス。[recol] の対象外にするために覚えておく
-# ([recol] は setRigidBody で剛体を作り直すため、張ったジョイントが壊れる)。
-_drawer_body_paths = []
-
-
-def _strip_articulation_root(prim):
-    """prim 以下の ArticulationRootAPI を外して「ただの剛体」に戻す。
-
-    drop_object() の [obj-fix] と同じ処理。付いたままだとロボットの指がすり抜ける。
-    """
-    for p in Usd.PrimRange(prim):
-        if p.HasAPI(UsdPhysics.ArticulationRootAPI):
-            p.RemoveAPI(UsdPhysics.ArticulationRootAPI)
-            print('[drawer] removed ArticulationRootAPI from %s' % p.GetPath(),
-                  flush=True)
-        if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
-            p.RemoveAPI(PhysxSchema.PhysxArticulationAPI)
-
-
-def _setup_drawers():
-    """段違い棚と trofast_* を PrismaticJoint で繋いで引き出しにする。"""
-    _stage = omni.usd.get_context().get_stage()
-    frame = _stage.GetPrimAtPath(DRAWER_FRAME_PATH)
-    frame_link = _stage.GetPrimAtPath(DRAWER_FRAME_PATH + '/link')
-    if not frame.IsValid() or not frame_link.IsValid():
-        # この world に段違い棚が無い (別アリーナ) なら何もしない。
-        return
-
-    # 棚もアーティキュレーションを外して素の剛体に戻したうえで kinematic にする。
-    # <static> により world への FixedJoint は張られているが、それだけだと剛体
-    # (mass 1kg) のままなので引き出しを引く反力で棚が揺れる。kinematic にすれば
-    # 完全に不動のアンカーになり、ジョイントの相手として安定する。
-    _strip_articulation_root(frame)
-    UsdPhysics.RigidBodyAPI.Apply(frame_link).CreateKinematicEnabledAttr(True)
-
-    frame_inv = UsdGeom.Xformable(frame_link).ComputeLocalToWorldTransform(
-        Usd.TimeCode.Default()).GetInverse()
-
-    for name in model_names:
-        if not name.startswith('trofast'):
-            continue
-        root = _stage.GetPrimAtPath('/' + name)
-        body_path = '/' + name + '/body'
-        body = _stage.GetPrimAtPath(body_path)
-        if not root.IsValid() or not body.IsValid():
-            print('[drawer] skip %s (no /body prim)' % name, flush=True)
-            continue
-
-        # 1. 指がすり抜ける原因の ArticulationRootAPI を外す。
-        _strip_articulation_root(root)
-
-        # 2. 棚に対する箱の現在の相対姿勢を測り、そこをジョイント原点 (= 閉じた状態)
-        #    にする。world ファイルに書かれた姿勢がそのまま「閉」になるので、
-        #    座標をコードに焼き込まずに済む。
-        body_l2w = UsdGeom.Xformable(body).ComputeLocalToWorldTransform(
-            Usd.TimeCode.Default())
-        rel = body_l2w * frame_inv
-        rel_pos = rel.ExtractTranslation()
-        rel_rot = rel.GetOrthonormalized().ExtractRotationQuat()
-
-        # 3. 直動ジョイント。軸は棚ローカルの X = ワールド +Y = 引き出しの手前方向。
-        #    (棚は yaw=90° で置かれ、前面の桟が world の +Y 側にある)
-        joint = UsdPhysics.PrismaticJoint.Define(
-            _stage, Sdf.Path('/' + name + '/drawer_joint'))
-        joint.CreateBody0Rel().SetTargets([DRAWER_FRAME_PATH + '/link'])
-        joint.CreateBody1Rel().SetTargets([body_path])
-        joint.CreateAxisAttr('X')
-        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(rel_pos))
-        joint.CreateLocalRot0Attr().Set(Gf.Quatf(rel_rot))
-        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0))
-        joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0))
-        # 0 = 閉じきり、DRAWER_PULL_LIMIT = 引ききり。ここで機械的に止まる。
-        joint.CreateLowerLimitAttr(0.0)
-        joint.CreateUpperLimitAttr(DRAWER_PULL_LIMIT)
-        # 棚と箱の当たり判定を切る (既定でも False だが、レールとの初期めり込みを
-        # 確実に無効化したいので明示する)。動きはジョイントが拘束するので、
-        # 当たり判定を切っても箱が棚をすり抜けて落ちることはない。
-        joint.CreateCollisionEnabledAttr(False)
-
-        # 4. 粘性抵抗。これが無いと引いた勢いでストッパーに激突して跳ね返る。
-        #    stiffness=0 なので「戻ろうとする力」は働かず、引いた位置で止まる。
-        drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), 'linear')
-        drive.CreateTypeAttr('force')
-        drive.CreateStiffnessAttr(0.0)
-        drive.CreateDampingAttr(DRAWER_DAMPING)
-        drive.CreateTargetVelocityAttr(0.0)
-        drive.CreateMaxForceAttr(DRAWER_DAMPING_MAX_FORCE)
-
-        # 5. 掴んで静止すると眠ってしまい、次に押しても反応しなくなるのを防ぐ
-        #    ([recol] が同じことをしているが、引き出しは [recol] 対象外にするため)。
-        _rb = PhysxSchema.PhysxRigidBodyAPI.Apply(body)
-        _rb.CreateDisableGravityAttr(False)
-        _rb.CreateSleepThresholdAttr(0.0)
-
-        _drawer_body_paths.append(body_path)
-        print('[drawer] %s -> prismatic joint (0..%.2f m, damping=%.1f)'
-              % (name, DRAWER_PULL_LIMIT, DRAWER_DAMPING), flush=True)
-
-
-if DRAWER_JOINTS_ENABLED:
+if drawers.DRAWER_JOINTS_ENABLED:
     try:
-        _setup_drawers()
+        drawers.setup_drawers(model_names)
     except Exception as _e:
         # 引き出しが作れなくてもシミュレータ自体は起動させる。
         print('[drawer] setup failed: %r' % _e, flush=True)
@@ -1109,7 +840,7 @@ furniture_spawn.spawn_furniture(
 # robot: セクションで定義する (robot/objects/people をまとめた設定ファイル)。
 # 注意: env_furniture の operator_position は「人」の位置であって、ロボットの位置ではない。
 _robot_spawn = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}  # 設定ファイルが無いときのフォールバック
-# どのロボットをスポーンするか (hsrb / hsrc_ex)。`make ros2 up robot=...` が渡す
+# どのロボットをスポーンするか (hsrb / hsrc_ex)。`make up robot=...` が渡す
 # 環境変数 ROBOT で指定する (下で反映)。未指定なら従来どおり hsrb。
 # placement.yaml では指定しない (位置 x/y/yaw のみ使う)。
 _robot_model = 'hsrb'
@@ -1156,7 +887,7 @@ if max(abs(_robot_spawn['x']), abs(_robot_spawn['y']),
         flush=True,
     )
 
-# どのロボットをスポーンするかは `make ros2 up robot=hsrb` が渡す環境変数 ROBOT で決める。
+# どのロボットをスポーンするかは `make up robot=hsrb` が渡す環境変数 ROBOT で決める。
 # 優先順位: 環境変数 ROBOT > 既定 'hsrb'。
 _env_robot = os.environ.get('ROBOT', '').strip()
 if _env_robot:
@@ -1636,7 +1367,7 @@ while kit.is_running():
                 # 外れて引き出しが落ちる。引き出しは _setup_drawers() の時点で
                 # ArticulationRootAPI を外し済み ([recol] が直したかった「指が
                 # すり抜ける」原因そのもの) なので、再登録しなくてよい。
-                if _ps in _drawer_body_paths:
+                if _ps in drawers.drawer_body_paths:
                     continue
                 # /body (YCB/焼き込み) と、生オブジェクトの spawn root
                 # (_runtime_rigid_object_paths に記録) の両方を再登録対象にする。

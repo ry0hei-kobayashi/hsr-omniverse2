@@ -2,7 +2,7 @@
 
 [`scene_dressing`](../../scene_dressing/) で参照されるテクスチャ画像。
 **本物の lab テクスチャ**をリポジトリに同梱しているので、
-`git clone → make ros2 build → make ros2 up` で何も用意せず本番見た目で動く
+`git clone → make build → make up` で何も用意せず本番見た目で動く
 (dev/非dev どちらでも、ホスト側のデータセット準備は不要)。
 
 合計サイズは約 6MB (壁画像が各 1〜2MB)。
@@ -51,7 +51,7 @@ git 管理を避けたい場合は `.gitignore` に `configs/textures/*.jpg` を
 
 ### 方法 B: compose のマウント先を変える
 
-[`env_docker/docker-compose-ros2.yml`](../../env_docker/docker-compose-ros2.yml) の以下を別ディレクトリに切り替える:
+[`env_docker/docker-compose.yml`](../../env_docker/docker-compose.yml) の以下を別ディレクトリに切り替える:
 
 ```yaml
 - ../configs/textures:/data/textures:ro

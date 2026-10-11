@@ -58,7 +58,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from omni.isaac.core.utils.stage import add_reference_to_stage
+from isaacsim.core.utils.stage import add_reference_to_stage
 import omni.usd
 from omni.physx.scripts import utils as physx_utils
 from pxr import Gf, Usd, UsdGeom

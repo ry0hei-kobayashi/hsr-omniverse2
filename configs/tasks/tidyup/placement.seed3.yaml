@@ -4,7 +4,7 @@
 # 得点対象: Food 5 + Shape 5 + Kitchen 5 + Task 5 + Unknown 2 = 22個
 # 別枠: place用棚の見本2個 + Obstacle Object 1個
 # Object Listと共通座標の正本: configs/tasks/tidyup/object_list.yaml
-# 起動: make ros2 up TASK=tidyup SEED=3  (環境変数 PLACEMENT_SEED=3 で選ばれる)
+# 起動: make up TASK=tidyup SEED=3  (環境変数 PLACEMENT_SEED=3 で選ばれる)
 # このファイルは objects: (と round_table の天板計算用 furniture:) だけを差し替える。
 # robot: / people: / furniture: の実配置 / arena_cameras: は placement.yaml のまま使われる。
 

@@ -7,13 +7,13 @@ TidyUp 競技で「どこに何が入ったか」を人が目視確認できる�
 直接 mp4 に録画する (ROS トピックは使わない)。
 
 使い方 (どのタスクでも使える。task.yaml の arena_cameras: true が前提):
-    make ros2 up TASK=<name> TIME=600  # 競技時間 600 秒 (シミュレータ内時間)。
+    make up TASK=<name> TIME=600  # 競技時間 600 秒 (シミュレータ内時間)。
                                        # 時間が来ると動画を保存してシミュレータが自動終了する。
                                        # (TIME を省くと task.yaml の time_limit が使われる)
-    make ros2 up TASK=<name>           # time_limit 0 = カメラも録画も無し (通常の開発モード)。
-    make ros2 tune TASK=<name>         # カメラ調整モード。録画せず、GUI で位置・画角を
+    make up TASK=<name>           # time_limit 0 = カメラも録画も無し (通常の開発モード)。
+    make tune TASK=<name>         # カメラ調整モード。録画せず、GUI で位置・画角を
                                        # 見ながら動かして設定値を書き出す (下記)。
-    make ros2 tune-apply TASK=<name>   # 書き出した設定を configs/tasks/<name>/placement.yaml に反映。
+    make tune-apply TASK=<name>   # 書き出した設定を configs/tasks/<name>/placement.yaml に反映。
 
 出力:
     recordings/YYYYMMDD_HHMMSS/arena.mp4
@@ -50,7 +50,7 @@ launch_isaacsim.py が解決した placement のパスを config_path= で明示
       fps: 20
 
 (B) 1台ずつ好きな場所に置く (cameras: があると A の center/distance/height
-    より優先される)。make ros2 tune で書き出されるのはこの形式。
+    より優先される)。make tune で書き出されるのはこの形式。
 
     arena_cameras:
       resolution: [640, 480]
@@ -81,7 +81,7 @@ import yaml
 
 import omni.replicator.core as rep
 import omni.usd
-from omni.isaac.core.utils.prims import create_prim
+from isaacsim.core.utils.prims import create_prim
 from pxr import Gf, Usd, UsdGeom
 
 DEFAULT_CONFIG_PATH = "/app/configs/placement.yaml"
@@ -335,10 +335,10 @@ def format_config_yaml(poses: Dict[str, Dict[str, Any]],
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [
         "# ============================================================",
-        "# GUI で調整した観戦カメラの設定 (make ros2 tune が自動生成)",
+        "# GUI で調整した観戦カメラの設定 (make tune が自動生成)",
         f"# 生成時刻: {stamp}",
         "#",
-        "# 使い方: make ros2 tune-apply TASK=<name> で、下の arena_cameras: ブロックが",
+        "# 使い方: make tune-apply TASK=<name> で、下の arena_cameras: ブロックが",
         "#         configs/tasks/<name>/placement.yaml の arena_cameras: と差し替わる。",
         "#         (手でまるごとコピーして貼り替えてもよい)",
         "# ============================================================",
@@ -502,7 +502,7 @@ class ArenaRecorder:
 
 
 # ============================================================
-# 調整モード (make ros2 tune TASK=<name>)
+# 調整モード (make tune TASK=<name>)
 # ============================================================
 class ArenaCameraTuner:
     """GUI で 4 台のカメラを動かし、その値を yaml に書き出す係。
@@ -556,7 +556,7 @@ class ArenaCameraTuner:
         log(f"     (今は {self.meta['focal_length']:.1f}mm = 約{fov:.0f}度。"
             f"小さいほど広角)。")
         log("  4. 動かすたびに設定が下のファイルに書き出される:")
-        log(f"       {self.out_dir}/arena_cameras.yaml   <- make ros2 tune-apply TASK=<name> で placement.yaml に反映")
+        log(f"       {self.out_dir}/arena_cameras.yaml   <- make tune-apply TASK=<name> で placement.yaml に反映")
         log(f"       {self.out_dir}/preview.png          <- 実際に録画される2x2の絵")
         log("")
         log(f"  録画解像度は 1台あたり {self.width}x{self.height_px}。")

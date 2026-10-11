@@ -1,7 +1,7 @@
 services:
   isaacsim:
     # 起動と同時に Python を実行せず、コンテナを生かしたまま待機させる。
-    # 中身は手動 (make ros2 dev run) で実行する → ログがその端末だけに出る。
+    # 中身は手動 (make dev run) で実行する → ログがその端末だけに出る。
     command: ["sleep", "infinity"]
     # NOTE: ここで PYTHONPATH を上書きしないこと。Isaac 5.1 版の Dockerfile は
     # PYTHONPATH に同梱 ROS 2 (humble/rclpy) と /app/ros_msgs を通しており、compose の
@@ -9,10 +9,10 @@ services:
     # /app 自体は Dockerfile 側の PYTHONPATH に含めてある (scene_dressing 等の import 用)。
     volumes:
       # --- ソースコードは「ディレクトリごと」live マウントする -----------------
-      # base (docker-compose-ros2.yml) は launch_isaacsim.py 等を「単一ファイル」で
+      # base (docker-compose.yml) は launch_isaacsim.py 等を「単一ファイル」で
       # bind mount しているが、単一ファイル mount はコンテナ起動時の inode に固定され、
       # 起動後にエディタで保存 (inode が変わる) しても反映されない。
-      # ディレクトリ mount なら毎回最新のファイルが見えるので、編集 → make ros2 dev run
+      # ディレクトリ mount なら毎回最新のファイルが見えるので、編集 → make dev run
       # だけで反映される (コンテナ再起動不要)。
       # dev では /app/scripts/launch_isaacsim.py を実行する (Makefile の LAUNCH_PY)。
       - ../scripts:/app/scripts:ro

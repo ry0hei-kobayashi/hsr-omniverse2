@@ -25,7 +25,7 @@
 #   - Room NW (西上): 探索1 (本棚・ソファ + 床の散乱物体)
 #   - Room NE (東上): 探索2 (長机・緑ビン・円形テーブル+椅子 + 床の散乱物体)
 #
-# 編集後の反映: make ros2 down && make ros2 up TASK=tidyup  (configs/ は bind mount なのでリビルド不要)
+# 編集後の反映: make down && make up TASK=tidyup  (configs/ は bind mount なのでリビルド不要)
 
 
 # ============================================================
@@ -236,18 +236,18 @@ people:
 # ============================================================
 # arena_cameras: 競技録画用の観戦カメラ 4台 (北/南/東/西)
 # ============================================================
-# 競技モード (`make ros2 up TASK=tidyup TIME=600`、または task.yaml の time_limit > 0)
+# 競技モード (`make up TASK=tidyup TIME=600`、または task.yaml の time_limit > 0)
 # のときだけ作られ、4画面を2x2に並べた mp4 を
 # recordings/ に保存する。
 #
-# 位置や画角を変えたいときは `make ros2 tune TASK=tidyup` で GUI を見ながら調整できる。
+# 位置や画角を変えたいときは `make tune TASK=tidyup` で GUI を見ながら調整できる。
 # 動かすと recordings/tune/arena_cameras.yaml に新しい設定が、
 # recordings/tune/preview.png に実際に録画される絵が書き出されるので、
-# `make ros2 tune-apply TASK=tidyup` でその arena_cameras: ブロックをこのファイルに貼り替える。
+# `make tune-apply TASK=tidyup` でその arena_cameras: ブロックをこのファイルに貼り替える。
 #
 # 書きかたは 2 通り:
 #  (A) まとめて自動配置 … center のまわりに distance / height で 4方向に置く
-#  (B) 1台ずつ指定     … cameras: を書く (あると A より優先。make ros2 tune の出力形式)
+#  (B) 1台ずつ指定     … cameras: を書く (あると A より優先。make tune の出力形式)
 #        cameras:
 #          north: {position: [2.0, 4.6, 3.6], look_at: [2.0, 2.0, 0.3]}
 #          ...

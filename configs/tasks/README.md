@@ -5,10 +5,10 @@ RoboCup@Home の各タスクごとに **world / placement / dressing / 競技モ
 ## 使い方
 
 ```bash
-make ros2 up TASK=hri                       # タスクの設定で起動
-make ros2 up TASK=tidyup TIME=600 SEED=2    # 競技モード (600 秒で自動終了・録画) + 固定配置 Seed 2
-make ros2 tune TASK=tidyup                  # 観戦カメラ 4 台の位置・画角を GUI で調整 (録画なし)
-make ros2 tune-apply TASK=tidyup            # 調整結果を configs/tasks/tidyup/placement.yaml に反映
+make up TASK=hri                       # タスクの設定で起動
+make up TASK=tidyup TIME=600 SEED=2    # 競技モード (600 秒で自動終了・録画) + 固定配置 Seed 2
+make tune TASK=tidyup                  # 観戦カメラ 4 台の位置・画角を GUI で調整 (録画なし)
+make tune-apply TASK=tidyup            # 調整結果を configs/tasks/tidyup/placement.yaml に反映
 ```
 
 `TASK=<フォルダ名>` を付けると `configs/tasks/<フォルダ名>/` の設定が使われる。
@@ -16,7 +16,7 @@ make ros2 tune-apply TASK=tidyup            # 調整結果を configs/tasks/tidy
 `TIME=` / `SEED=` / `tune` / `tune-apply` は **どのタスクでも同じように使える**
 (下の「競技モード・観戦カメラ・固定配置」)。
 
-（開発中にログを分けて見たいときは `make ros2 dev up` → `make ros2 dev run TASK=hri` でも同じ。リリース後は上の `up` を使う。）
+（開発中にログを分けて見たいときは `make dev up` → `make dev run TASK=hri` でも同じ。リリース後は上の `up` を使う。）
 
 ## フォルダの中身
 
@@ -39,11 +39,11 @@ dressing:
 
 # ---- 競技モード (省略すると下の既定値 = 従来どおりの起動) ----
 time_limit: 0          # 競技時間 (秒, シミュレータ内時間)。>0 で時間が来たら自動終了。
-                       # 環境変数 TASK_TIME (make ros2 up TASK=<名前> TIME=600) で上書き。
+                       # 環境変数 TASK_TIME (make up TASK=<名前> TIME=600) で上書き。
 arena_cameras: false   # true で観戦カメラ 4 台 (北/南/東/西) を作る。
-                       # time_limit > 0 なら録画 (/recordings に mp4)、CAMERA_TUNE=1 (make ros2 tune) なら調整モード。
+                       # time_limit > 0 なら録画 (/recordings に mp4)、CAMERA_TUNE=1 (make tune) なら調整モード。
 placement_seeds: placement.seed{n}.yaml   # 固定配置ファイル名のパターン。{n} が Seed 番号。
-                                          # 環境変数 PLACEMENT_SEED=<n> (make ros2 up ... SEED=<n>) で選ぶ。
+                                          # 環境変数 PLACEMENT_SEED=<n> (make up ... SEED=<n>) で選ぶ。
 ```
 
 - `world` … `worlds/` に置いた `.world` ファイルの**名前だけ**書く (本体は worlds/ に置いたまま共有)。
@@ -54,11 +54,11 @@ placement_seeds: placement.seed{n}.yaml   # 固定配置ファイル名のパタ
 
 | したいこと | 書く場所 / コマンド |
 |---|---|
-| 制限時間で自動終了 | `task.yaml` の `time_limit: 600`、または `make ros2 up TASK=<名前> TIME=600` (環境変数 `TASK_TIME`)。`TIME=0` で無効化 |
+| 制限時間で自動終了 | `task.yaml` の `time_limit: 600`、または `make up TASK=<名前> TIME=600` (環境変数 `TASK_TIME`)。`TIME=0` で無効化 |
 | 観戦カメラで録画 | `task.yaml` に `arena_cameras: true` + `time_limit > 0`。カメラ位置は `placement.yaml` の `arena_cameras:` (無ければ床の中心から自動配置)。動画は `recordings/<日付_時刻>/arena.mp4` |
-| カメラの位置・画角を調整 | `make ros2 tune TASK=<名前>` (環境変数 `CAMERA_TUNE=1`)。録画も自動終了もせずカメラだけ作る。動かすと `recordings/tune/arena_cameras.yaml` と `preview.png` が書き出される |
-| 調整結果を反映 | `make ros2 tune-apply TASK=<名前>` → `configs/tasks/<名前>/placement.yaml` の `arena_cameras:` ブロックだけを差し替える (他のセクション・コメントは残る) |
-| 固定配置 (Seed) で起動 | `make ros2 up TASK=<名前> SEED=2` (環境変数 `PLACEMENT_SEED=2`) → `configs/tasks/<名前>/placement.seed2.yaml` の **`objects:` だけ**が使われる。ファイルが無ければエラーで止まる |
+| カメラの位置・画角を調整 | `make tune TASK=<名前>` (環境変数 `CAMERA_TUNE=1`)。録画も自動終了もせずカメラだけ作る。動かすと `recordings/tune/arena_cameras.yaml` と `preview.png` が書き出される |
+| 調整結果を反映 | `make tune-apply TASK=<名前>` → `configs/tasks/<名前>/placement.yaml` の `arena_cameras:` ブロックだけを差し替える (他のセクション・コメントは残る) |
+| 固定配置 (Seed) で起動 | `make up TASK=<名前> SEED=2` (環境変数 `PLACEMENT_SEED=2`) → `configs/tasks/<名前>/placement.seed2.yaml` の **`objects:` だけ**が使われる。ファイルが無ければエラーで止まる |
 
 環境変数の優先順位 (すべて `scripts/launch_isaacsim.py` の先頭「タスク選択と競技モードの解決」で決まる):
 

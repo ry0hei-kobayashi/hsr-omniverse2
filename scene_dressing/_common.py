@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Tuple
 
 import omni.usd
-from omni.isaac.core.utils.prims import create_prim
+from isaacsim.core.utils.prims import create_prim
 from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 

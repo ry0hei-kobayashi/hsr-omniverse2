@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dockerfile.isaacsim-ros2 の msgbuild ステージ専用。
+# Dockerfile.isaacsim の msgbuild ステージ専用。
 # /ws/src のメッセージパッケージを Python 3.11 向けに建て、Isaac 同梱 bridge と
 # 同じ並べ方 (lib/ と rclpy/) で /out に出す。ホストから直接動かすものではない。
 #

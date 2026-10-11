@@ -4,12 +4,12 @@
 競技モード (制限時間 + 観戦カメラ録画) と固定配置 (Seed) をこのフォルダだけで扱う。
 
 ```bash
-make ros2 up TASK=tidyup                 # 通常起動 (task.yaml の time_limit=600 で競技モード・録画あり)
-make ros2 up TASK=tidyup TIME=0          # 時間無制限・録画なしで開発する
-make ros2 up TASK=tidyup SEED=2          # 競技用の固定配置 Seed 2 で起動
-make ros2 up TASK=tidyup TIME=600 SEED=2 # Seed 2 + 600 秒の競技録画
-make ros2 tune TASK=tidyup               # 観戦カメラ 4 台の位置・画角を GUI で調整 (録画なし)
-make ros2 tune-apply TASK=tidyup         # 調整結果を configs/tasks/tidyup/placement.yaml に反映
+make up TASK=tidyup                 # 通常起動 (task.yaml の time_limit=600 で競技モード・録画あり)
+make up TASK=tidyup TIME=0          # 時間無制限・録画なしで開発する
+make up TASK=tidyup SEED=2          # 競技用の固定配置 Seed 2 で起動
+make up TASK=tidyup TIME=600 SEED=2 # Seed 2 + 600 秒の競技録画
+make tune TASK=tidyup               # 観戦カメラ 4 台の位置・画角を GUI で調整 (録画なし)
+make tune-apply TASK=tidyup         # 調整結果を configs/tasks/tidyup/placement.yaml に反映
 ```
 
 ## フォルダの中身
@@ -84,7 +84,7 @@ y=-2.4 └───────────┴─┴─────────�
 ## 競技モード
 
 `task.yaml` の `time_limit` (秒, シミュレータ内時間) が 0 より大きいと競技モードになる。
-`make ros2 up TASK=tidyup TIME=<秒>` の `TIME` (環境変数 `TASK_TIME`) で上書きでき、`TIME=0` で無効化。
+`make up TASK=tidyup TIME=<秒>` の `TIME` (環境変数 `TASK_TIME`) で上書きでき、`TIME=0` で無効化。
 
 - `arena_cameras: true` のとき、部屋の外側の高い位置に観戦カメラ 4 台 (北/南/東/西) を作り、
   4 画面を 2x2 に合成した動画をシミュレータ内部で直接 mp4 に録画する (ROS トピックは使わない)。
@@ -107,7 +107,7 @@ y=-2.4 └───────────┴─┴─────────�
 
 ## 固定配置 (Seed)
 
-競技では物体の配置を Seed 1〜4 の 4 通りに固定している。`make ros2 up TASK=tidyup SEED=<n>`
+競技では物体の配置を Seed 1〜4 の 4 通りに固定している。`make up TASK=tidyup SEED=<n>`
 (環境変数 `PLACEMENT_SEED=<n>`) を付けると、`task.yaml` の `placement_seeds: placement.seed{n}.yaml`
 に従って `placement.seed<n>.yaml` が読まれ、**`objects:` (床・家具上・障害物) だけ**がそのファイルの
 内容になる。`robot:` / `people:` / `furniture:` の実配置 / `arena_cameras:` は `placement.yaml` のまま。
@@ -121,8 +121,8 @@ y=-2.4 └───────────┴─┴─────────�
 ## 観戦カメラの調整 (tune)
 
 ```bash
-make ros2 tune TASK=tidyup          # カメラ 4 台だけ作って起動 (録画も自動終了もしない)
-make ros2 tune-apply TASK=tidyup    # 調整結果を configs/tasks/tidyup/placement.yaml に反映
+make tune TASK=tidyup          # カメラ 4 台だけ作って起動 (録画も自動終了もしない)
+make tune-apply TASK=tidyup    # 調整結果を configs/tasks/tidyup/placement.yaml に反映
 ```
 
 1. Isaac Sim の Viewport 左上のカメラ選択 (Perspective と書いてある所) から `Camera_north` などを
@@ -133,9 +133,9 @@ make ros2 tune-apply TASK=tidyup    # 調整結果を configs/tasks/tidyup/place
 4. 動かすたびに次の 2 つが書き出される:
    - `recordings/tune/arena_cameras.yaml` … placement.yaml に貼る `arena_cameras:` ブロック
    - `recordings/tune/preview.png` … 実際に録画される 2x2 の絵 (最終確認はこちらで)
-5. `make ros2 tune-apply TASK=tidyup` で `arena_cameras:` ブロックだけが `placement.yaml` に
+5. `make tune-apply TASK=tidyup` で `arena_cameras:` ブロックだけが `placement.yaml` に
    差し替わる (他のセクションとコメントは残る。元ファイルは `placement.yaml.bak` に残る)。
-   `make ros2 tune` だけでは反映されない (コンテナからは configs/ が読み取り専用のため)。
+   `make tune` だけでは反映されない (コンテナからは configs/ が読み取り専用のため)。
 
 注意: カメラを横に傾けた (roll) 状態は position/look_at 形式では保存できず、反映すると水平に戻る
 (起動ログに WARNING が出る)。

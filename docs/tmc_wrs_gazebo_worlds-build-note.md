@@ -8,7 +8,7 @@ hsr-omniverse2 側の記録日: 2026-10-11。別リポジトリ（tmc_wrs_gazebo
 
 ## 何が起きたか
 
-`env_docker/Dockerfile.isaacsim-ros2` の msgbuild ステージ（`ros:humble-ros-base-jammy` に
+`env_docker/Dockerfile.isaacsim` の msgbuild ステージ（`ros:humble-ros-base-jammy` に
 python3.11 を足した最小環境）で、Isaac 側が使う純 Python モジュール
 `tmc_wrs_gazebo_worlds.randomizer` を得るために colcon でこのパッケージを建てたところ、
 CMake の configure で落ちた。
