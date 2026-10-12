@@ -48,7 +48,7 @@ cd /ws
 # (EXECUTABLE 指定だけだと system の 3.12 が選ばれる)。
 PATH=/py311/bin:$PATH colcon build \
     --merge-install \
-    --packages-select control_msgs tmc_control_msgs gazebo_msgs tf_transformations \
+    --packages-select control_msgs tmc_control_msgs \
     --cmake-args \
         -DPython3_EXECUTABLE=$PY \
         -DPYTHON_EXECUTABLE=$PY \
@@ -78,7 +78,7 @@ fi
 echo "=== /out に配る ==="
 mkdir -p "$OUT/lib" "$OUT/rclpy"
 find /ws/install -name '*.so' -exec cp -f {} "$OUT/lib/" \;
-for pkg in control_msgs tmc_control_msgs gazebo_msgs tf_transformations; do
+for pkg in control_msgs tmc_control_msgs; do
     # jazzy は python3.12 の site-packages にも同名の階層を作るので、3.11 側を優先して探す
     d=$(find "$SP311" -maxdepth 1 -type d -name "$pkg" | head -1)
     [ -z "$d" ] && d=$(find /ws/install -type d -name "$pkg" -path '*site-packages*' | head -1)
@@ -87,7 +87,6 @@ for pkg in control_msgs tmc_control_msgs gazebo_msgs tf_transformations; do
     fi
     cp -rf "$d" "$OUT/rclpy/"
 done
-# 純 Python パッケージ (tf_transformations) は 3.12 の site-packages に入るので、
 # 3.12 でコンパイルされた __pycache__ は配らない (3.11 側で作り直される)。
 find "$OUT/rclpy" -name __pycache__ -type d -prune -exec rm -rf {} +
 # tmc_wrs_gazebo_worlds は CMake 側が xacro/tf2 を要求する (world 生成用) が、

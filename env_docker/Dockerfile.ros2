@@ -2,7 +2,7 @@
 # Copyright (c) 2023, MID Academic Promotions, Inc.
 # All rights reserved.
 #
-# ros2 コンテナ: HSR の ROS 2 スタック (MoveIt / nav2 / hsrb_* / tmc_*) + このリポジトリの launch。
+# ros2 コンテナ: HSR の ROS 2 スタック (MoveIt / nav2 / hsrb_* / tmc_*) + このリポジトリの ROS 2 パッケージ hsr_omniverse2 (ros2/)。
 #
 # ROS 2 Jazzy (Ubuntu 24.04) 専用。Humble 構成は削除した (このブランチは Jazzy のみ)。
 # Jazzy 版の構成は https://github.com/ry0hei-kobayashi/hsr-jazzy-docker を元にしている。
@@ -103,15 +103,19 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 RUN curl -sSL https://github.com/hsr-project/hsrb_rosnav/raw/refs/heads/master/hsrb_rosnav_config/maps/white_space/map.yaml -o /map.yaml
 RUN curl -sSL https://github.com/hsr-project/hsrb_rosnav/raw/refs/heads/master/hsrb_rosnav_config/maps/white_space/white_space.pgm -o /white_space.pgm
 
-ADD launch/hsr.launch.py /hsr.launch.py
-ADD launch/teleop.launch.py /teleop.launch.py
-ADD launch/hsrb_relay_topics.launch.xml /hsrb_relay_topics.launch.xml
-ADD launch/hsrb_sensor_frames.launch.xml /hsrb_sensor_frames.launch.xml
-ADD scripts/rgbd_republisher.py /rgbd_republisher.py
-ADD scripts/reset_world_matcher_helper.py /reset_world_matcher_helper.py
+# このリポジトリの ROS 2 パッケージ (launch と中継ノード)。HSR 依存は package.xml の exec_depend に集約。
+# 上の 127 パッケージの層を無効化しないよう、ここで別層として追加ビルドする (--symlink-install なので
+# compose が ros2/hsr_omniverse2 を /ws/src/hsr_omniverse2 に bind mount すると launch の編集が即反映される)。
+# rosdep は src 全体を --ignore-src で渡す (tmc_control_msgs 等はソース側にあり apt キーが無いため)。
+# -r は上の層と同じ理由 (hsr-project 側に rosdep キーの無い依存があり、それは無視して続ける)。
+ADD ros2/hsr_omniverse2 /ws/src/hsr_omniverse2
+RUN source /opt/ros/$ROS_DISTRO/setup.bash && cd /ws && \
+    apt update -y && rosdep install --ignore-src -r -y -i --from-paths src && \
+    colcon build --symlink-install --packages-select hsr_omniverse2 --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    rm -rf /var/lib/apt/lists/*
 ADD assets/hsr-omniverse.rviz /hsr-omniverse.rviz
 
 COPY assets/cyclonedds.xml /cyclonedds.xml
 ADD assets/ros_entrypoint.ros2.sh /ros_entrypoint.sh
 
-CMD [ "ros2", "launch", "/hsr.launch.py" ]
+CMD [ "ros2", "launch", "hsr_omniverse2", "hsr.launch.py" ]

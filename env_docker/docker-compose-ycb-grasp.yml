@@ -1,9 +1,12 @@
-version: "2.3"
+# sample-ycb-grasp.py 用 (Isaac Sim 5.1 / ROS 2 Jazzy)。
+#   make ycb-grasp [localhost]        # 本体イメージ (make build) が先に必要
+# 本体の isaacsim サービスと同じ GPU / キャッシュ / DDS 設定で、サンプルだけを走らせる。
 services:
   ycb-grasp:
     build:
       context: ..
       dockerfile: env_docker/Dockerfile.ycb-grasp
+    image: hsr-omniverse-ycb-grasp:jazzy
     ipc: host
     network_mode: host
     security_opt:
@@ -19,9 +22,20 @@ services:
       - DISPLAY
       - ACCEPT_EULA=Y
       - NVIDIA_VISIBLE_DEVICES=all
+      # hsr.hsr() が rclpy ノードを作るので、本体と同じ DDS 設定を渡す (make ycb-grasp localhost で lo に閉じる)
+      - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-26}
+      # 試す物体数を絞る (未指定なら io/models/usd/wrs_models の ycb_* 全部)
+      - YCB_MAX_MODELS=${YCB_MAX_MODELS:-}
+      - GRASP_ATTACH=${GRASP_ATTACH:-0}
     volumes:
-      - /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro
-      - /usr/share/vulkan/implicit_layer.d:/usr/share/vulkan/implicit_layer.d:ro
+      - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
+      - ../assets/cyclonedds.localhost.xml:/cyclonedds.localhost.xml:ro
+      - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
+      - ../sim:/app/sim:ro
+      - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
+      # io/models/usd/wrs_models (submodule) の model.usd を読む
+      - ../io:/app/io:ro
       - ${HOME}/.hsr-omniverse/cache/kit:/isaac-sim/kit/cache:rw
       - ${HOME}/.hsr-omniverse/cache/ov:/root/.cache/ov:rw
       - ${HOME}/.hsr-omniverse/cache/pip:/root/.cache/pip:rw

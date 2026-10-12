@@ -6,7 +6,7 @@ NVIDIA Omniverse / Isaac Sim 上で HSR を扱うためのリポジトリ。
 
 Isaac Sim 5.1 は Ubuntu 24.04 / Python 3.11 ベースで、ROS 2 Jazzy の rclpy を**同梱**している。
 このリポジトリは apt で ROS を入れず、同梱の rclpy と、同梱に無いメッセージ
-(`control_msgs` / `tmc_control_msgs` / `gazebo_msgs` / `tf_transformations`) を Python 3.11 向けに
+(`control_msgs` / `tmc_control_msgs`) を Python 3.11 向けに
 建てたもの (`env_docker/Dockerfile.isaacsim` の msgbuild ステージ) を使う。
 MoveIt など ROS 側のスタックは `ros2` コンテナ (Ubuntu 24.04 + apt の Jazzy) で動き、ホストネットワーク上の DDS で繋がる。
 イメージは `hsr-omniverse-{ros2,isaacsim}:jazzy`。
@@ -66,7 +66,7 @@ cd hsr-omniverse2
 git submodule update --init --recursive
 ```
 
-サブモジュールは `usd/hsrb` (HSR の USD)、`usd/wrs_models` (YCB 物体・家具)、
+サブモジュールは `io/models/usd/hsrb` (HSR の USD)、`io/models/usd/wrs_models` (YCB 物体・家具)、
 `3rdparty/semu.robotics.ros2_bridge` (ROS 2 アクションサーバー。Toni-SM 氏の MIT ライセンス拡張を
 Isaac 5.1 向けに移植した fork、ブランチ `isaac5.1-jazzy`)。どれが無くても起動しない。
 
@@ -93,7 +93,7 @@ make up localhost        # DDS を loopback に閉じる (LAN へのマルチキ
 make up pc               # 別 PC と通信する PC モード (CycloneDDS unicast + ROS_DOMAIN_ID=55)
 ROS_DOMAIN_ID=49 make up pc  # Domain ID を上書き
 ROS_DOMAIN_ID=26 make up pc PEER=192.168.0.10  # 相手IP指定で pc.xml 自動生成 (下記参照)
-make up TASK=gpsr        # configs/tasks/gpsr/ の world/配置/見た目で起動 (後述)
+make up TASK=gpsr        # io/configs/tasks/gpsr/ の world/配置/見た目で起動 (後述)
 make up TASK=tidyup TIME=600 SEED=1  # 競技モード (600 秒で自動終了・観戦カメラ録画・固定 Seed 1)
 make tune TASK=tidyup    # 観戦カメラの位置調整 → make tune-apply TASK=tidyup で反映
 make up robot=hsrc_ex    # スポーンするロボットを切り替え (hsrb/hsrc_ex、後述)
@@ -159,7 +159,7 @@ ros2 topic echo /scan --once    # 中身を 1 件だけ見る
 - `/head_rgbd_sensor/depth_registered/image_rect_raw/compressedDepth`
 
 Isaac Sim の `ROS2CameraHelper` は raw の `sensor_msgs/Image` しか出さないので、これを圧縮して
-配り直す `scripts/rgbd_republisher.py` (ノード名 `rgbd_republisher`) が必要。
+配り直す `ros2/hsr_omniverse2/hsr_omniverse2/rgbd_republisher.py` (ノード名 `rgbd_republisher`) が必要。
 `hsr.launch.py` が既定で起動する。これが動いていないと depth/rgb の同期が一度も発火せず、
 publisher は advertise だけされて無言になる。
 
@@ -171,7 +171,7 @@ ros2 topic info /head_rgbd_sensor/rgb/image_rect_color/compressed  # Publisher c
 ```
 
 `Publisher count: 0` なら republisher が落ちている。`make logs | grep -i republisher` でエラーを確認する。
-意図的に止めたい場合のみ `ros2 launch /hsr.launch.py use_rgbd_republisher:=false`。
+意図的に止めたい場合のみ `ros2 launch hsr_omniverse2 hsr.launch.py use_rgbd_republisher:=false`。
 
 RViz で表示するときは publisher が BEST_EFFORT なので **Reliability を Best Effort** にすること。
 Reliable のままだと QoS 不一致で永久に繋がらない。
@@ -216,7 +216,7 @@ sim 側 (docker コンテナ) の DDS 設定は `assets/cyclonedds.xml` にあ�
 既定の `assets/cyclonedds.xml` は物理 NIC にバインドし、点群・画像を LAN へマルチキャストで撒く
 (実測で Wi-Fi が 500 Mbps → 50 Mbps に低下)。同一ホスト内だけで ROS 通信するなら
 `make up localhost` で `assets/cyclonedds.localhost.xml` (lo 固定・マルチキャスト無効) に切り替える。
-Apptainer 側は `source scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]`。詳細は [docs/dds-localhost.md](./docs/dds-localhost.md)。
+Apptainer 側は `source sim/tools/isaac_localhost_mode.sh [ROS_DOMAIN_ID]`。詳細は [docs/dds-localhost.md](./docs/dds-localhost.md)。
 
 ### 別 PC からアクセスする (CycloneDDS PC モード, ROS2 のみ)
 
@@ -231,10 +231,10 @@ ROS_DOMAIN_ID=26 make up pc PEER=192.168.0.10        # 相手1台
 ROS_DOMAIN_ID=26 make up pc PEER="192.168.0.10 192.168.0.11"  # 複数台
 ```
 
-- `PEER=` を付けると起動前に `scripts/gen_cyclonedds_pc.sh` が走り、自分の NIC を自動判定して
+- `PEER=` を付けると起動前に `sim/tools/gen_cyclonedds_pc.sh` が走り、自分の NIC を自動判定して
   `assets/cyclonedds.pc.xml` を書き出します。NIC を明示したいときは `ISAAC_NIC=enp3s0` を併用。
 - `PEER=` を省くと既存の `assets/cyclonedds.pc.xml` をそのまま使います。
-- 手動生成だけしたいとき: `./scripts/gen_cyclonedds_pc.sh 192.168.0.10`
+- 手動生成だけしたいとき: `./sim/tools/gen_cyclonedds_pc.sh 192.168.0.10`
 - 生成される `assets/cyclonedds.pc.xml` は**環境依存**です(git では変更扱いになるのでコミットしない)。
 
 `pc` 修飾子は `CYCLONEDDS_URI=file:///cyclonedds.pc.xml` と `ROS_DOMAIN_ID` を export して compose を
@@ -257,7 +257,7 @@ bringup(joy_node + teleop 並べ替え)を動かして `/joy` を送ります。
 ## タスクを選んで起動する（タスク開発者向け）
 
 
-> world・物体配置・見た目などの設定変更は`configs/` 側で行います。
+> world・物体配置・見た目などの設定変更は`io/configs/` 側で行います。
 
 初回のみ、上の「クイックスタート」の手順で `make build` までを済ませておきます。
 あとは毎回これ 1 行です。
@@ -288,8 +288,8 @@ make down                # 終了 (コンテナ停止)
 
 | `robot=` の値 | ロボット | 使う USD |
 |---|---|---|
-| `hsrb` | HSR-B（**既定**） | `usd/hsrb/` |
-| `hsrc_ex` | HSR-C 拡張版 | `usd/hsrc/hsrc1s.usd`（`scripts/hsr_hsrc_ex.py` で起動） |
+| `hsrb` | HSR-B（**既定**） | `io/models/usd/hsrb/` |
+| `hsrc_ex` | HSR-C 拡張版 | `io/models/usd/hsrc/hsrc1s.usd`（`sim/hsr_omniverse2_sim/robot/hsrc_ex/robot.py` で起動） |
 
 ```bash
 make up robot=hsrb              # HSR-B で起動（既定なので省略しても同じ）
@@ -303,10 +303,10 @@ ROBOT=hsrc_ex make up           # 大文字の環境変数でも同じ
 
 ### タスクごとの設定を変えたいとき
 
-各タスクの **world / 物体・ロボット・人の配置 / 見た目** は `configs/tasks/<名前>/` で定義します。
-編集方法・フォルダの中身は **➡ [configs/tasks/README.md](./configs/tasks/README.md)** を参照してください。
+各タスクの **world / 物体・ロボット・人の配置 / 見た目** は `io/configs/tasks/<名前>/` で定義します。
+編集方法・フォルダの中身は **➡ [io/configs/tasks/README.md](./io/configs/tasks/README.md)** を参照してください。
 
-- 設定ファイル全体の構成（共通の既定など）: [configs/README.md](./configs/README.md)
+- 設定ファイル全体の構成（共通の既定など）: [io/configs/README.md](./io/configs/README.md)
 
 ---
 
@@ -320,24 +320,24 @@ RoboCup 会場は Wi-Fi が使えないため、このシミュレータは**完
 ネットが無いので、ここが動かなくなる恐れがありました。
 
 ### どう直したか
-必要な人アセットを、**アセットサーバと同じフォルダ構成のまま** `usd/isaac_offline/` に
+必要な人アセットを、**アセットサーバと同じフォルダ構成のまま** `io/models/usd/isaac_offline/` に
 同梱（コピー）しました。`people_spawn.py` / `furniture_spawn.py` は
 
-1. まず `usd/isaac_offline/` にファイルがあればそれを使う（＝ネット不要）
+1. まず `io/models/usd/isaac_offline/` にファイルがあればそれを使う（＝ネット不要）
 2. 無ければ従来どおりアセットサーバから取得（オンライン時のフォールバック）
 
 の順で解決します。**アニメ（手を振る等）は「骨の動きの数値データ」ファイルで、一度ローカルに
 読み込めば再生中はネット不要**です。だからモーション込みで完全オフラインになります。
 
 ```
-usd/isaac_offline/                         ← アセットサーバのローカルミラー（同梱）
+io/models/usd/isaac_offline/                         ← アセットサーバのローカルミラー（同梱）
 └── Isaac/People/
     ├── Characters/Biped_Setup.usd         ← 人体モデル（+ biped_demo/ のメッシュ・テクスチャ）
     └── Animations/*.skelanim.usd          ← 手を振る/立つ/座る 等のアニメ
 ```
 
 ### ミラーを作り直す・増やす（オンライン環境で一度だけ）
-`usd/isaac_offline/` は、ネットに繋がる環境で次を一度実行すれば自動生成されます
+`io/models/usd/isaac_offline/` は、ネットに繋がる環境で次を一度実行すれば自動生成されます
 （依存ファイルを再帰的にたどって漏れなく取得します）。
 
 ```bash
@@ -346,14 +346,14 @@ make offline-assets
 make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 ```
 
-中身は `scripts/fetch_isaac_offline_assets.py`、対象一覧は同ファイルの `DEFAULT_SEEDS`。
-詳細は [`usd/isaac_offline/README.md`](./usd/isaac_offline/README.md)。
+中身は `sim/hsr_omniverse2_sim/tools/fetch_isaac_offline_assets.py`、対象一覧は同ファイルの `DEFAULT_SEEDS`。
+詳細は [`io/models/usd/isaac_offline/README.md`](./io/models/usd/isaac_offline/README.md)。
 
 ### ⚠️ 会場へ持ち込む前に（重要）
-別の PC でクローンして使う場合、`usd/isaac_offline/`（約 134MB）が**その PC に存在している
+別の PC でクローンして使う場合、`io/models/usd/isaac_offline/`（約 134MB）が**その PC に存在している
 必要があります**。方法は次のどちらか:
 
-- **(A) リポジトリにコミットしておく**（推奨・確実）: `git add usd/isaac_offline/` してコミット。
+- **(A) リポジトリにコミットしておく**（推奨・確実）: `git add io/models/usd/isaac_offline/` してコミット。
   クローンするだけで会場でも人が出ます。※約 134MB 増えます。
 - **(B) 各 PC で会場前に取得**: その PC で一度 `make offline-assets` を実行（要ネット）。
 
@@ -361,10 +361,10 @@ make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 起動ログに次が出ていれば、人はローカル（オフライン）から読めています:
 
 ```
-[people] 人アセットはローカル同梱を使用します(オフラインOK・ネット不要): /app/usd/isaac_offline/...
+[people] 人アセットはローカル同梱を使用します(オフラインOK・ネット不要): /app/io/models/usd/isaac_offline/...
 ```
 
-代わりに `WARNING: ... オンライン取得にフォールバック` が出たら、`usd/isaac_offline/` が
+代わりに `WARNING: ... オンライン取得にフォールバック` が出たら、`io/models/usd/isaac_offline/` が
 その PC に無い状態です（上の (A) または (B) を実施してください）。
 
 ---
@@ -375,36 +375,35 @@ make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 .
 ├── 3rdparty/      # 外部由来モジュール。semu.robotics.ros2_bridge/ は git submodule (MIT, Toni-SM の fork: ROS2 アクションサーバー)、OgnROS1Action*.py は ROS1 用
 ├── assets/        # 設定/リソース (cyclonedds*.xml 3 種, ros_entrypoint.sh.*, hsr-omniverse.rviz, MoveIt 上書き用 joint_limits-smooth.yaml / moveit-no-octomap.rviz)
-├── configs/       # 実行時設定 (placement.yaml, dressing.yaml, tasks/<task>/ …) ※下のリンク参照
 ├── docs/          # 補足ドキュメント (dds-localhost.md, tmc_wrs_gazebo_worlds-build-note.md)
 ├── env_docker/    # Dockerfile.* (isaacsim-ros2 は Isaac 5.1 + py3.11 メッセージビルドの 2 ステージ) と docker-compose*.yml
-├── examples/      # 制御指示のサンプル (hsrb_interface / MoveIt)。ros2 コンテナに /examples で live マウント
-├── launch/        # ROS 2 launch ファイル
-├── recordings/    # 競技モードの録画・tune の出力先 (git 管理外)
-├── scripts/       # 実行スクリプト (launch_isaacsim.py = エントリポイント, hsr.py + hsr_*.py = ロボット, task_config.py, drawers.py, arena_cameras.py 他)
-├── usd/           # USD アセット (isaac_offline/ = オフライン用の人アセット同梱ミラー, unknown_objects/ 等)
-└── worlds/        # .world ファイル (家具・壁の配置)
+├── io/            # データ (コンテナには /app/io で live mount)
+│   ├── configs/   #   実行時設定 (placement.yaml, dressing.yaml, tasks/<task>/, textures/) ※下のリンク参照
+│   ├── models/usd/     #   USD アセット (hsrb/ wrs_models/ は submodule, isaac_offline/ = オフライン用の人アセット同梱ミラー, unknown_objects/ 等)
+│   ├── models/worlds/  #   .world ファイル (家具・壁の配置)
+│   └── recordings/     #   競技モードの録画・tune の出力先 (git 管理外)
+├── ros2/          # ROS 2 パッケージ hsr_omniverse2 (launch と中継ノード。ros2 コンテナで colcon build)
+└── sim/           # Isaac 側の Python パッケージ hsr_omniverse2_sim (Isaac の Python に editable install) と host 用 tools/
 ```
 
-エントリポイント: `scripts/launch_isaacsim.py` (旧 `sample-ros.py`)。Isaac Sim から HSR を起動するメインスクリプト。
+エントリポイント: `sim/hsr_omniverse2_sim/launch_isaacsim.py` (旧 `sample-ros.py`)。Isaac Sim から HSR を起動するメインスクリプト。
 
-`scripts/` の構成 (ステップ4 で分割):
+`sim/` の構成 (Isaac 側。`hsr_omniverse2_sim` は Isaac の Python に editable install される):
 
-| ファイル | 役割 |
+| 場所 | 役割 |
 |---|---|
-| `launch_isaacsim.py` | 起動の流れ本体 (world 読み込み・物体 spawn・リセット・ROS サービス・メインループ) |
-| `task_config.py` | `configs/tasks/<TASK>/` の読み込みと環境変数 (`TASK_TIME` / `CAMERA_TUNE` / `PLACEMENT_SEED` / `RENDER_EVERY_N_STEPS`) の上書き |
-| `drawers.py` | 段違い棚の trofast を PrismaticJoint で引き出し化 |
-| `hsr.py` | `class hsr`: ROS ノード、アクションサーバ生成、joint_states / odom / wrench の publish、`step()` |
-| `hsr_params.py` | `BASE_*` / `ARM_FLEX_MAX_FORCE` / `CAMERA_FRAME_SKIP` 等の環境変数パラメータ |
-| `hsr_sensors.py` | カメラ / IMU / LiDAR の OmniGraph 構築 (`SensorsMixin`) |
-| `hsr_physics.py` | 質量・慣性・ジョイント・ドライブ・摩擦の調整 (`PhysicsTuningMixin`) |
-| `hsr_base_drive.py` | 台車駆動: kinematic anchor、ブレーキ、壁クランプ、`reset_to_spawn` (`BaseDriveMixin`) |
-| `hsr_grasp.py` | アタッチ把持と物体姿勢レポート (`GraspMixin`) |
-| `hsr_action_servers.py` | semu.robotics.ros2_bridge の HSR 向けサブクラス (腕/頭/台車/グリッパ) |
-| `hsr_kinematics.py` / `hsr_math.py` | 台車の運動学・オドメトリ / クォータニオン補助 |
-| `hsr_hsrc_ex.py` | hsrc_ex 用の差分 (`hsr.hsr` を継承) |
+| `hsr_omniverse2_sim/launch_isaacsim.py` | 起動の流れ本体 (world 読み込み・物体 spawn・リセット・ROS サービス・メインループ)。`python.sh -m hsr_omniverse2_sim.launch_isaacsim` |
+| `hsr_omniverse2_sim/paths.py` | `REPO_ROOT` (固定深さ、`HSR_OMNIVERSE_ROOT` で上書き可) と `CONFIGS_DIR` / `USD_DIR` / `WORLDS_DIR` (= `io/` 配下) |
+| `hsr_omniverse2_sim/robot/hsr/` | `robot.py` (`class hsr`: ROS ノード、アクションサーバ生成、joint_states / odom / wrench、`step()`)、`params.py`、`sensors.py`、`physics.py`、`base_drive.py`、`grasp.py`、`action_servers.py` (semu のサブクラス)、`kinematics.py`、`quat.py` |
+| `hsr_omniverse2_sim/robot/hsrc_ex/robot.py` | hsrc_ex 用の差分 (`robot.hsr.robot.hsr` を継承) |
+| `hsr_omniverse2_sim/env/` | `construct_environment.py`、`dressing_presets.py`、`furniture_spawn.py`、`people_spawn.py`、`object_placement.py`、`drawers.py`、`scene_dressing/` |
+| `hsr_omniverse2_sim/task/` | `task_config.py` (`io/configs/tasks/<TASK>/` と環境変数の解決)、`arena_cameras.py` (競技モードの録画) |
+| `hsr_omniverse2_sim/tools/` | Isaac の Python で動くツール (`fetch_isaac_offline_assets.py`、`list_people_anims.py`、`convert_object_to_ycb_physics.py`) |
+| `hsr_omniverse2_sim/samples/` | `sample-ycb-grasp.py`、`sample-gpu-performance.py` |
+| `tools/` | ホスト側の補助 (`apply_tune.py`、`gen_cyclonedds_pc.sh`、`isaac_localhost_mode.sh`)。パッケージ外 |
 
-設定まわり (タスク別の world/配置/見た目): [configs/README.md](./configs/README.md) → タスク個別は [configs/tasks/README.md](./configs/tasks/README.md)。
+ROS 2 側は `ros2/hsr_omniverse2` (ament_python: launch と中継ノード。[ros2 コンテナで colcon build](./env_docker/Dockerfile.ros2))。
+
+設定まわり (タスク別の world/配置/見た目): [io/configs/README.md](./io/configs/README.md) → タスク個別は [io/configs/tasks/README.md](./io/configs/tasks/README.md)。
 
 既知の注意点・懸念点 (DDS の探索、非推奨 API、root 所有の録画、未検証項目など): [docs/known-issues.md](./docs/known-issues.md)。

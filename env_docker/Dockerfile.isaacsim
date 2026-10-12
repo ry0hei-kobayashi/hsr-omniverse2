@@ -16,9 +16,9 @@
 # 同梱に無いもの (msgbuild ステージで Python 3.11 向けに建てる):
 #   * control_msgs          FollowJointTrajectory / GripperCommand (MoveIt ↔ sim)
 #   * tmc_control_msgs      GripperApplyEffort (hsr-project/tmc_realtime_control)
-#   * gazebo_msgs           /gazebo/get_world_properties 等の互換サービス
-#   * tf_transformations    純 Python (DLu/tf_transformations) + transforms3d
 #   * tmc_wrs_gazebo_worlds randomizer (純 Python, ry0hei-kobayashi/tmc_wrs_gazebo)
+#   gazebo_msgs (旧 /gazebo/* サービス) は同梱の simulation_interfaces に、tf_transformations は
+#   robot/hsr/quat.py の純 Python 実装に置き換えたので建てない (2026-10-12)。
 #   建てる場所 (ros:jazzy + python3.11 venv) と使う場所 (Isaac, py3.11) を分ける。
 #   同梱 bridge には lib/ と rclpy/ しか無く CMake 側が丸ごと欠けているので、
 #   Isaac コンテナの中ではメッセージを建てられない。手順は env_docker/build_ros_msgs_py311.sh。
@@ -55,18 +55,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 生成器を 3.11 で走らせるのに要る純 Python でない依存。
+# lark は apt の Jazzy (python3-lark 1.1.9) と同じ版にする。旧 lark-parser 0.12 は control_msgs 5.10 の
+# ExecuteMotionPrimitiveSequence.idl で UnboundLocalError (iter_subtrees の queue) を起こす。
 # system の python3.11 に直接 pip すると /usr/lib/python3/dist-packages の
 # packaging を消して colcon (3.10) が起動しなくなるので venv に閉じ込める。
 RUN python3.11 -m venv /py311 \
     && /py311/bin/pip install --no-cache-dir --upgrade pip \
-    && /py311/bin/pip install --no-cache-dir empy==3.3.4 lark-parser numpy catkin_pkg
+    && /py311/bin/pip install --no-cache-dir empy==3.3.4 lark==1.1.9 numpy catkin_pkg
 
 WORKDIR /ws/src
-RUN git clone -q --depth 1 -b ${ROS_DISTRO} https://github.com/ros-controls/control_msgs.git \
+# control_msgs は ros2 コンテナの apt (ros-jazzy-control-msgs) と同じ版に固定する (型ハッシュを揃えるため)。
+# apt 側を上げたらここも合わせる: docker run --rm --entrypoint bash hsr-omniverse-ros2:jazzy -lc 'dpkg -s ros-jazzy-control-msgs | grep Version'
+ARG CONTROL_MSGS_VERSION=5.10.0
+RUN git clone -q --depth 1 -b ${CONTROL_MSGS_VERSION} https://github.com/ros-controls/control_msgs.git \
     && git clone -q --depth 1 -b ${ROS_DISTRO} https://github.com/hsr-project/tmc_realtime_control.git \
-    && git clone -q --depth 1 -b ros2 --filter=blob:none --sparse https://github.com/ros-simulation/gazebo_ros_pkgs.git \
-    && (cd gazebo_ros_pkgs && git sparse-checkout set gazebo_msgs) \
-    && git clone -q --depth 1 -b main https://github.com/DLu/tf_transformations.git \
     && git clone -q --depth 1 -b ${ROS_DISTRO} https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git
 
 COPY env_docker/build_ros_msgs_py311.sh /build_ros_msgs_py311.sh
@@ -87,8 +89,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl wget git \
     && rm -rf /var/lib/apt/lists/*
 
-# tf_transformations は transforms3d の薄い包み、randomizer は scipy を使う。
-RUN /isaac-sim/python.sh -m pip install --no-cache-dir transforms3d scipy
+# tmc_wrs_gazebo_worlds の randomizer が scipy を使う。
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir scipy
 
 # ---- ROS 2 Jazzy: Isaac 同梱物 + 自前で建てたメッセージ ---------------------
 ENV ROS_DISTRO=jazzy \
@@ -96,7 +98,7 @@ ENV ROS_DISTRO=jazzy \
     ISAAC_ROS2_BRIDGE=/isaac-sim/exts/isaacsim.ros2.bridge/jazzy
 COPY --from=msgbuild /out /app/ros_msgs
 # 同梱 bridge と同じ並べ方 (lib/ と rclpy/) にしてあるので、パスを足すだけでよい。
-ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy:/app
+ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
 ENV LD_LIBRARY_PATH=/app/ros_msgs/lib:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib:${LD_LIBRARY_PATH}
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 COPY assets/cyclonedds.xml /cyclonedds.xml
@@ -105,35 +107,18 @@ RUN chmod +x /ros_entrypoint.sh
 
 # ---- アプリ本体 ---------------------------------------------------------------
 WORKDIR /app
-ADD scripts/hsr.py /app/hsr.py
-ADD scripts/hsr_params.py /app/hsr_params.py
-ADD scripts/hsr_math.py /app/hsr_math.py
-ADD scripts/hsr_kinematics.py /app/hsr_kinematics.py
-ADD scripts/hsr_action_servers.py /app/hsr_action_servers.py
-ADD scripts/hsr_sensors.py /app/hsr_sensors.py
-ADD scripts/hsr_physics.py /app/hsr_physics.py
-ADD scripts/hsr_grasp.py /app/hsr_grasp.py
-ADD scripts/hsr_base_drive.py /app/hsr_base_drive.py
-ADD scripts/hsr_hsrc_ex.py /app/hsr_hsrc_ex.py
-# semu.robotics.ros2_bridge (git submodule, MIT). hsr.py adds its src/ to sys.path.
+# Isaac 側のコードは Python パッケージ hsr_omniverse2_sim (sim/) として Isaac の Python に editable install する。
+# これで PYTHONPATH に /app を足す必要が無くなり、compose が ../sim を /app/sim に bind mount すれば
+# 編集が再ビルド無しで反映される (ros2 側の --symlink-install と同じ考え方)。
+ADD sim /app/sim
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir --no-deps --no-build-isolation -e /app/sim
+# semu.robotics.ros2_bridge (git submodule, MIT). robot/hsr/action_servers.py adds its src/ to sys.path.
 ADD 3rdparty/semu.robotics.ros2_bridge/src /app/3rdparty/semu.robotics.ros2_bridge/src
 ADD 3rdparty/semu.robotics.ros2_bridge/LICENSE /app/3rdparty/semu.robotics.ros2_bridge/LICENSE
-ADD scripts/launch_isaacsim.py /app/launch_isaacsim.py
-ADD scripts/task_config.py /app/task_config.py
-ADD scripts/drawers.py /app/drawers.py
-ADD scripts/arena_cameras.py /app/arena_cameras.py
-ADD scripts/construct_environment.py /app/construct_environment.py
-ADD scripts/object_placement.py /app/object_placement.py
-ADD scripts/people_spawn.py /app/people_spawn.py
-ADD scripts/furniture_spawn.py /app/furniture_spawn.py
-ADD scripts/fetch_isaac_offline_assets.py /app/fetch_isaac_offline_assets.py
-ADD scripts/dressing_presets.py /app/dressing_presets.py
-ADD scene_dressing /app/scene_dressing
-ADD configs /app/configs
-ADD usd /app/usd
-ADD worlds /app/worlds
+# データ (configs / models / recordings の置き場)。compose が ../io を /app/io に live mount して上書きする。
+ADD io /app/io
 # プレースホルダテクスチャを焼き込んで、マウントなしでも動くようにする
-ADD configs/textures /data/textures
+ADD io/configs/textures /data/textures
 
 ENV NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
 ENV NVIDIA_DRIVER_CAPABILITIES=all
@@ -143,4 +128,4 @@ ENV PYTHONUNBUFFERED=1
 
 ENTRYPOINT [ "/ros_entrypoint.sh" ]
 
-CMD [ "/isaac-sim/python.sh", "/app/launch_isaacsim.py"]
+CMD [ "/isaac-sim/python.sh", "-m", "hsr_omniverse2_sim.launch_isaacsim"]

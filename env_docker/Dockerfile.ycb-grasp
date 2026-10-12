@@ -1,98 +1,34 @@
-# Simple runtime image for executing sample-ycb-grasp.py under Isaac Sim
-# The base image already includes Omniverse Isaac Sim 2023.1.1 and NVIDIA GPU dependencies.
-FROM ros:humble-ros-core-jammy AS ros
-
-FROM nvcr.io/nvidia/isaac-sim:2023.1.1
+# sample-ycb-grasp.py (YCB 物体を順に把持してみるサンプル) を Isaac Sim 5.1 / ROS 2 Jazzy で動かす
+# ランタイムイメージ。本体イメージ hsr-omniverse-isaacsim:jazzy (env_docker/Dockerfile.isaacsim) の
+# 上に、サンプルだけが要るもの (pyassimp と tmc_wrs_gazebo の STL メッシュ) を足す。
+#
+#   make build            # 先に本体イメージを作る
+#   make ycb-grasp        # このイメージを build して実行 (docker-compose-ycb-grasp.yml)
+#
+# 旧版は Isaac Sim 2023.1.1 + apt の Humble を丸ごと入れていたが、5.1 では ROS は Isaac 同梱の
+# rclpy (+ /app/ros_msgs) を使うので apt の ROS は不要。
+FROM hsr-omniverse-isaacsim:jazzy
 
 SHELL ["/bin/bash", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+USER root
 
-ENV DEBIAN_FRONTEND noninteractive
+# pyassimp は libassimp.so を dlopen するだけなので、共有ライブラリだけ入れる。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libassimp5 \
+    && rm -rf /var/lib/apt/lists/*
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir pyassimp
 
-RUN apt update && \
-    apt install -y --no-install-recommends \
-    curl \
-    wget \
-    && apt -y autoremove \
-    && apt clean autoclean
+# 把持前に物体の大きさを STL から測る。メッシュは tmc_wrs_gazebo_worlds (ry0hei-kobayashi fork, jazzy) の
+# models/ にある。USD (io/models/usd/wrs_models) とは別物なので、必要な models/ だけ sparse checkout する。
+RUN git clone -q --depth 1 -b jazzy --filter=blob:none --sparse \
+        https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git /opt/tmc_wrs_gazebo \
+    && cd /opt/tmc_wrs_gazebo && git sparse-checkout set tmc_wrs_gazebo_worlds/models \
+    && rm -rf /opt/tmc_wrs_gazebo/.git
+ENV WRS_MODELS_DIR=/opt/tmc_wrs_gazebo/tmc_wrs_gazebo_worlds/models
 
-# install ROS dependencies
-ENV ROS_DISTRO humble
-#COPY --from=ros /ros_entrypoint.sh /
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" > /etc/apt/sources.list.d/ros2.list
+# サンプル本体。compose では同じパスに live mount するので編集が即反映される。
+# サンプル本体は本体イメージの /app/sim (hsr_omniverse2_sim/samples/) に入っている。
 
-RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt update && \
-    apt install -y \
-    git g++ make python-is-python3 python3-pip \
-    python3-colcon-common-extensions \
-    libeigen3-dev \
-    libpoco-dev \
-    libboost-system-dev \
-    libboost-filesystem-dev \
-    python3-pyassimp \
-    ros-humble-ros2cli \
-    ros-humble-ros2cli-common-extensions \
-    ros-humble-rclpy \
-    ros-humble-xacro \
-    ros-humble-rosidl-default-generators \
-    ros-humble-rclpy \
-    ros-humble-tf-transformations \
-    ros-humble-tf2 \
-    ros-humble-tf2-msgs \
-    ros-humble-tf2-geometry-msgs \
-    ros-humble-tf2-ros-py \
-    ros-humble-actionlib-msgs \
-    ros-humble-geometry-msgs \
-    ros-humble-control-msgs \
-    ros-humble-trajectory-msgs \
-    ros-humble-sensor-msgs \
-    ros-humble-nav-msgs \
-    ros-humble-vision-msgs \
-    ros-humble-gazebo-msgs \
-    ros-humble-moveit-msgs \
-    ros-humble-controller-interface \
-    ros-humble-realtime-tools \
-    ros-humble-diagnostic-updater \
-    ros-humble-std-srvs \
-    ros-humble-action-tutorials-interfaces \
-    ros-humble-example-interfaces \
-    ros-humble-angles
-RUN /isaac-sim/python.sh -m pip install transforms3d pyassimp
-
-RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
-    mkdir -p /ws/src && \
-    cd /ws/src && \
-    git clone -b humble https://github.com/hsr-project/tmc_common_msgs.git && \
-    git clone -b humble https://github.com/hsr-project/tmc_common.git && \
-    git clone -b humble https://github.com/hsr-project/tmc_drivers.git && \
-    git clone -b humble https://github.com/hsr-project/tmc_realtime_control.git && \
-    git clone -b feature/ros2 https://github.com/hsr-project/tmc_wrs_gazebo.git && \
-    git clone -b feature/ros2 https://github.com/hsr-project/tmc_gazebo_task_evaluators.git && \
-    rm -rf tmc_drivers/tmc_pgr_camera && \
-    cd .. && \
-    colcon build
-ADD assets/ros_entrypoint.ros2.sh /ros_entrypoint.sh
-
-RUN curl -sSL https://raw.githubusercontent.com/NVIDIA-Omniverse/IsaacSim-ros_workspaces/main/humble_ws/fastdds.xml -o /fastdds.xml
-
-ENV FASTRTPS_DEFAULT_PROFILES_FILE /fastdds.xml
-
-WORKDIR /isaac-sim
-
-# Copy the entire repository so the HSR helper modules, USD assets, and scripts are available.
-COPY . /workspace
-
-ENV NVIDIA_VISIBLE_DEVICES \
-        ${NVIDIA_VISIBLE_DEVICES:-all}
-ENV NVIDIA_DRIVER_CAPABILITIES all
-
-ENV PYTHONUNBUFFERED 1
-
-# Ensure the scripts dir is importable as a module (for `import hsr`).
-ENV PYTHONPATH=/workspace/scripts:${PYTHONPATH}
-
-ENTRYPOINT [ "/ros_entrypoint.sh" ]
-CMD [ "/isaac-sim/python.sh", "/workspace/scripts/sample-ycb-grasp.py"]
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["/isaac-sim/python.sh", "/app/sim/hsr_omniverse2_sim/samples/sample-ycb-grasp.py"]

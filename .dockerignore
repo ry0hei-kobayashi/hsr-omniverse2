@@ -1,0 +1,6 @@
+# イメージに入れないもの (ADD scripts/<pkg> がホストの __pycache__ を拾わないように)
+**/__pycache__/
+**/*.pyc
+io/recordings/
+io/recordings-*/
+.git/

@@ -27,19 +27,16 @@ services:
     volumes:
       # DDS 設定を live マウント。既定は /cyclonedds.xml (マルチキャスト版)。
       #   make up localhost  -> /cyclonedds.localhost.xml (lo に閉じる。docs/dds-localhost.md)
-      #   make up pc         -> /cyclonedds.pc.xml (別 PC と unicast。scripts/gen_cyclonedds_pc.sh)
+      #   make up pc         -> /cyclonedds.pc.xml (別 PC と unicast。sim/tools/gen_cyclonedds_pc.sh)
       # ※ イメージに COPY 済みなのは cyclonedds.xml だけ。他の 2 つはこの bind mount でしか
       #    存在しないので、外すと CYCLONEDDS_URI が解決できなくなる。
       - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
       - ../assets/cyclonedds.localhost.xml:/cyclonedds.localhost.xml:ro
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
-      - ../launch/hsr.launch.py:/hsr.launch.py:ro
-      # 圧縮中継スクリプトもライブマウント(編集を再ビルド無しで反映)。
-      # マウント先は Dockerfile.ros2 の焼き込み先・hsr.launch.py の参照先と同じ root パス。
-      - ../scripts/rgbd_republisher.py:/rgbd_republisher.py:ro
-      # 制御指示のサンプルコード (実習用)。hsr.launch.py の use_grasp_tf が
-      # /examples/grasp_tf_broadcaster.py を起動する。編集が即反映されるよう live マウント。
-      - ../examples:/examples:ro
+      # このリポジトリの ROS 2 パッケージ (launch と中継ノード) をソースごと live マウント。
+      # イメージは --symlink-install で建ててあるので、launch / ノードの編集が再ビルド無しで反映される。
+      # (package.xml / setup.py を変えたときだけ make build が必要)
+      - ../ros2/hsr_omniverse2:/ws/src/hsr_omniverse2:ro
       # hsrb_moveit_config (hsr-project) の設定を 2 ファイルだけ上書きする。
       #   moveit-no-octomap.rviz  : octomap 表示を切った MoveIt RViz 設定
       #   joint_limits-smooth.yaml: 速度/加速度上限を緩めて軌道を滑らかにした joint_limits
@@ -47,7 +44,7 @@ services:
       - ../assets/moveit-no-octomap.rviz:/ws/install/hsrb_moveit_config/share/hsrb_moveit_config/config/moveit.rviz:ro
       - ../assets/joint_limits-smooth.yaml:/ws/install/hsrb_moveit_config/share/hsrb_moveit_config/config/joint_limits.yaml:ro
     # RViz2 は既定オフ。`make up RVIZ=1` で USE_RVIZ=true が渡る。
-    command: ["ros2", "launch", "/hsr.launch.py", "use_rviz:=${USE_RVIZ:-false}"]
+    command: ["ros2", "launch", "hsr_omniverse2", "hsr.launch.py", "use_rviz:=${USE_RVIZ:-false}"]
     security_opt:
       - seccomp:unconfined
   cacheproxy:
@@ -76,7 +73,7 @@ services:
       - ACCEPT_EULA=Y
       - http_proxy=http://127.0.0.1:3128
       - NVIDIA_VISIBLE_DEVICES=all
-      # 起動するタスク (configs/tasks/<TASK>/)。`make up TASK=hri` で渡る。
+      # 起動するタスク (io/configs/tasks/<TASK>/)。`make up TASK=hri` で渡る。
       # 未指定なら空 → launch_isaacsim.py は configs 直下の既定で起動。
       - TASK=${TASK:-}
       # スポーンするロボット。`make up robot=hsrb` で渡る。
@@ -86,14 +83,14 @@ services:
       # ros2 サービスと同じ値にすること (学生環境に合わせて 26)
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-26}
 
-      # ---- タスク設定 (configs/tasks/<TASK>/task.yaml) の上書き ----------------
+      # ---- タスク設定 (io/configs/tasks/<TASK>/task.yaml) の上書き ----------------
       # 競技モード: `make up TASK=tidyup TIME=600` で競技時間 (秒・シミュ内時間) が渡る。
       # 空なら task.yaml の time_limit に従う。
       - TASK_TIME=${TASK_TIME:-}
       # `make up TASK=tidyup SEED=1`: タスクフォルダ内の placement.seed<N>.yaml を読む。
       - PLACEMENT_SEED=${PLACEMENT_SEED:-}
       # カメラ調整モード: `make tune TASK=<name>` で 1 が渡る。観戦カメラ4台を作るだけで
-      # 録画も自動終了もせず、GUI で動かした位置を recordings/tune/ に書き出す。
+      # 録画も自動終了もせず、GUI で動かした位置を io/recordings/tune/ に書き出す。
       - CAMERA_TUNE=${CAMERA_TUNE:-}
       # アタッチ把持(吸い付き)。既定は無効で、物理接触(摩擦)のみで把持する。
       # 確実に保持させたいときだけ `make up GRASP=1` で有効化する。
@@ -169,51 +166,21 @@ services:
       - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
       - ../assets/cyclonedds.localhost.xml:/cyclonedds.localhost.xml:ro
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
-      # 競技モードの録画出力先 (ホストの recordings/ にそのまま出る。コンテナは root で動くので root 所有になる)
-      - ../recordings:/recordings:rw
-      - ../scripts/launch_isaacsim.py:/app/launch_isaacsim.py:ro
-      # launch_isaacsim.py から分離したモジュール (ステップ4)
-      - ../scripts/task_config.py:/app/task_config.py:ro
-      - ../scripts/drawers.py:/app/drawers.py:ro
-      # 観戦カメラ録画 / tune (task.yaml の arena_cameras: true で使う)
-      - ../scripts/arena_cameras.py:/app/arena_cameras.py:ro
-      - ../scripts/hsr.py:/app/hsr.py:ro
-      # hsr.py から分離したモジュール (ステップ4)。hsr.py と一緒に live マウントする。
-      - ../scripts/hsr_params.py:/app/hsr_params.py:ro
-      - ../scripts/hsr_math.py:/app/hsr_math.py:ro
-      - ../scripts/hsr_kinematics.py:/app/hsr_kinematics.py:ro
-      - ../scripts/hsr_action_servers.py:/app/hsr_action_servers.py:ro
-      - ../scripts/hsr_sensors.py:/app/hsr_sensors.py:ro
-      - ../scripts/hsr_physics.py:/app/hsr_physics.py:ro
-      - ../scripts/hsr_grasp.py:/app/hsr_grasp.py:ro
-      - ../scripts/hsr_base_drive.py:/app/hsr_base_drive.py:ro
-      - ../scripts/hsr_hsrc_ex.py:/app/hsr_hsrc_ex.py:ro
+      # 競技モードの録画出力先 (ホストの io/recordings/ にそのまま出る。コンテナは root で動くので root 所有になる)
+      - ../io/recordings:/recordings:rw
+      # Isaac 側のパッケージ (sim/) を丸ごと live マウント。イメージ内で editable install 済みなので
+      # 編集が再ビルド無しで反映される (pyproject.toml を変えたときだけ make build)。
+      - ../sim:/app/sim:ro
       # semu.robotics.ros2_bridge (submodule) も live マウント (再ビルド無しで反映)
       - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
-      - ../scripts/object_placement.py:/app/object_placement.py:ro
-      - ../scripts/people_spawn.py:/app/people_spawn.py:ro
-      - ../scripts/furniture_spawn.py:/app/furniture_spawn.py:ro
-      # 部屋の見た目(dressing)を編集中なので live マウントする。これらは未マウントだと
-      # イメージ内の古い焼き込み版が動き、configs/dressing.yaml の新キー(wall_color 等)と
-      # 食い違ってクラッシュする。マウントしておけばホストの編集が再ビルド無しで反映される。
-      - ../scripts/construct_environment.py:/app/construct_environment.py:ro
-      - ../scripts/dressing_presets.py:/app/dressing_presets.py:ro
-      - ../scene_dressing:/app/scene_dressing:ro
-      - ../worlds:/app/worlds:ro
-
-      # usd フォルダ全体をホスト側から live マウントする。
-      # こうすると my_models / rc26_practice_day_1 など、どのサブフォルダに
-      # モデルを足しても再ビルド不要で反映される。
-      # (イメージにも ADD usd で焼き込み済みなので、マウントを外せばイメージ内が使われる)
-      # ※ ホスト側で wrs_models / hsrb サブモジュールが checkout 済みである必要あり。
-      - ../usd:/app/usd:ro
-
-      # configs/ はリリース後の運用調整用に bind mount でホスト側を優先
-      # (イメージにも焼き込みされているのでマウントを外せばイメージ内のデフォルトが使われる)
-      - ../configs:/app/configs:ro
-      # テクスチャはデフォルトで repo 内の configs/textures/ を使う
+      # データ (io/: configs / models/usd / models/worlds) を丸ごと live マウント。
+      # モデルや配置 yaml の追加・編集が再ビルド無しで反映される
+      # (イメージにも ADD io で焼き込み済みなので、マウントを外せばイメージ内が使われる)。
+      # ※ ホスト側で io/models/usd の wrs_models / hsrb サブモジュールが checkout 済みである必要あり。
+      - ../io:/app/io:ro
+      # テクスチャはデフォルトで repo 内の io/configs/textures/ を使う
       # (本物の lab テクスチャを焼き込み済み)。
-      - ../configs/textures:/data/textures:ro
+      - ../io/configs/textures:/data/textures:ro
 
       #- /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro
       #- /usr/share/vulkan/implicit_layer.d:/usr/share/vulkan/implicit_layer.d:ro

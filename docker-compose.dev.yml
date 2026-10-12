@@ -6,7 +6,8 @@ services:
     # NOTE: ここで PYTHONPATH を上書きしないこと。Isaac 5.1 版の Dockerfile は
     # PYTHONPATH に同梱 ROS 2 (jazzy/rclpy) と /app/ros_msgs を通しており、compose の
     # environment で PYTHONPATH=/app と書くとそれが丸ごと消えて rclpy が import できなくなる。
-    # /app 自体は Dockerfile 側の PYTHONPATH に含めてある (scene_dressing 等の import 用)。
+    # hsr_omniverse2_sim は /app/sim に editable install 済みで、base の compose が ../sim を /app/sim に
+    # bind mount しているので、dev でも追加の mount 無しでホスト側の最新が使われる。
     volumes:
       # --- ソースコードは「ディレクトリごと」live マウントする -----------------
       # base (docker-compose.yml) は launch_isaacsim.py 等を「単一ファイル」で
@@ -14,22 +15,14 @@ services:
       # 起動後にエディタで保存 (inode が変わる) しても反映されない。
       # ディレクトリ mount なら毎回最新のファイルが見えるので、編集 → make dev run
       # だけで反映される (コンテナ再起動不要)。
-      # dev では /app/scripts/launch_isaacsim.py を実行する (Makefile の LAUNCH_PY)。
-      - ../scripts:/app/scripts:ro
-      - ../scene_dressing:/app/scene_dressing:ro
-      # semu.robotics.ros2_bridge (submodule)。hsr.py が /app/scripts/../3rdparty で見つける。
+      # (sim/ は base の docker-compose.yml で /app/sim に mount 済み)
+      # semu.robotics.ros2_bridge (submodule)。robot/hsr/action_servers.py が repo_paths 経由で /app/3rdparty を見つける。
       - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
 
       # 追加で必要なデータセット (家具シーン / HDRI)。
-      # テクスチャは repo の configs/textures/ に同梱したので dev でも追加マウント不要。
+      # テクスチャは repo の io/configs/textures/ に同梱したので dev でも追加マウント不要。
       - ${INTERIOR_AGENT_PATH}:/data/InteriorAgent:ro
       - ${HOME}/datasets/HDRIs:/data/HDRIs:ro
       - /usr/share/nvidia/nvoptix.bin:/usr/share/nvidia/nvoptix.bin:ro
 
-      # usd フォルダ全体を live マウント (再ビルド無しで反映)。
-      # (相対パスは env_docker/ 基準なので ../usd = リポジトリ直下の usd)
-      # my_models / rc26_practice_day_1 など、どのサブフォルダを増やしても
-      # ここを変えずに反映される。
-      # ※ ホスト側で wrs_models / hsrb サブモジュールが checkout 済みである必要あり
-      #   (イメージ内の焼き込み版をホスト版で上書きする形になる)。
-      - ../usd:/app/usd:ro
+      # (io/ も base の docker-compose.yml で /app/io に mount 済み)

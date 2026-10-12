@@ -15,8 +15,8 @@
 | `omni.isaac.kit.SimulationApp` | `isaacsim.simulation_app.SimulationApp` | sample-*.py のみ |
 | `omni.isaac.version.get_version` | `isaacsim.core.version.get_version` | sample-ycb-grasp.py のみ |
 
-変更ファイル: `scripts/hsr.py`、`launch_isaacsim.py`、`construct_environment.py`、`people_spawn.py`、`furniture_spawn.py`、
-`arena_cameras.py`、`scene_dressing/_common.py`、`sample-gpu-performance.py`、`sample-ycb-grasp.py`。
+変更ファイル: `sim/hsr_omniverse2_sim/robot/hsr/robot.py`、`launch_isaacsim.py`、`construct_environment.py`、`people_spawn.py`、`furniture_spawn.py`、
+`arena_cameras.py`、`env/scene_dressing/_common.py`、`sample-gpu-performance.py`、`sample-ycb-grasp.py`。
 
 変更不要だったもの: Kit コマンド `RangeSensorCreateLidar` / `IsaacSensorCreateImuSensor` (5.1 の `isaacsim.sensors.physx` /
 `isaacsim.sensors.physics` が同名で登録)、OmniGraph ノード型 (`isaacsim.ros2.bridge.ROS2*`、`isaacsim.core.nodes.*`、
@@ -27,7 +27,7 @@
 ### 現状
 - 5.1 では `extsDeprecated/omni.isaac.dynamic_control` (2.0.7、cpython-311 .so + plugin) が動く。警告「deprecated since 4.5.0」。
   NVIDIA の移行表は「直接の代替なし」。6.0 で削除予定。
-- 使用箇所: `scripts/hsr.py` (台車 kinematic 駆動・関節制御・剛体姿勢) と semu fork の `ros2_bridge.py` (関節読み書き)、
+- 使用箇所: `sim/hsr_omniverse2_sim/robot/hsr/robot.py` (台車 kinematic 駆動・関節制御・剛体姿勢) と semu fork の `ros2_bridge.py` (関節読み書き)、
   `launch_isaacsim.py` (剛体取得)。メソッド 22 種 (`get_dof_state`, `set_dof_velocity_target`, `get_rigid_body_pose`,
   `set_rigid_body_pose`, `wake_up_articulation`, `find_articulation_dof`, `get_articulation_dof_properties` …) と
   定数/型 10 種 (`INVALID_HANDLE`, `Transform`, `JOINT_*`, `STATE_*`, `DofType`)。

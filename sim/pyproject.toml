@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsr-omniverse2-sim"
+version = "0.1.0"
+description = "Isaac Sim 側の HSR (hsr-omniverse2)。Isaac Sim 5.1 の Python 3.11 に editable install して使う。"
+requires-python = ">=3.11"
+# 実行時依存 (numpy, pyyaml, scipy, rclpy, omni.*) はすべて Isaac Sim 本体が持つので書かない。
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hsr_omniverse2_sim*"]

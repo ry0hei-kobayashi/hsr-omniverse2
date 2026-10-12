@@ -11,7 +11,7 @@ export CYCLONEDDS_URI="${CYCLONEDDS_URI:-file:///cyclonedds.xml}"
 # 同梱 rclpy と自前メッセージが見えているかを起動時に 1 行で確認する。
 # ここで落ちれば「ROS が見えない」ことが Isaac の起動ログより前に分かる。
 /isaac-sim/python.sh - <<'EOF' || { echo "[ros_entrypoint] ROS 2 (Isaac 同梱 jazzy) が import できません" >&2; exit 1; }
-import rclpy, control_msgs.action, tmc_control_msgs.action, gazebo_msgs.srv, tf_transformations  # noqa: F401
+import rclpy, control_msgs.action, tmc_control_msgs.action, simulation_interfaces.srv  # noqa: F401
 EOF
 
 exec "$@"
