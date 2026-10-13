@@ -21,13 +21,48 @@ MoveIt など ROS 側のスタックは `ros2` コンテナ (Ubuntu 24.04 + apt 
 | ------------------------ | --------------------------- |
 | OS (ホスト)              | Ubuntu 22.04 / 24.04        |
 | GPU                      | NVIDIA RTX A6000 (VRAM 48GB) / RTX 4070 (12GB) |
-| NVIDIA Driver            | 580.x (CUDA 12.8 以降が必要)  |
+| NVIDIA Driver            | **580.x Production Branch** (CUDA 12.8 以降)。595 以降は不可 (下記)  |
 | Docker                   | 29.x                        |
 | NVIDIA Container Toolkit | latest                      |
 | Isaac Sim (コンテナ内)   | 5.1.0 (Ubuntu 24.04 / Python 3.11) |
 | ROS 2 (コンテナ内)       | Jazzy (Isaac 側は同梱 rclpy、ros2 側は 24.04 + apt) |
 
 推奨スペック: RTX 30 系以降, VRAM 12GB 以上, RAM 32GB 以上, 空きディスク 100GB 以上。
+
+### 0. ホスト側の前提条件 (NVIDIA ドライバ / カーネル設定)
+
+**NVIDIA ドライバは 580 系 Production Branch を使う。** 595 系以降 (610 など) では Isaac Sim 5.1 の
+RTX レンダラが起動直後に `librtx.scenedb.plugin.so` で segfault する (NVIDIA フォーラムで NVIDIA 側が
+「5.1.0 の検証済みドライバは 580.65.06、595.x は未検証」と回答。RTX 6000 Ada + 610.57.04 で
+2026-10-13 に再現)。症状: `[7.0s] app ready` 直後に
+`Crash detected ... librtx.scenedb.plugin.so!...carbOnPluginStartup` → `Segmentation fault`。
+
+```bash
+nvidia-smi | head -4            # Driver Version が 580.x であること
+# 595 以降が入っている場合は入れ替える
+ubuntu-drivers list             # nvidia-driver-580 が候補にあるか確認
+sudo apt purge 'nvidia-*' 'libnvidia-*'
+sudo apt install -y nvidia-driver-580
+sudo reboot
+```
+
+**カーネルのソケットバッファ上限を上げる。** `assets/cyclonedds*.xml` は CycloneDDS に
+`SocketReceiveBufferSize min="100MB"` を要求しており、Ubuntu 既定の `net.core.rmem_max` (8 MB) のままだと
+ros2 コンテナが起動直後に落ちる:
+
+```
+ros2: failed to increase socket receive buffer size to at least 104857600 bytes, current is 8388608 bytes
+[ERROR] [rmw_cyclonedds_cpp]: rmw_create_node: failed to create domain, error Error
+```
+
+```bash
+sudo tee /etc/sysctl.d/60-cyclonedds.conf <<'EOS'
+net.core.rmem_max = 2147483647
+net.core.wmem_max = 2147483647
+EOS
+sudo sysctl --system
+sysctl net.core.rmem_max        # 2147483647 になること (再起動不要)
+```
 
 ### 1. Docker と NVIDIA Container Toolkit のインストール
 
