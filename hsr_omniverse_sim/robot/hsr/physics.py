@@ -127,7 +127,13 @@ class PhysicsTuningMixin:
                 float(root_imaginary[0]), float(root_imaginary[1]),
                 float(root_imaginary[2]), float(root_quat.GetReal()))[2]
 
-            anchor_path = self.stage_path + '/hsr_base_kinematic_anchor'
+            # anchor はステージ直下 (spawn root /hsrb の外) に置く。anchor の xform には
+            # ここでも base_drive._set_kinematic_base_pose (usd モード) でも「world 座標」を
+            # 書くので、/hsrb (spawn の平行移動 + yaw) の子にすると親の変換が二重に掛かる。
+            # placement.yaml の robot: が (0,0,0) 以外のとき、生成時に FixedJoint の両端が
+            # ずれて PhysX が "disjointed body transforms" で台車を弾き飛ばし、走行中は
+            # 毎ステップ誤った world 姿勢へ引かれて NaN 発散していた (2026-10-13)。
+            anchor_path = self.stage_path + '_base_kinematic_anchor'
             anchor = UsdGeom.Xform.Define(current_stage, anchor_path)
             anchor_xform = UsdGeom.XformCommonAPI(anchor)
             anchor_xform.SetTranslate(root_translation)
