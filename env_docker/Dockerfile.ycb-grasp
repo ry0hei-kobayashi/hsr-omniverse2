@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir pyassimp
 
 # 把持前に物体の大きさを STL から測る。メッシュは tmc_wrs_gazebo_worlds (ry0hei-kobayashi fork, jazzy) の
-# models/ にある。USD (io/models/usd/wrs_models) とは別物なので、必要な models/ だけ sparse checkout する。
+# models/ にある。USD (models/wrs_models) とは別物なので、必要な models/ だけ sparse checkout する。
 RUN git clone -q --depth 1 -b jazzy --filter=blob:none --sparse \
         https://github.com/ry0hei-kobayashi/tmc_wrs_gazebo.git /opt/tmc_wrs_gazebo \
     && cd /opt/tmc_wrs_gazebo && git sparse-checkout set tmc_wrs_gazebo_worlds/models \
@@ -28,7 +28,7 @@ RUN git clone -q --depth 1 -b jazzy --filter=blob:none --sparse \
 ENV WRS_MODELS_DIR=/opt/tmc_wrs_gazebo/tmc_wrs_gazebo_worlds/models
 
 # サンプル本体。compose では同じパスに live mount するので編集が即反映される。
-# サンプル本体は本体イメージの /app/sim (hsr_omniverse2_sim/samples/) に入っている。
+# サンプル本体は本体イメージの /app/hsr_omniverse_sim/samples/ に入っている。
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
-CMD ["/isaac-sim/python.sh", "/app/sim/hsr_omniverse2_sim/samples/sample-ycb-grasp.py"]
+CMD ["/isaac-sim/python.sh", "/app/hsr_omniverse_sim/samples/sample-ycb-grasp.py"]

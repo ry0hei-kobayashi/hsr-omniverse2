@@ -25,17 +25,17 @@ services:
       # hsr.hsr() が rclpy ノードを作るので、本体と同じ DDS 設定を渡す (make ycb-grasp localhost で lo に閉じる)
       - CYCLONEDDS_URI=${CYCLONEDDS_URI:-file:///cyclonedds.xml}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-26}
-      # 試す物体数を絞る (未指定なら io/models/usd/wrs_models の ycb_* 全部)
+      # 試す物体数を絞る (未指定なら models/wrs_models の ycb_* 全部)
       - YCB_MAX_MODELS=${YCB_MAX_MODELS:-}
       - GRASP_ATTACH=${GRASP_ATTACH:-0}
     volumes:
       - ../assets/cyclonedds.xml:/cyclonedds.xml:ro
       - ../assets/cyclonedds.localhost.xml:/cyclonedds.localhost.xml:ro
       - ../assets/cyclonedds.pc.xml:/cyclonedds.pc.xml:ro
-      - ../sim:/app/sim:ro
+      - ../hsr_omniverse_sim:/app/hsr_omniverse_sim:ro
       - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
-      # io/models/usd/wrs_models (submodule) の model.usd を読む
-      - ../io:/app/io:ro
+      # models/wrs_models (submodule) の model.usd を読む
+      - ../models:/app/models:ro
       - ${HOME}/.hsr-omniverse/cache/kit:/isaac-sim/kit/cache:rw
       - ${HOME}/.hsr-omniverse/cache/ov:/root/.cache/ov:rw
       - ${HOME}/.hsr-omniverse/cache/pip:/root/.cache/pip:rw

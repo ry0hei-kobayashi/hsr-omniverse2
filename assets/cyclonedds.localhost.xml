@@ -20,7 +20,7 @@
       打ち間違えても Cyclone は警告1行で先へ進み、最終的に Isaac が
       segfault するという分かりにくい落ち方をする。
     Apptainer 側 (hma2_ws) からは
-    source <hsr-omniverse2>/scripts/isaac_localhost_mode.sh [ROS_DOMAIN_ID]
+    source <hsr-omniverse2>/assets/isaac_localhost_mode.sh [ROS_DOMAIN_ID]
     ※ コンテナと Apptainer の両方に設定しないと漏洩は止まらない。
 
   複数PCで ROS 通信する必要が出たときは、この設定は使えない。

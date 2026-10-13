@@ -59,7 +59,7 @@ bash 0_shell.sh
 コンテナに入ったら、**引数に Isaac と同じ `ROS_DOMAIN_ID`** を渡して source する:
 
 ```bash
-source ~/hsr-omniverse2/sim/tools/isaac_localhost_mode.sh 31
+source ~/hsr-omniverse2/assets/isaac_localhost_mode.sh 31
 ```
 
 成功すると次が出る:

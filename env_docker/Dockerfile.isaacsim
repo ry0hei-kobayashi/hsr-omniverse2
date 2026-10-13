@@ -102,23 +102,26 @@ ENV PYTHONPATH=/app/ros_msgs/rclpy:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rc
 ENV LD_LIBRARY_PATH=/app/ros_msgs/lib:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib:${LD_LIBRARY_PATH}
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 COPY assets/cyclonedds.xml /cyclonedds.xml
-ADD assets/ros_entrypoint.isaacsim.sh /ros_entrypoint.sh
+ADD env_docker/ros_entrypoint.isaacsim.sh /ros_entrypoint.sh
 RUN chmod +x /ros_entrypoint.sh
 
 # ---- アプリ本体 ---------------------------------------------------------------
 WORKDIR /app
-# Isaac 側のコードは Python パッケージ hsr_omniverse2_sim (sim/) として Isaac の Python に editable install する。
-# これで PYTHONPATH に /app を足す必要が無くなり、compose が ../sim を /app/sim に bind mount すれば
+# Isaac 側のコードは Python パッケージ hsr_omniverse_sim (リポジトリ直下) として Isaac の Python に editable install する。
+# これで PYTHONPATH に /app を足す必要が無くなり、compose が ../hsr_omniverse_sim を /app/hsr_omniverse_sim に bind mount すれば
 # 編集が再ビルド無しで反映される (ros2 側の --symlink-install と同じ考え方)。
-ADD sim /app/sim
-RUN /isaac-sim/python.sh -m pip install --no-cache-dir --no-deps --no-build-isolation -e /app/sim
+ADD pyproject.toml /app/pyproject.toml
+ADD hsr_omniverse_sim /app/hsr_omniverse_sim
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir --no-deps --no-build-isolation -e /app
 # semu.robotics.ros2_bridge (git submodule, MIT). robot/hsr/action_servers.py adds its src/ to sys.path.
 ADD 3rdparty/semu.robotics.ros2_bridge/src /app/3rdparty/semu.robotics.ros2_bridge/src
 ADD 3rdparty/semu.robotics.ros2_bridge/LICENSE /app/3rdparty/semu.robotics.ros2_bridge/LICENSE
-# データ (configs / models / recordings の置き場)。compose が ../io を /app/io に live mount して上書きする。
-ADD io /app/io
+# 外部 USD (hsrb / wrs_models は submodule)。compose が ../models を /app/models に live mount して上書きする。
+# config/ と data/ はパッケージ hsr_omniverse_sim の中 (上の ADD に含まれる)。
+ADD models /app/models
+ENV HSR_MODELS_DIR=/app/models
 # プレースホルダテクスチャを焼き込んで、マウントなしでも動くようにする
-ADD io/configs/textures /data/textures
+ADD hsr_omniverse_sim/config/textures /data/textures
 
 ENV NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
 ENV NVIDIA_DRIVER_CAPABILITIES=all
@@ -128,4 +131,4 @@ ENV PYTHONUNBUFFERED=1
 
 ENTRYPOINT [ "/ros_entrypoint.sh" ]
 
-CMD [ "/isaac-sim/python.sh", "-m", "hsr_omniverse2_sim.launch_isaacsim"]
+CMD [ "/isaac-sim/python.sh", "-m", "hsr_omniverse_sim.launch_isaacsim"]

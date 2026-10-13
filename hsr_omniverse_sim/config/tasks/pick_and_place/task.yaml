@@ -1,0 +1,28 @@
+# ============================================================
+# Pick and Place Challenge のタスク設定
+# ============================================================
+# make dev run TASK=pick_and_place で使われる。
+# 書き方は hsr_omniverse_sim/config/tasks/README.md を参照。
+
+# このタスクで使う world (hsr_omniverse_sim/data/worlds/ 内のファイル名)
+world: rc26.world # TODO: Pick and Place 用の world があれば変更する
+
+# 見た目 (hsr_omniverse_sim/config/dressing.yaml のプリセットから選ぶ)
+# RoboCup 2026 会場の床 + 白壁テクスチャ (rc26_venue)。元に戻すときは floor_only。
+dressing:
+  preset: rc26_venue
+  lighting: default
+
+# robot/objects/people を変えたいときは、このフォルダに placement.yaml を置く。
+# 無ければ共通の hsr_omniverse_sim/config/placement.yaml が使われる。
+
+# ---- 競技モード (既定はすべて無効 = 従来どおりの起動) ------------------------
+# 競技時間 (秒, シミュレータ内時間)。0 = 時間無制限。>0 で時間が来たら自動終了。
+# 環境変数 TASK_TIME (make up TASK=<名前> TIME=600) があればそれで上書き。
+time_limit: 0
+# 観戦カメラ 4 台を作るか (true なら time_limit > 0 で録画、CAMERA_TUNE=1 で位置調整)。
+# カメラ位置は placement.yaml の arena_cameras: に書く (無ければ床の中心から自動配置)。
+arena_cameras: false
+# 固定配置 (Seed) ファイル名のパターン。make up TASK=<名前> SEED=2 で
+# このフォルダの placement.seed2.yaml が objects: に使われる (ファイルが無ければエラー)。
+placement_seeds: placement.seed{n}.yaml

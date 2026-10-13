@@ -14,20 +14,20 @@
 #   exec          Open bash: make exec ros2 / make exec isaacsim
 #   run           (dev) Run launch_isaacsim.py manually in isaacsim
 #   tune          観戦カメラ 4 台の位置・画角を GUI で調整する (録画しない)
-#   tune-apply    tune の結果を io/configs/tasks/<TASK>/placement.yaml に反映する
+#   tune-apply    tune の結果を hsr_omniverse_sim/config/tasks/<TASK>/placement.yaml に反映する
 #   pc            CycloneDDS cross-PC mode (ros2 only, runtime only)
 #   localhost     CycloneDDS を loopback (lo) に閉じる (LAN へのマルチキャスト漏洩対策)
 #
-# タスク (io/configs/tasks/<TASK>/task.yaml):
-#   make up TASK=tidyup            io/configs/tasks/tidyup/ の world/placement/dressing で起動
+# タスク (hsr_omniverse_sim/config/tasks/<TASK>/task.yaml):
+#   make up TASK=tidyup            hsr_omniverse_sim/config/tasks/tidyup/ の world/placement/dressing で起動
 #   make up TASK=tidyup TIME=600   競技モード: 600 秒 (シミュ内時間) で自動終了。観戦カメラ
-#                                       4 台で録画して io/recordings/ に mp4 を保存 (task.yaml の
+#                                       4 台で録画して recordings/ に mp4 を保存 (task.yaml の
 #                                       time_limit を上書き。arena_cameras: true のタスクで有効)
-#   make up TASK=tidyup SEED=1     io/configs/tasks/tidyup/placement.seed1.yaml を読む
-#   make tune TASK=tidyup          観戦カメラ調整。GUI で動かすと io/recordings/tune/ に yaml と
+#   make up TASK=tidyup SEED=1     hsr_omniverse_sim/config/tasks/tidyup/placement.seed1.yaml を読む
+#   make tune TASK=tidyup          観戦カメラ調整。GUI で動かすと recordings/tune/ に yaml と
 #                                       プレビュー画像が出る → make tune-apply TASK=tidyup
 #   どのタスクでも同じキー (time_limit / arena_cameras / placement_seeds) が使える。
-#   書き方は io/configs/tasks/README.md。
+#   書き方は hsr_omniverse_sim/config/tasks/README.md。
 #
 # 把持:
 #   make up GRASP=1    アタッチ把持 (物体が指に吸い付く) を有効にする。既定は無効で、
@@ -70,14 +70,14 @@ ifeq ($(DEV),1)
   # --env-file を明示しないと .env を env_docker/ 配下で探してしまい、
   # リポジトリ直下の .env (INTERIOR_AGENT_PATH 等) が読まれない。
   COMPOSE := $(COMPOSE) -f docker-compose.dev.yml --env-file .env
-  # (sim/ は base compose で /app/sim に mount 済み。editable install なので実行物は同じ)
+  # (hsr_omniverse_sim/ は base compose で /app/hsr_omniverse_sim に mount 済み。editable install なので実行物は同じ)
   # (単一ファイル mount の inode 固定問題を回避し、編集が即反映される)。
-  LAUNCH_PY := -m hsr_omniverse2_sim.launch_isaacsim
+  LAUNCH_PY := -m hsr_omniverse_sim.launch_isaacsim
   # dev では up をバックグラウンド(-d)にし、端末をすぐ返す。
   UP_FLAGS := -d
 else
   # 通常起動はイメージ内のフラット配置。
-  LAUNCH_PY := -m hsr_omniverse2_sim.launch_isaacsim
+  LAUNCH_PY := -m hsr_omniverse_sim.launch_isaacsim
   # 通常起動はフォアグラウンド (全コンテナのログを表示)。
   UP_FLAGS :=
   # 競技モード (TIME=秒) のときは、シミュレータが自動終了したら
@@ -89,7 +89,7 @@ endif
 
 # --- pc / localhost modifier (DDS プロファイル選択) ---------------------------
 # 既定: assets/cyclonedds.xml (autodetermine NIC + マルチキャスト)
-# pc:        assets/cyclonedds.pc.xml (別 PC と unicast peer。sim/tools/gen_cyclonedds_pc.sh で生成)
+# pc:        assets/cyclonedds.pc.xml (別 PC と unicast peer。assets/gen_cyclonedds_pc.sh で生成)
 # localhost: assets/cyclonedds.localhost.xml (lo 固定・マルチキャスト無効。docs/dds-localhost.md)
 PC := $(if $(filter pc,$(MAKECMDGOALS)),1,)
 LOCALHOST := $(if $(filter localhost,$(MAKECMDGOALS)),1,)
@@ -129,11 +129,11 @@ endif
 
 # --- タスク / 競技モード -------------------------------------------------------
 # TIME=<秒>: 競技時間 (環境変数 TASK_TIME で isaacsim コンテナに渡る。task.yaml の time_limit を上書き)
-# SEED=<n>: io/configs/tasks/<TASK>/placement.seed<n>.yaml を読む (PLACEMENT_SEED)。
+# SEED=<n>: hsr_omniverse_sim/config/tasks/<TASK>/placement.seed<n>.yaml を読む (PLACEMENT_SEED)。
 SEED ?= $(seed)
 ifneq ($(strip $(SEED)),)
   ifeq ($(strip $(TASK)),)
-    $(error SEED=<n> には TASK=<name> が必要です (io/configs/tasks/<TASK>/placement.seed<n>.yaml を読むため))
+    $(error SEED=<n> には TASK=<name> が必要です (hsr_omniverse_sim/config/tasks/<TASK>/placement.seed<n>.yaml を読むため))
   endif
 endif
 # RViz2 は既定でオフ。見たいときだけ `make up RVIZ=1`。
@@ -151,7 +151,7 @@ BASE_DIRECT_DRIVE ?= 1
 # テレポートするか (1)、平面ジョイント上の動剛体として速度を書くか (0)。
 # 0 は速度書き込みと D6 位置ドライブの二重制御になり、拘束ソルバー内で競合して
 # 追従が崩れる (純回転で並進が 3 倍、0.5m 指令で 0.12m しか進まない等、実測は
-# sim/hsr_omniverse2_sim/robot/hsr/robot.py のコメント参照)。既定は 1。
+# hsr_omniverse_sim/robot/hsr/robot.py のコメント参照)。既定は 1。
 # 1 は本来「衝突フィードバックが無い」「走行中に arm_flex が振られる」という
 # 欠点があったが、どちらも実装で解消した:
 #   - 壁: anchor を進める前に PhysX の球スイープでクランプする
@@ -280,13 +280,13 @@ help:
 	@echo "  exec            Open bash: make exec ros2 / make exec isaacsim"
 	@echo "  run             (dev) Run launch_isaacsim.py manually in isaacsim"
 	@echo "  tune            観戦カメラの位置・画角を GUI で調整する (TASK= 必須、録画しない)"
-	@echo "  tune-apply      tune の結果を io/configs/tasks/<TASK>/placement.yaml に反映する"
+	@echo "  tune-apply      tune の結果を hsr_omniverse_sim/config/tasks/<TASK>/placement.yaml に反映する"
 	@echo "  offline-assets  人など『アセットサーバ依存』USDをusd/isaac_offline/へ取得(要ネット・会場前に一度だけ)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build"
 	@echo "  make up"
-	@echo "  make up TASK=gpsr                 # io/configs/tasks/gpsr/ の設定で起動"
+	@echo "  make up TASK=gpsr                 # hsr_omniverse_sim/config/tasks/gpsr/ の設定で起動"
 	@echo "  make up TASK=tidyup TIME=600      # 競技モード (600 秒で自動終了・録画)"
 	@echo "  make up TASK=tidyup SEED=1        # 固定 Seed 1 の配置で起動"
 	@echo "  make tune TASK=tidyup             # 観戦カメラ調整 → make tune-apply TASK=tidyup"
@@ -332,14 +332,14 @@ dds-check:
 	  echo '❌ assets/$(DDS_FILE) が見つかりません'; exit 1; }
 	@echo '🔧 DDS: $(CYCLONEDDS_URI)   ROS_DOMAIN_ID=$(ROS_DOMAIN_ID)   TASK=$(TASK)'
 	@if [ -n '$(SEED)' ]; then \
-	  test -f 'io/configs/tasks/$(TASK)/placement.seed$(SEED).yaml' || { \
-	    echo '❌ Seed ファイルが見つかりません: io/configs/tasks/$(TASK)/placement.seed$(SEED).yaml'; \
+	  test -f 'hsr_omniverse_sim/config/tasks/$(TASK)/placement.seed$(SEED).yaml' || { \
+	    echo '❌ Seed ファイルが見つかりません: hsr_omniverse_sim/config/tasks/$(TASK)/placement.seed$(SEED).yaml'; \
 	    exit 1; \
 	  }; \
 	  echo '🎲 Placement seed: $(SEED)'; \
 	fi
 
-# TASK=<名前> を付けると io/configs/tasks/<名前>/ の world/placement/dressing を使う。
+# TASK=<名前> を付けると hsr_omniverse_sim/config/tasks/<名前>/ の world/placement/dressing を使う。
 #   例: make dev run TASK=hri   (未指定なら configs 直下の既定)
 run:
 	$(COMPOSE) exec $(SIM_ENV_EXEC_FLAGS) isaacsim /ros_entrypoint.sh /isaac-sim/python.sh $(LAUNCH_PY)
@@ -347,18 +347,18 @@ run:
 # アセットサーバにある「人のアニメ」ファイル一覧を表示する確認用 (画面なし)。
 #   make dev list-anims   (先に 'make dev up' でコンテナ起動が必要)
 list-anims:
-	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh -m hsr_omniverse2_sim.tools.list_people_anims
+	$(COMPOSE) exec isaacsim /ros_entrypoint.sh /isaac-sim/python.sh -m hsr_omniverse_sim.tools.list_people_anims
 
 # 会場(WiFiなし)対策: 人(キャラ+アニメ)など「アセットサーバ依存」の USD を依存ごと
-# io/models/usd/isaac_offline/ にミラー(コピー)してくる。★ネットに繋がる環境で会場前に一度だけ実行。
-# 取得後は io/models/usd/isaac_offline/ をコミットすれば、以後 people は完全オフラインで動く。
+# models/isaac_offline/ にミラー(コピー)してくる。★ネットに繋がる環境で会場前に一度だけ実行。
+# 取得後は models/isaac_offline/ をコミットすれば、以後 people は完全オフラインで動く。
 # 追加で取りたいサーバパスがあれば FETCH_ARGS で渡せる:
 #   make offline-assets FETCH_ARGS='--path /NVIDIA/Assets/ArchVis/.../Table.usd'
 offline-assets:
 	$(COMPOSE) run --rm --no-deps \
 	  -e http_proxy= -e https_proxy= \
-	  -v $(CURDIR)/io/models/usd:/out_usd:rw \
-	  -v $(CURDIR)/sim/hsr_omniverse2_sim/tools/fetch_isaac_offline_assets.py:/app/fetch_isaac_offline_assets.py:ro \
+	  -v $(CURDIR)/models:/out_usd:rw \
+	  -v $(CURDIR)/hsr_omniverse_sim/tools/fetch_isaac_offline_assets.py:/app/fetch_isaac_offline_assets.py:ro \
 	  --entrypoint bash isaacsim -lc 'L=$$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1); \
 	    PYTHONPATH=$$L LD_LIBRARY_PATH=$$L/bin \
 	    /isaac-sim/kit/python/bin/python3 /app/fetch_isaac_offline_assets.py \
@@ -367,12 +367,12 @@ offline-assets:
 build:
 	$(COMPOSE) build $(BUILD_FLAGS)
 
-# TASK=<名前> を付けると io/configs/tasks/<名前>/ の設定で起動する。
+# TASK=<名前> を付けると hsr_omniverse_sim/config/tasks/<名前>/ の設定で起動する。
 #   例: make up TASK=hri   (未指定なら configs 直下の既定)
 up: dds-check
 	@if [ "$(PC)" = "1" ] && [ -n "$(PEER)" ]; then \
 	  echo "[pc] cyclonedds.pc.xml を生成 (PEER=$(PEER))"; \
-	  ./sim/tools/gen_cyclonedds_pc.sh $(PEER); \
+	  ./assets/gen_cyclonedds_pc.sh $(PEER); \
 	elif [ "$(PC)" = "1" ]; then \
 	  echo "[pc] PEER 未指定 → 既存の assets/cyclonedds.pc.xml を使用 (自動生成するなら: make up pc PEER=192.168.0.10)"; \
 	fi
@@ -413,8 +413,8 @@ endif
 # 観戦カメラ 4 台だけ作って起動する (録画も自動終了もしない)。
 # Isaac Sim の Viewport 左上のカメラ選択で Camera_north などを選ぶと、その
 # カメラの映像がそのまま見える。動かすたびに次の 2 つが書き出される:
-#   io/recordings/tune/arena_cameras.yaml  <- io/configs/tasks/<TASK>/placement.yaml に貼る設定
-#   io/recordings/tune/preview.png         <- 実際に録画される 2x2 の絵
+#   recordings/tune/arena_cameras.yaml  <- hsr_omniverse_sim/config/tasks/<TASK>/placement.yaml に貼る設定
+#   recordings/tune/preview.png         <- 実際に録画される 2x2 の絵
 # (dev モードで使いたいときは `make dev up CAMERA_TUNE=1 TASK=...` + `make dev run TASK=...`)
 # 子 make には MAKECMDGOALS の modifier が伝わらないので、選ばれたプロファイルを
 # コマンドライン変数として明示的に引き継ぐ。
@@ -422,15 +422,15 @@ tune:
 	@test -n '$(TASK)' || { echo '❌ make tune TASK=<name> のように TASK を指定してください'; exit 1; }
 	@$(MAKE) up CAMERA_TUNE=1 TASK=$(TASK) CYCLONEDDS_URI=$(CYCLONEDDS_URI) ROS_DOMAIN_ID=$(ROS_DOMAIN_ID)
 
-# tune の調整結果 (io/recordings/tune/arena_cameras.yaml) を
-# io/configs/tasks/<TASK>/placement.yaml に反映する。make tune だけでは反映されない
-# (コンテナから io/configs/ は読み取り専用のため)。
+# tune の調整結果 (recordings/tune/arena_cameras.yaml) を
+# hsr_omniverse_sim/config/tasks/<TASK>/placement.yaml に反映する。make tune だけでは反映されない
+# (コンテナから hsr_omniverse_sim/config/ は読み取り専用のため)。
 tune-apply:
 	@test -n '$(TASK)' || { echo '❌ make tune-apply TASK=<name> のように TASK を指定してください'; exit 1; }
-	@TASK=$(TASK) python3 sim/tools/apply_tune.py
+	@TASK=$(TASK) python3 -m hsr_omniverse_sim.tools.apply_tune
 
 # ============================================================
-# サンプル: YCB 物体を順に把持してみる (sim/hsr_omniverse2_sim/samples/sample-ycb-grasp.py)
+# サンプル: YCB 物体を順に把持してみる (hsr_omniverse_sim/samples/sample-ycb-grasp.py)
 # ============================================================
 # 本体イメージ hsr-omniverse-isaacsim:jazzy の上に pyassimp と STL メッシュを足した
 # 別イメージで走らせる (env_docker/docker-compose-ycb-grasp.yml)。ros2 コンテナは要らない。

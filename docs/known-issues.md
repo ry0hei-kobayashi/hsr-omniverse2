@@ -146,60 +146,60 @@
 - 未検証: hsrc_ex (`ROBOT=hsrc_ex`、§7 のとおり対象外)、`make dev up` の実走 (`.env` が無い)、`make tune` / 競技モードの再編後の実走。
 - 追記 (同日): `scripts/ros2/` は §10c の ROS 2 パッケージへ移したので、`scripts/` は Isaac 側の Python だけになった。
 
-## 10c. ros2 側を ROS 2 パッケージ `hsr_omniverse2` にまとめた (2026-10-12)
+## 10c. ros2 側を ROS 2 パッケージ `hsr_omniverse_ros2` にまとめた (2026-10-12)
 
 - ユーザー提案 (「hsr-omniverse2 の中にメタ ROS パッケージを作る」) を受け、ros2 コンテナ側に散らばっていたものを
-  `ros2/hsr_omniverse2/` (ament_python) に集めた: `launch/` (hsr.launch.py, teleop.launch.py, hsrb_relay_topics.launch.xml,
-  hsrb_sensor_frames.launch.xml、旧 repo 直下 `launch/`)、`hsr_omniverse2/` (rgbd_republisher, reset_world_matcher_helper、
-  旧 `scripts/ros2/`。console_scripts で `ros2 run hsr_omniverse2 <name>`)。
+  `hsr_omniverse_ros2/` (ament_python) に集めた: `launch/` (hsr.launch.py, teleop.launch.py, hsrb_relay_topics.launch.xml,
+  hsrb_sensor_frames.launch.xml、旧 repo 直下 `launch/`)、`hsr_omniverse_ros2/` (rgbd_republisher, reset_world_matcher_helper、
+  旧 `scripts/ros2/`。console_scripts で `ros2 run hsr_omniverse_ros2 <name>`)。
   HSR 依存 (hsrb_*, tmc_*, control_msgs, tmc_control_msgs, simulation_interfaces …) は `package.xml` の exec_depend に集約した
   (方針: HSR 依存ライブラリは ros2 docker 側に持つ。Isaac 側には置かない)。純粋なメタパッケージ (package.xml のみ) ではなく
   launch とノードを持つ普通のパッケージにしたのは、置き場所が無かった中継ノード (将来の GripperApplyEffort 中継を含む) を
-  収める先を兼ねるため。パッケージ名にハイフンは使えないので `hsr_omniverse2`。
-- 変更点: `Dockerfile.ros2` は 127 パッケージの層の後ろに `ADD ros2/hsr_omniverse2 /ws/src/hsr_omniverse2` +
-  `rosdep install` + `colcon build --symlink-install --packages-select hsr_omniverse2` の層を追加 (既存層は無効化されない)。
-  `CMD` と compose の `command` は `ros2 launch hsr_omniverse2 hsr.launch.py`。compose は旧来のファイル単位 mount
-  (`/hsr.launch.py`, `/rgbd_republisher.py`) をやめ、`../ros2/hsr_omniverse2:/ws/src/hsr_omniverse2:ro` のディレクトリ mount に
+  収める先を兼ねるため。パッケージ名にハイフンは使えないので `hsr_omniverse_ros2`。
+- 変更点: `Dockerfile.ros2` は 127 パッケージの層の後ろに `ADD hsr_omniverse_ros2 /ws/src/hsr_omniverse_ros2` +
+  `rosdep install` + `colcon build --symlink-install --packages-select hsr_omniverse_ros2` の層を追加 (既存層は無効化されない)。
+  `CMD` と compose の `command` は `ros2 launch hsr_omniverse_ros2 hsr.launch.py`。compose は旧来のファイル単位 mount
+  (`/hsr.launch.py`, `/rgbd_republisher.py`) をやめ、`../hsr_omniverse_ros2:/ws/src/hsr_omniverse_ros2:ro` のディレクトリ mount に
   した (symlink-install なので launch / ノードの編集は再ビルド無しで反映。package.xml / setup.py を変えたときは `make build`)。
   hsr.launch.py 内の相対パス (XML include、teleop.launch.py、スクリプトの絶対パス fallback) は
-  `get_package_share_directory('hsr_omniverse2')` と `Node(package='hsr_omniverse2', executable=...)` に置き換えた。
+  `get_package_share_directory('hsr_omniverse_ros2')` と `Node(package='hsr_omniverse_ros2', executable=...)` に置き換えた。
   `/examples/grasp_tf_broadcaster.py` (教材、mount) と `/hsr-omniverse.rviz`、`/map.yaml` はそのまま。
-- hma2_ws (Apptainer) 側でも同じ launch / 中継ノードを使いたい場合は、`ros2/hsr_omniverse2` を vcs import か submodule で
-  ワークスペースに入れれば `ros2 launch hsr_omniverse2 ...` できる (未実施)。
+- hma2_ws (Apptainer) 側でも同じ launch / 中継ノードを使いたい場合は、`hsr_omniverse_ros2` を vcs import か submodule で
+  ワークスペースに入れれば `ros2 launch hsr_omniverse_ros2 ...` できる (未実施)。
 - hsr-project のソース取得 (git clone ループ) は package.xml では置き換えられない (`.repos` + vcs の領域)。今回は触っていない。
-- 検証 (2026-10-12、`make up localhost TASK=gpsr`、ros2 再ビルド後): PID 1 が `ros2 launch hsr_omniverse2 hsr.launch.py`、
-  `/ws/src/hsr_omniverse2` がホストの bind mount で、install 側の launch symlink がそこへ解決。rgbd_republisher /
-  reset_world_matcher_helper は `/ws/install/hsr_omniverse2/lib/hsr_omniverse2/` の console_scripts として起動。
+- 検証 (2026-10-12、`make up localhost TASK=gpsr`、ros2 再ビルド後): PID 1 が `ros2 launch hsr_omniverse_ros2 hsr.launch.py`、
+  `/ws/src/hsr_omniverse_ros2` がホストの bind mount で、install 側の launch symlink がそこへ解決。rgbd_republisher /
+  reset_world_matcher_helper は `/ws/install/hsr_omniverse_ros2/lib/hsr_omniverse_ros2/` の console_scripts として起動。
   node 61・topic 109 (再編前と同数)、compressed / compressedDepth / rectified_points あり、teleop ノードあり、
   head の FollowJointTrajectory 往復 SUCCEEDED、ログに Traceback / process has died 無し。
 - rosdep の新しい層は `--from-paths src --ignore-src -r` (上の層と同じ)。hsr-project 側の未解決キー 5 件 (tmc_pgr_camera,
-  yolox_ros_cpp, numpy, exxx_control_table, bboxes_ex_msgs) は以前からのもので `-r` で無視している。hsr_omniverse2 自身の
+  yolox_ros_cpp, numpy, exxx_control_table, bboxes_ex_msgs) は以前からのもので `-r` で無視している。hsr_omniverse_ros2 自身の
   キーは全て解決した。
 - 未実施: Apptainer (hma2_ws) 側への取り込み、`.repos` 化、`assets/hsr-omniverse.rviz` と `/map.yaml` のパッケージ share への移動。
 
-## 10d. Isaac 側も Python パッケージ `hsr_omniverse2_sim` にした (`scripts/` → `sim/`、2026-10-12)
+## 10d. Isaac 側も Python パッケージ `hsr_omniverse_sim` にした (`scripts/` → `sim/`、2026-10-12)
 
 - ユーザー指摘: §10b で足した `repo_paths.py` (configs/ と usd/ を探して親を遡る) はパッケージ参照になっていない。
   ros2 側 (§10c) と同じ考え方で、Isaac 側のコードも pip パッケージにして Isaac の Python (3.11) に editable install する。
-- 配置: `sim/pyproject.toml` + `sim/hsr_omniverse2_sim/` (launch_isaacsim.py, paths.py, robot/ env/ task/ samples/ tools/)。
-  ホスト側の補助 (`apply_tune.py`, `gen_cyclonedds_pc.sh`, `isaac_localhost_mode.sh`) はパッケージに入れず `sim/tools/`
-  (リポジトリルートは従来どおり `../..` / 3 段 dirname)。import は `from hsr_omniverse2_sim.robot.hsr import robot` のように
+- 配置: `pyproject.toml` + `hsr_omniverse_sim/` (launch_isaacsim.py, paths.py, robot/ env/ task/ samples/ tools/)。
+  ホスト側の補助 (`apply_tune.py`, `gen_cyclonedds_pc.sh`, `isaac_localhost_mode.sh`) はパッケージに入れず `tools/`
+  (リポジトリルートは従来どおり `../..` / 3 段 dirname)。import は `from hsr_omniverse_sim.robot.hsr import robot` のように
   パッケージ名付きの絶対 import。`repo_paths.py` は削除し、`paths.REPO_ROOT = Path(__file__).resolve().parents[2]`
   (固定深さ 1 行。環境変数 `HSR_OMNIVERSE_ROOT` で上書き可) に置き換えた。usd/ configs/ worlds/ はパッケージの外に
   残るので「ルート」の概念自体は残る (巨大・submodule のためパッケージに同梱しない)。
 - `Dockerfile.isaacsim`: 個別 ADD 7 行 → `ADD sim /app/sim` + `pip install --no-deps --no-build-isolation -e /app/sim`
   (Isaac 同梱の setuptools 78 で建つ)。`PYTHONPATH` から `/app` を外した (ros_msgs と同梱 rclpy だけ)。
-  CMD / Makefile の `LAUNCH_PY` は `-m hsr_omniverse2_sim.launch_isaacsim` (dev と通常で同一になった)。
-  compose は `../sim:/app/sim:ro` の 1 行 (editable なので編集が再ビルド無しで反映。`pyproject.toml` を変えたときだけ
+  CMD / Makefile の `LAUNCH_PY` は `-m hsr_omniverse_sim.launch_isaacsim` (dev と通常で同一になった)。
+  compose は `../hsr_omniverse_sim:/app/hsr_omniverse_sim:ro` の 1 行 (editable なので編集が再ビルド無しで反映。`pyproject.toml` を変えたときだけ
   `make build`)。`docker-compose.dev.yml` の `scripts` mount は削除。ycb-grasp も `/app/sim` を使う。
 - 残り: semu の `sys.path.insert` (`robot/hsr/action_servers.py`) は fork に `pyproject.toml` を足して同じく pip install
   すれば消せる (fork 変更なので別ステップ)。
 - 検証 (2026-10-12、Isaac 再ビルド後 `make up localhost TASK=gpsr`): イメージ内で `pip show` が
   `Editable project location: /app/sim`、`REPO_ROOT=/app`、`HSR_OMNIVERSE_ROOT` 上書き可、PYTHONPATH に `/app` 無し。
-  起動時の PID 1 は `python.sh -m hsr_omniverse2_sim.launch_isaacsim`、`/app/sim` はホストの bind mount。
+  起動時の PID 1 は `python.sh -m hsr_omniverse_sim.launch_isaacsim`、`/app/sim` はホストの bind mount。
   node 61 / topic 109、`/isaac/get_entities` 431 件 (RESULT_OK)、`/isaac/get_entity_state hsrb` OK、head の
   FollowJointTrajectory 往復 SUCCEEDED、ログに Traceback / ImportError 無し。ycb-grasp イメージも再ビルドし
-  `/app/sim/hsr_omniverse2_sim/samples/` と `REPO_ROOT=/app` を確認 (実走は未)。`make -n run dev` / `list-anims` /
+  `/app/hsr_omniverse_sim/samples/` と `REPO_ROOT=/app` を確認 (実走は未)。`make -n run dev` / `list-anims` /
   `tune-apply` の展開も確認。
 
 ## 10e. データを `io/` にまとめ、`examples/` を削除 (2026-10-12)
@@ -221,6 +221,70 @@
   `io/recordings` → `/recordings` (rw)。ログ: task dir / placement / world / isaac_offline ミラー / people が全て `/app/io/...` で解決、
   物体 spawn OK、Traceback 無し。node 60 / topic 108 (grasp_tf_broadcaster 分だけ減少)、`/isaac/get_entities` 431 件、
   `/isaac/get_entity_state hsrb` OK、head の FollowJointTrajectory 往復 SUCCEEDED。
+
+## 10f. `sim/` `ros2/` の階層をやめ、パッケージをリポジトリ直下に (2026-10-12)
+
+- ユーザー指摘 (「sim / ros2 の階層はいらない。hsr_omniverse_ros2 と hsr_omniverse_sim を親にする」)。名前は「2」無しに決定。
+  `sim/hsr_omniverse2_sim/` → `hsr_omniverse_sim/` (Python パッケージ、import は `hsr_omniverse_sim.*`)、
+  `sim/pyproject.toml` → `pyproject.toml` (リポジトリ直下、`name = hsr-omniverse-sim`)、`sim/tools/` → `tools/`、
+  `ros2/hsr_omniverse2/` → `hsr_omniverse_ros2/` (ROS パッケージ名も `hsr_omniverse_ros2`。ament_python の慣例で中に同名の
+  モジュール dir `hsr_omniverse_ros2/hsr_omniverse_ros2/` は残る)。`sim/README.md` は README の構成表に統合して削除。
+- 深さ依存の 4 箇所を直した: `paths.REPO_ROOT` は `parents[1]`、`tools/apply_tune.py` は 2 段 dirname、
+  `tools/gen_cyclonedds_pc.sh` と `tools/isaac_localhost_mode.sh` は `..`。
+- コンテナ: `Dockerfile.isaacsim` は `ADD pyproject.toml` + `ADD hsr_omniverse_sim` + `pip install -e /app`
+。compose は `../hsr_omniverse_sim:/app/hsr_omniverse_sim:ro`。
+  ros2 側は `/ws/src/hsr_omniverse_ros2`、起動は `ros2 launch hsr_omniverse_ros2 hsr.launch.py`。
+- §10c / §10d の記述は当時のパス (`ros2/hsr_omniverse2`, `sim/`, `/app/sim`) のまま残している。
+- 外部 (hma2_ws 等) の `source .../sim/tools/isaac_localhost_mode.sh` は `tools/isaac_localhost_mode.sh` に直す必要がある。
+- 検証 (2026-10-12、両イメージ再ビルド後 `make up localhost TASK=gpsr`): `pip show hsr-omniverse-sim` が
+  `Editable project location: /app`、`REPO_ROOT=/app`。PID 1 は `python.sh -m hsr_omniverse_sim.launch_isaacsim` と
+  `ros2 launch hsr_omniverse_ros2 hsr.launch.py`、launch の symlink は bind mount の `/ws/src/hsr_omniverse_ros2/launch/` に解決。
+  node 60 / topic 108、`/isaac/get_entities` 431 件、`/isaac/get_entity_state hsrb` OK、head の FollowJointTrajectory
+  往復 SUCCEEDED、Traceback / process has died 無し。
+
+## 10g. `tools/` と `assets/` を分類し直した (2026-10-12)
+
+- ユーザー指示 (「tools と assets を分類して配置し直す」。DDS 用の dds/ は作らず assets/ に残す)。
+  - `assets/`: DDS 関連だけに絞った。`cyclonedds{,.localhost,.pc}.xml` に加え、`gen_cyclonedds_pc.sh` (pc.xml の生成) と
+    `isaac_localhost_mode.sh` (Apptainer 側の切替。プロファイルと同じディレクトリを見るので `..` の計算が不要になった) を移動。
+  - `env_docker/`: `ros_entrypoint.isaacsim.sh` / `ros_entrypoint.ros2.sh` (Dockerfile 専用) を移動。
+  - `hsr_omniverse_ros2/config/`: `hsr-omniverse.rviz`、`moveit-no-octomap.rviz`、`joint_limits-smooth.yaml` (ros2 側の設定)。
+    Dockerfile.ros2 の ADD と compose の MoveIt 上書き mount の元パスを変更 (コンテナ内の配置は従来どおり)。
+  - `hsr_omniverse_sim/tools/apply_tune.py`: `make tune-apply` はホストの python3 で `python3 -m hsr_omniverse_sim.tools.apply_tune`
+    (リポジトリ直下で実行。`paths.CONFIGS_DIR` を使う。Isaac 依存なし)。`tools/` は削除。
+- 外部 (hma2_ws 等) の `source` 先は `assets/isaac_localhost_mode.sh` になる (`docs/dds-localhost.md` 更新済み)。
+- 検証 (2026-10-12): `source assets/isaac_localhost_mode.sh 31` で CYCLONEDDS_URI が assets/ のプロファイルを指す、
+  `make -n up pc PEER=…` が `./assets/gen_cyclonedds_pc.sh` を呼ぶ、`python3 -m hsr_omniverse_sim.tools.apply_tune` の
+  TUNED / 書き込み先が `io/recordings/tune/…` / `io/configs/tasks/tidyup/placement.yaml` に解決。両イメージ再ビルド後
+  `make up localhost TASK=gpsr`: `/ros_entrypoint.sh` と `/hsr-omniverse.rviz` が新パスから ADD され、MoveIt 上書き mount は
+  `hsr_omniverse_ros2/config/` から (moveit.rviz に octomap 無し)。get_entities 431 件、head FJT 往復 SUCCEEDED、Traceback 無し。
+
+## 10h. `io/` をやめ、config と worlds はパッケージ内、USD は `models/` に (2026-10-12)
+
+- ユーザー指摘「paths が結局残っている」→ 方針: データをパッケージ内に統合し `config` と `data` に分ける。外部由来の USD
+  (submodule 等) をパッケージに入れるのは問題なので、USD は全部パッケージ外 (ユーザー決定)。
+  - `hsr_omniverse_sim/config/` (旧 io/configs: placement.yaml, dressing.yaml, tasks/, textures/)、
+    `hsr_omniverse_sim/data/worlds/` (旧 io/models/worlds)。コードからは `importlib.resources.files('hsr_omniverse_sim') / 'config'`
+    で参照 (editable install なので実ファイルのパスが返る)。`__file__` の親を数える計算は無くなり、`paths.py` は削除。
+  - `models/` (旧 io/models/usd、1.5 GB。hsrb / wrs_models は submodule、isaac_offline は NVIDIA のミラー、rc26* 等は自作)。
+    パッケージ外なので置き場所は環境変数 `HSR_MODELS_DIR` 1 本で渡す (`Dockerfile.isaacsim` の `ENV HSR_MODELS_DIR=/app/models`、
+    compose が `../models:/app/models:ro`)。利用側は `os.environ['HSR_MODELS_DIR']` (未設定なら KeyError で止まる)。
+  - `recordings/` はリポジトリ直下に戻した (出力をパッケージ内に書かないため)。
+  - semu の `sys.path` 挿入 (`robot/hsr/action_servers.py`) は `/app/3rdparty/...` 固定 (`SEMU_ROS2_BRIDGE_SRC` で上書き可)。
+    fork に pyproject を足して pip install すれば消せる (未実施)。
+  - `apply_tune.py` はカレント (リポジトリ直下 = `make tune-apply`) の `recordings/tune/` を読む。
+- `/data/textures` (dressing.yaml がコンテナ内パスで参照) は従来どおり `hsr_omniverse_sim/config/textures` を ADD / mount している。
+  パッケージ内相対に変えれば mount も不要になる (未実施)。
+- pyproject は editable 専用。非 editable (`pip install .`) にすると config/ (7 MB) もコピーされるが USD は入らない。
+- §10e〜§10g の記述は当時のパス (`io/...`) のまま残している。
+- 検証 (2026-10-12): 両イメージ再ビルド OK。イメージ内で `HSR_MODELS_DIR=/app/models`、`/app/models` に USD 11 ディレクトリ、
+  `files('hsr_omniverse_sim') / 'config'` が `/app/hsr_omniverse_sim/config` (PosixPath) に解決、`task_config.CONFIG_DIR` も同じ。
+  ホストで `python3 -m hsr_omniverse_sim.tools.apply_tune` の CONFIG_DIR / TUNED / 書き込み先が解決。compose の mount は
+  `hsr_omniverse_sim` / `models` / `recordings` / `config/textures` の 4 つ。`make up localhost TASK=gpsr` の起動ログでは
+  task dir / placement / world / isaac_offline ミラー / people / furniture が全て `/app/hsr_omniverse_sim/...` と `/app/models/...`
+  で解決し、ロボット spawn まで到達した。**ただし ROS 側の最終確認 (get_entities / FJT) は未完**: 同じ GPU で別プロセス
+  (`jsdn-handover-baselines` の python、43 GB) が動いていて Isaac が `ERROR_OUT_OF_DEVICE_MEMORY` で落ちた (2 回)。
+  VRAM が空いたら `make up localhost TASK=gpsr` → head の FollowJointTrajectory と `/isaac/get_entities` を再確認すること。
 
 ## 11. まだ作っていないもの
 

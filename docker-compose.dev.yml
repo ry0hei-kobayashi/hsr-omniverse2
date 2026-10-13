@@ -6,7 +6,7 @@ services:
     # NOTE: ここで PYTHONPATH を上書きしないこと。Isaac 5.1 版の Dockerfile は
     # PYTHONPATH に同梱 ROS 2 (jazzy/rclpy) と /app/ros_msgs を通しており、compose の
     # environment で PYTHONPATH=/app と書くとそれが丸ごと消えて rclpy が import できなくなる。
-    # hsr_omniverse2_sim は /app/sim に editable install 済みで、base の compose が ../sim を /app/sim に
+    # hsr_omniverse_sim は /app に editable install 済みで、base の compose が ../hsr_omniverse_sim を /app/hsr_omniverse_sim に
     # bind mount しているので、dev でも追加の mount 無しでホスト側の最新が使われる。
     volumes:
       # --- ソースコードは「ディレクトリごと」live マウントする -----------------
@@ -15,14 +15,14 @@ services:
       # 起動後にエディタで保存 (inode が変わる) しても反映されない。
       # ディレクトリ mount なら毎回最新のファイルが見えるので、編集 → make dev run
       # だけで反映される (コンテナ再起動不要)。
-      # (sim/ は base の docker-compose.yml で /app/sim に mount 済み)
+      # (hsr_omniverse_sim/ は base の docker-compose.yml で /app/hsr_omniverse_sim に mount 済み)
       # semu.robotics.ros2_bridge (submodule)。robot/hsr/action_servers.py が repo_paths 経由で /app/3rdparty を見つける。
       - ../3rdparty/semu.robotics.ros2_bridge:/app/3rdparty/semu.robotics.ros2_bridge:ro
 
       # 追加で必要なデータセット (家具シーン / HDRI)。
-      # テクスチャは repo の io/configs/textures/ に同梱したので dev でも追加マウント不要。
+      # テクスチャは repo の hsr_omniverse_sim/config/textures/ に同梱したので dev でも追加マウント不要。
       - ${INTERIOR_AGENT_PATH}:/data/InteriorAgent:ro
       - ${HOME}/datasets/HDRIs:/data/HDRIs:ro
       - /usr/share/nvidia/nvoptix.bin:/usr/share/nvidia/nvoptix.bin:ro
 
-      # (io/ も base の docker-compose.yml で /app/io に mount 済み)
+      # (models/ も base の docker-compose.yml で /app/models に mount 済み)

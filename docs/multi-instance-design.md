@@ -22,7 +22,7 @@
 |---|---|---|
 | Kit の persistent data を共有 | `docker-compose.yml:225` (`cache/data` → `/root/.local/share/ov/data`) | ユーザ設定・永続設定を両インスタンスが書く |
 | Kit のログ dir を共有 | `docker-compose.yml:226` (`logs` → `/root/.nvidia-omniverse/logs`) | ファイル名が秒のタイムスタンプなので同時起動で衝突し得る |
-| 録画出力 | `docker-compose.yml:173` (`../io/recordings`)、`sim/hsr_omniverse2_sim/task/arena_cameras.py:458-460` (秒解像度フォルダ名)、`:98` (`/recordings/tune` 固定) | 同一 checkout で 2 インスタンスが競技モードだと上書き |
+| 録画出力 | `docker-compose.yml:173` (`../recordings`)、`hsr_omniverse_sim/task/arena_cameras.py:458-460` (秒解像度フォルダ名)、`:98` (`/recordings/tune` 固定) | 同一 checkout で 2 インスタンスが競技モードだと上書き |
 | DDS の `MaxAutoParticipantIndex` 120 | `assets/cyclonedds.xml`、`cyclonedds.localhost.xml:54-57` | Cyclone の unicast port = 7400 + 250·domain + 10 + 2·index。index 120 で隣の domain (d+1) の discovery port にちょうど重なる。`pc.xml` は 100 |
 
 ### 共有してよい / 変更不要
@@ -54,7 +54,7 @@ export ROS_DOMAIN_ID
 CACHEPROXY_PORT := $(shell expr 3128 + $(N) - 1)
 OV_DATA_DIR     := $(HOME)/.hsr-omniverse/cache/data$(SUFFIX)
 OV_LOGS_DIR     := $(HOME)/.hsr-omniverse/logs$(SUFFIX)
-RECORDINGS_DIR  := $(CURDIR)/io/recordings$(SUFFIX)
+RECORDINGS_DIR  := $(CURDIR)/recordings$(SUFFIX)
 export CACHEPROXY_PORT OV_DATA_DIR OV_LOGS_DIR RECORDINGS_DIR
 ```
 - `up` の先頭で上記 3 dir とキャッシュ 5 dir を `mkdir -p` する (README の手動 mkdir を不要にする)。
@@ -66,7 +66,7 @@ export CACHEPROXY_PORT OV_DATA_DIR OV_LOGS_DIR RECORDINGS_DIR
 ### env_docker/docker-compose.yml
 - `cacheproxy`: `command: ["/usr/sbin/squid", "-N", "-a", "${CACHEPROXY_PORT:-3128}"]` (`-a` は `http_port` の上書き。`Dockerfile.cacheproxy` は触らない)。
 - `isaacsim.environment`: `http_proxy=http://127.0.0.1:${CACHEPROXY_PORT:-3128}`。
-- `isaacsim.volumes`: `${RECORDINGS_DIR:-../io/recordings}:/recordings:rw`、`${OV_DATA_DIR:-${HOME}/.hsr-omniverse/cache/data}:/root/.local/share/ov/data:rw`、`${OV_LOGS_DIR:-${HOME}/.hsr-omniverse/logs}:/root/.nvidia-omniverse/logs:rw`。
+- `isaacsim.volumes`: `${RECORDINGS_DIR:-../recordings}:/recordings:rw`、`${OV_DATA_DIR:-${HOME}/.hsr-omniverse/cache/data}:/root/.local/share/ov/data:rw`、`${OV_LOGS_DIR:-${HOME}/.hsr-omniverse/logs}:/root/.nvidia-omniverse/logs:rw`。
 - `docker-compose.dev.yml` は変更不要。
 
 ### assets/cyclonedds.xml, cyclonedds.localhost.xml
@@ -76,7 +76,7 @@ export CACHEPROXY_PORT OV_DATA_DIR OV_LOGS_DIR RECORDINGS_DIR
 - `recordings-*/` を追加。
 
 ### docs
-- README に「複数インスタンス」小節 (上記の N=2 の例、Apptainer 側は `source sim/tools/isaac_localhost_mode.sh 27`)。
+- README に「複数インスタンス」小節 (上記の N=2 の例、Apptainer 側は `source assets/isaac_localhost_mode.sh 27`)。
 - `docs/dds-localhost.md` の複数 PC 節に「同一 PC 複数は N= で domain を分ける」を追記。
 
 ### 触らないもの
@@ -94,7 +94,7 @@ export CACHEPROXY_PORT OV_DATA_DIR OV_LOGS_DIR RECORDINGS_DIR
 - **RTF**: 単独で約 0.7 (known-issues §6)。2 つで GPU を取り合うのでさらに落ちる。競技モード (`TIME=`) はシミュ内時間で計るので時間制限自体はずれないが、実時間は伸びる。
 - **Kit キャッシュの同時書き込み**: shader cache (`kit/cache`) と `ov` cache を 2 プロセスが同時に書く。Isaac 単体の通常運用では問題にならないが、初回 (コンパイル中) の同時起動は未検証。初回は 1 つずつ起動するのが安全。
 - **`ipc: host`**: 両スタックがホストの `/dev/shm` を共有する。Cyclone の shared memory (iceoryx) は使っていないので DDS は影響なし。Kit / Carb が固定名の SHM を作るかどうかはリポジトリからは判断できない。
-- **同一 checkout での `pc` モード複数起動**: `sim/tools/gen_cyclonedds_pc.sh` が `assets/cyclonedds.pc.xml` を上書きするので、PEER が異なる pc インスタンスは同一 checkout では共存できない (範囲外として残す)。
+- **同一 checkout での `pc` モード複数起動**: `assets/gen_cyclonedds_pc.sh` が `assets/cyclonedds.pc.xml` を上書きするので、PEER が異なる pc インスタンスは同一 checkout では共存できない (範囲外として残す)。
 - **別 checkout 同士**: イメージタグ `:jazzy` を共有するので、片方の `make build` がもう片方の実行イメージを置き換える (bind mount されないコード、`Dockerfile.isaacsim:105-136` の ADD 分、が影響)。旧 `~/hsr-omniverse` (carrobo、`carrobo-isaac`) も squid 3128 を使うので、そちらと同時起動する場合も衝突する。
 - **ネットワーク負荷**: 既定の `cyclonedds.xml` (マルチキャスト) だと 1 スタック約 99 Mbps が物理 NIC に出る (dds-localhost.md)。複数起動は `make up localhost` 前提にすべき。この機体では ufw の関係で元々 localhost 必須。
 - **ROS_DOMAIN_ID の範囲**: 26 + N − 1、pc は 55 + N − 1。Cyclone の既定では domain は 0〜232 まで使えるので N が数十でも問題ないが、学生環境 (hma_env2) の既定 26 と衝突しないよう N=1 以外は Apptainer 側も同じ値を source する必要がある。

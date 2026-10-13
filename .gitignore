@@ -7,5 +7,5 @@ __pycache__/
 
 # 競技モードの録画出力 (make up TASK=<name> TIME=...) と make tune の出力
 # 競技モードの録画・tune の出力。ディレクトリだけ残す (.gitkeep)
-io/recordings/*
-!io/recordings/.gitkeep
+recordings/*
+!recordings/.gitkeep

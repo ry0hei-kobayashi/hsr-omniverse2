@@ -1,8 +1,8 @@
 [submodule "usd/hsrb"]
-	path = io/models/usd/hsrb
+	path = models/hsrb
 	url = https://github.com/hsr-project/hsrb_usd.git
 [submodule "usd/wrs_models"]
-	path = io/models/usd/wrs_models
+	path = models/wrs_models
 	url = https://github.com/hsr-project/tmc_wrs_omniverse_models.git
 [submodule "3rdparty/semu.robotics.ros2_bridge"]
 	path = 3rdparty/semu.robotics.ros2_bridge

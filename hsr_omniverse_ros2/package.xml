@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>hsr_omniverse_ros2</name>
+  <version>0.1.0</version>
+  <description>
+    Isaac Sim 上の HSR を ROS 2 (Jazzy) の HSR スタック (MoveIt / hsrb_* / tmc_*) に繋ぐ launch と中継ノード。
+    HSR 依存 (hsrb_*, tmc_*) はすべてこのパッケージの exec_depend に集約する。Isaac コンテナ側には置かない。
+  </description>
+  <maintainer email="kobayashi.ryohei621@mail.kyutech.jp">Ryohei Kobayashi</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <!-- launch 基盤 -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>launch_xml</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+
+  <!-- hsr.launch.py が起動・include するもの -->
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>topic_tools</exec_depend>
+  <exec_depend>rclcpp_components</exec_depend>
+  <exec_depend>image_proc</exec_depend>
+  <exec_depend>depth_image_proc</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>ros2_laser_scan_matcher</exec_depend>
+  <exec_depend>hsrb_description</exec_depend>
+  <exec_depend>hsrb_common_launch</exec_depend>
+  <exec_depend>hsrb_moveit_config</exec_depend>
+  <exec_depend>hsrb_bringup</exec_depend>
+  <exec_depend>tmc_wrs_gazebo_worlds</exec_depend>
+  <exec_depend>tmc_navigation_msgs</exec_depend>
+
+  <!-- teleop.launch.py -->
+  <exec_depend>hsrb_joystick_teleop</exec_depend>
+  <exec_depend>hsrb_pseudo_endeffector_controller</exec_depend>
+  <exec_depend>tmc_pseudo_velocity_controller</exec_depend>
+
+  <!-- 中継ノード (rgbd_republisher / reset_world_matcher_helper) -->
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+
+  <!-- Isaac 側との action / service の型。hsrb_interface (学生側) と同じ定義を ros2 側が持つ -->
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>tmc_control_msgs</exec_depend>
+  <exec_depend>simulation_interfaces</exec_depend>
+
+  <test_depend>ament_flake8</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,32 @@
+# ============================================================
+# Restaurant Challenge のタスク設定
+# ============================================================
+# make dev run TASK=restaurant で使われる。
+# 書き方は hsr_omniverse_sim/config/tasks/README.md を参照。
+
+# このタスクで使う world (hsr_omniverse_sim/data/worlds/ 内のファイル名)
+# Restaurant 用の最小ワールド (床だけ・壁なしの広い空間)。机・椅子は placement.yaml
+# の furniture: で本物のメッシュ USD として置く。
+world: rc26_restaurant.world
+
+# 見た目 (hsr_omniverse_sim/config/dressing.yaml のプリセットから選ぶ)
+# レストラン風: 木目の床テクスチャ + 背景の壁なしの広い空間 (restaurant プリセット)。
+# 床テクスチャは hsr_omniverse_sim/config/textures/restaurant_floor.jpg (木製フローリング, Polyhaven CC0)。
+dressing:
+  preset: restaurant
+  lighting: bright # 壁を囲うと暗く見えるので明るめ(default の約4倍)。暗ければ studio、明るすぎれば default。
+
+
+# robot/furniture/people は同フォルダの placement.yaml で指定している。
+# (机・椅子=furniture:, 手を振る人=people:)。
+
+# ---- 競技モード (既定はすべて無効 = 従来どおりの起動) ------------------------
+# 競技時間 (秒, シミュレータ内時間)。0 = 時間無制限。>0 で時間が来たら自動終了。
+# 環境変数 TASK_TIME (make up TASK=<名前> TIME=600) があればそれで上書き。
+time_limit: 0
+# 観戦カメラ 4 台を作るか (true なら time_limit > 0 で録画、CAMERA_TUNE=1 で位置調整)。
+# カメラ位置は placement.yaml の arena_cameras: に書く (無ければ床の中心から自動配置)。
+arena_cameras: false
+# 固定配置 (Seed) ファイル名のパターン。make up TASK=<名前> SEED=2 で
+# このフォルダの placement.seed2.yaml が objects: に使われる (ファイルが無ければエラー)。
+placement_seeds: placement.seed{n}.yaml
