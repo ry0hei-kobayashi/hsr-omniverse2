@@ -37,9 +37,17 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 # python3-packaging: colcon 本体は 3.10 で走る。packaging が無いと起動時に落ちる。
+# deadsnakes PPA は add-apt-repository を使わず手で登録する。add-apt-repository は
+# api.launchpad.net を叩くが、環境によってはそこだけ繋がらずタイムアウトする
+# (ppa.launchpadcontent.net / keyserver.ubuntu.com は通る)。
+ARG DEADSNAKES_KEY=F23C5A6CF475977595C89F51BA6932366A755776
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        software-properties-common curl git \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
+        ca-certificates curl git gnupg \
+    && curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${DEADSNAKES_KEY}" \
+        | gpg --dearmor -o /usr/share/keyrings/deadsnakes.gpg \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu ${VERSION_CODENAME} main" \
+        > /etc/apt/sources.list.d/deadsnakes.list \
     && apt-get update && apt-get install -y --no-install-recommends \
         python3.11 python3.11-dev python3.11-venv \
         build-essential cmake \
