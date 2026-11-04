@@ -249,6 +249,9 @@ def generate_launch_description():
                         'map.yaml',
                     ),
                     'use_manipulation': 'true',
+                    # Sim 専用: joints を明示し、内部ノードまで同名にする remap を避ける。
+                    'safe_pose_changer_launch': os.path.join(
+                        own_launch_dir, 'safe_pose_changer.launch.py'),
                     'use_teleop': 'false',
                     'use_joy_node': 'false',
                 }.items(),
